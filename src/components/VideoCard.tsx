@@ -1,112 +1,177 @@
-import React from 'react';
-import { Play, Film, Shield, Flame, Sparkles, Compass } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Play, Film } from 'lucide-react';
 import { VideoItem } from '../firebase';
 
 interface VideoCardProps {
   video: VideoItem;
-  smartlinkClicks: number;
   onCardClick: (video: VideoItem) => void;
-  featured?: boolean;
+  compact?: boolean;
 }
 
-const GRADIENT_PALETTES = [
-  'from-rose-950/80 via-zinc-900 to-zinc-950',
-  'from-amber-950/70 via-zinc-900 to-zinc-950',
-  'from-blue-950/70 via-zinc-900 to-zinc-950',
-  'from-emerald-950/70 via-zinc-900 to-zinc-950',
-  'from-stone-900 via-zinc-900 to-zinc-950',
+const CARD_GRADIENTS = [
+  'from-red-950/90 via-zinc-900 to-zinc-950',
+  'from-amber-950/80 via-zinc-900 to-zinc-950',
+  'from-rose-950/85 via-zinc-900 to-zinc-950',
+  'from-purple-950/80 via-zinc-900 to-zinc-950',
+  'from-blue-950/80 via-zinc-900 to-zinc-950',
+  'from-emerald-950/80 via-zinc-900 to-zinc-950',
 ];
 
 export const VideoCard: React.FC<VideoCardProps> = ({
   video,
-  smartlinkClicks,
   onCardClick,
-  featured = false,
+  compact = false,
 }) => {
-  const hashIndex =
-    video.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) %
-    GRADIENT_PALETTES.length;
-  const gradientClass = GRADIENT_PALETTES[hashIndex];
+  const [imgFailed, setImgFailed] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const remainingClicks = Math.max(0, 3 - smartlinkClicks);
+  const hashIdx =
+    (video.id || video.title || '0')
+      .split('')
+      .reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % CARD_GRADIENTS.length;
+  const gradientBg = CARD_GRADIENTS[hashIdx];
+
+  const formatViews = (views: number) => {
+    if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M views`;
+    if (views >= 1000) return `${(views / 1000).toFixed(1)}K views`;
+    return `${views} views`;
+  };
+
+  const formatTimeAgo = (timestamp: number) => {
+    const diff = Math.max(0, Date.now() - timestamp);
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 1) return 'Just now';
+    if (hours < 24) return `${hours} hours ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} days ago`;
+    return `${Math.floor(days / 30)} months ago`;
+  };
+
+  const authorInitial = (video.author || 'B').charAt(0).toUpperCase();
+
+  // Seek to 1.5s once metadata loads so the browser decodes and renders an actual video frame
+  const handleLoadedMetadata = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      const targetTime = v.duration && v.duration > 2 ? 1.5 : 0.1;
+      v.currentTime = targetTime;
+    } catch {
+      setVideoReady(true);
+    }
+  };
+
+  const renderThumbnailMedia = () => (
+    <>
+      {/* Instant Rich Visual Backdrop (Always visible immediately while frame loads or if stream lacks CORS) */}
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${gradientBg} flex flex-col items-center justify-center p-4 text-center select-none`}
+      >
+        <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
+          <Play className="w-5 h-5 fill-white text-white ml-0.5" />
+        </div>
+        <p className="text-xs font-semibold text-zinc-100 line-clamp-2 max-w-[90%] drop-shadow">
+          {video.title}
+        </p>
+      </div>
+
+      {/* 1. Custom Thumbnail Image or Auto-Generated Base64 Frame if present */}
+      {video.thumbnailUrl && !imgFailed && (
+        <img
+          src={video.thumbnailUrl}
+          alt={video.title}
+          referrerPolicy="no-referrer"
+          onError={() => setImgFailed(true)}
+          className="absolute inset-0 w-full h-full object-cover z-10 group-hover:scale-105 transition-transform duration-200"
+        />
+      )}
+
+      {/* 2. Live Video Frame Extraction when no thumbnailUrl is stored */}
+      {(!video.thumbnailUrl || imgFailed) && video.videoUrl && (
+        <video
+          ref={videoRef}
+          src={video.videoUrl}
+          preload="auto"
+          muted
+          playsInline
+          onLoadedMetadata={handleLoadedMetadata}
+          onLoadedData={() => setVideoReady(true)}
+          onSeeked={() => setVideoReady(true)}
+          onContextMenu={(e) => e.preventDefault()}
+          className={`absolute inset-0 w-full h-full object-cover z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
+            videoReady ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      )}
+
+      {/* Hover Play Button Overlay */}
+      <div className="absolute inset-0 z-20 bg-black/10 group-hover:bg-black/25 transition-colors flex items-center justify-center">
+        <div className="w-11 h-11 rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all">
+          <Play className="w-5 h-5 fill-white ml-0.5" />
+        </div>
+      </div>
+
+      {/* Duration Badge */}
+      {video.duration && (
+        <span className="absolute bottom-2 right-2 z-20 px-1.5 py-0.5 rounded bg-black/85 text-[11px] font-mono font-medium text-white tabular-nums">
+          {video.duration}
+        </span>
+      )}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div
+        onClick={() => onCardClick(video)}
+        className="group flex gap-3 cursor-pointer rounded-xl p-1.5 hover:bg-zinc-900/70 transition-colors"
+      >
+        <div className="relative w-40 sm:w-44 aspect-video rounded-lg bg-zinc-900 overflow-hidden shrink-0">
+          {renderThumbnailMedia()}
+        </div>
+
+        <div className="flex-1 min-w-0 py-0.5">
+          <h4 className="text-sm font-medium text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
+            {video.title}
+          </h4>
+          <p className="text-xs text-zinc-400 mt-1 truncate">{video.author}</p>
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-0.5">
+            <span className="tabular-nums">{formatViews(video.views)}</span>
+            <span aria-hidden="true">·</span>
+            <span>{formatTimeAgo(video.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <article
       onClick={() => onCardClick(video)}
-      className={`group cursor-pointer rounded-2xl border border-zinc-800/90 bg-zinc-950 hover:border-zinc-700 transition-all duration-150 overflow-hidden flex flex-col ${
-        featured ? 'md:col-span-2 md:row-span-2' : ''
-      }`}
+      className="group cursor-pointer flex flex-col gap-3"
     >
-      {/* Thumbnail Viewport with Zero-Broken-Image CSS/SVG fallback */}
-      <div
-        className={`relative w-full aspect-video bg-gradient-to-br ${gradientClass} overflow-hidden flex items-center justify-center`}
-      >
-        {video.thumbnailUrl ? (
-          <img
-            src={video.thumbnailUrl}
-            alt={video.title}
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-          />
-        ) : null}
-
-        {/* Stylized Cinema Backdrop Graphic when no external thumbnail is set */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none select-none">
-          <Film className="w-10 h-10 text-zinc-700/60 mb-2 group-hover:scale-110 transition-transform duration-150" />
-          <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest line-clamp-1">
-            {video.category}
-          </span>
-        </div>
-
-        {/* Contrast Scrim */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-
-        {/* Center Play Affordance */}
-        <div className="relative z-10 w-12 h-12 rounded-full bg-rose-600/90 group-hover:bg-rose-500 text-white flex items-center justify-center shadow-lg transition-transform duration-150 group-hover:scale-110">
-          <Play className="w-5 h-5 fill-white ml-0.5" />
-        </div>
-
-        {/* Bottom Overlay Info (Duration & Smartlink Gate Status) */}
-        <div className="absolute bottom-3 inset-x-3 z-10 flex items-center justify-between text-xs font-mono">
-          <span className="text-zinc-300 tabular-nums">
-            {smartlinkClicks === 0
-              ? 'Click to Open (0/3)'
-              : smartlinkClicks < 3
-              ? `Smartlink Step ${smartlinkClicks}/3`
-              : 'Ready to Watch (3/3)'}
-          </span>
-          <span className="text-zinc-200 tabular-nums">{video.duration}</span>
-        </div>
+      <div className="relative w-full aspect-video rounded-xl bg-zinc-900 overflow-hidden shadow-md">
+        {renderThumbnailMedia()}
       </div>
 
-      {/* Card Body - Clean Unboxed Metadata with Typographic Separators */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
-        <div>
-          <h3
-            className={`font-semibold text-zinc-100 group-hover:text-rose-400 transition-colors line-clamp-2 ${
-              featured ? 'text-lg' : 'text-sm'
-            }`}
-          >
-            {video.title}
-          </h3>
-          {featured && (
-            <p className="text-xs text-zinc-400 mt-1.5 line-clamp-2 leading-relaxed">
-              {video.description}
-            </p>
-          )}
+      <div className="flex gap-3 items-start px-0.5">
+        <div className="w-9 h-9 rounded-full bg-red-600/20 border border-red-500/30 text-red-400 font-semibold text-sm flex items-center justify-center shrink-0 select-none">
+          {authorInitial}
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-zinc-500 pt-1">
-          <span>{video.category}</span>
-          <span aria-hidden="true">·</span>
-          <span className="font-mono tabular-nums">{video.views.toLocaleString()} views</span>
-          <span aria-hidden="true">·</span>
-          <span>
-            {remainingClicks > 0 ? `${remainingClicks} clicks to unlock` : 'Unlocked'}
-          </span>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[15px] font-semibold text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
+            {video.title}
+          </h3>
+          <p className="text-[13px] text-zinc-400 mt-1 truncate hover:text-zinc-300">
+            {video.author}
+          </p>
+          <div className="flex items-center gap-1.5 text-[13px] text-zinc-400">
+            <span className="tabular-nums">{formatViews(video.views)}</span>
+            <span aria-hidden="true">·</span>
+            <span>{formatTimeAgo(video.createdAt)}</span>
+          </div>
         </div>
       </div>
     </article>

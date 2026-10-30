@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bd Collection Admin · Multi-Server Storage & Upload</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #09090b;
+      color: #f4f4f5;
+    }
+    h1, h2, h3, .font-display {
+      font-family: 'Outfit', sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased selection:bg-red-600 selection:text-white">
+
+  <!-- LOGIN VIEW (Firebase Lock) -->
+  <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center font-bold text-white shadow-lg">
+            ▶
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-white">Admin Console</h1>
+            <p class="text-xs text-zinc-400">Firebase Authentication Lock</p>
+          </div>
+        </div>
+        <a href="/" class="text-xs text-zinc-400 hover:text-white transition-colors">← Site</a>
+      </div>
+
+      <div id="auth-error" class="hidden mb-4 p-3 rounded-lg border border-red-900/70 bg-red-950/40 text-xs text-red-300"></div>
+
+      <form id="auth-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1.5">Email Address</label>
+          <input id="auth-email" type="email" required placeholder="admin@example.com"
+            class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1.5">Password</label>
+          <input id="auth-password" type="password" required placeholder="••••••••"
+            class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
+        </div>
+        <button id="auth-submit-btn" type="submit"
+          class="w-full py-2.5 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors cursor-pointer">
+          Sign In to Admin Panel
+        </button>
+      </form>
+
+      <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
+        <span>Secured by Firebase</span>
+        <button id="toggle-auth-mode" type="button" class="text-zinc-200 hover:text-white underline cursor-pointer">
+          Create Admin Account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashboard-view" class="hidden min-h-screen flex flex-col">
+    <!-- Top Header -->
+    <header class="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-30 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center font-bold text-white">▶</div>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-none">Bd Collection Studio · Multi-Server Admin</h1>
+          <p id="admin-user-email" class="text-xs text-zinc-400 font-mono mt-1"></p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="refresh-all-storage-btn" type="button"
+          class="px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors cursor-pointer">
+          ↻ Refresh Live Storage
+        </button>
+        <a href="/" class="px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors">
+          View Website
+        </a>
+        <button id="logout-btn" type="button"
+          class="px-3.5 py-2 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-900/60 text-xs font-medium text-red-300 transition-colors cursor-pointer">
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-8">
+      <!-- Status Alert -->
+      <div id="status-banner" class="hidden p-4 rounded-xl border text-xs flex items-center justify-between">
+        <span id="status-text"></span>
+        <button id="status-close" type="button" class="ml-4 text-zinc-400 hover:text-white">✕</button>
+      </div>
+
+      <!-- SECTION 1: LIVE STORAGE MONITOR (USED %, USED GB, FREE GB PER SERVER) -->
+      <section class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Live Server Storage Usage & Capacity</h2>
+            <p class="text-xs text-zinc-400">Real-time used percentage, used space, and remaining free storage across all connected servers</p>
+          </div>
+          <button id="open-add-server-btn" type="button"
+            class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
+            + Add Storage Server
+          </button>
+        </div>
+
+        <!-- Add Server Modal/Drawer -->
+        <div id="add-server-card" class="hidden p-5 rounded-xl border border-zinc-800 bg-zinc-900/70 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Add or Configure Cloudflare R2 / Worker Server</h3>
+            <button id="close-add-server-btn" type="button" class="text-xs text-zinc-400 hover:text-white">✕ Close</button>
+          </div>
+          <form id="add-server-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Server Name</label>
+              <input id="srv-name" type="text" required placeholder="Server 2 (Backup R2)"
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Worker API URL</label>
+              <input id="srv-url" type="url" required placeholder="https://mrghost-storage.djsungroup.workers.dev"
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Public Stream Domain</label>
+              <input id="srv-public" type="url" required placeholder="https://mrghost-storage.djsungroup.workers.dev"
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">X-Admin-Key Secret</label>
+              <input id="srv-key" type="password" required placeholder="Enter ADMIN_KEY"
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-zinc-400 mb-1">Storage Quota (GB)</label>
+              <div class="flex gap-2">
+                <input id="srv-quota" type="number" step="0.5" min="1" value="10" required
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                <button type="submit"
+                  class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shrink-0 cursor-pointer">
+                  Save
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Live Storage Cards Grid -->
+        <div id="storage-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- SECTION 2: MODERN VIDEO UPLOAD STUDIO & MULTI-SERVER SELECTOR -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left 7 Cols: Upload Form -->
+        <div class="lg:col-span-7 p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-5">
+          <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+            <div>
+              <h2 class="text-base font-bold text-white">Upload New Video</h2>
+              <p class="text-xs text-zinc-400">Choose target storage server, select video file, and publish to live feed</p>
+            </div>
+            <span class="text-xs font-mono text-zinc-400" id="active-server-badge"></span>
+          </div>
+
+          <form id="upload-form" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Target Storage Server *</label>
+                <select id="upload-server-select"
+                  class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-medium text-white focus:outline-none focus:border-red-500"></select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Server Admin Key (X-Admin-Key) *</label>
+                <input id="upload-admin-key" type="password" placeholder="Enter or update X-Admin-Key for selected server"
+                  class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+            </div>
+
+            <!-- Drag & Drop / File Picker -->
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Video File</label>
+              <label class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-800 hover:border-red-500/80 rounded-xl bg-zinc-950/70 cursor-pointer transition-colors p-4 text-center">
+                <div class="w-10 h-10 rounded-full bg-red-600/15 text-red-500 flex items-center justify-center mb-2 font-bold">↑</div>
+                <span id="file-chosen-name" class="text-xs font-semibold text-zinc-200">Click to select a video file from your device</span>
+                <span id="file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-1">MP4, WEBM, MKV, MOV supported</span>
+                <input id="upload-file-input" type="file" accept="video/*" class="hidden" />
+              </label>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="upload-progress-wrap" class="hidden space-y-1.5">
+              <div class="flex justify-between text-xs font-mono">
+                <span id="upload-progress-status" class="text-zinc-300">Uploading to server...</span>
+                <span id="upload-progress-pct" class="text-red-400">0%</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+                <div id="upload-progress-bar" class="h-full bg-red-600 transition-all duration-150" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Video Title *</label>
+                <input id="video-title" type="text" required placeholder="Enter video title..."
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Channel / Creator Name</label>
+                <input id="video-author" type="text" value="Official Channel" placeholder="Channel name"
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Category</label>
+                <select id="video-category"
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500">
+                  <option value="Trending">Trending</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Viral">Viral</option>
+                  <option value="Music">Music</option>
+                  <option value="Vlog">Vlog</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Travel">Travel</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Folder on Server</label>
+                <input id="video-folder" type="text" value="videos" placeholder="videos"
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Duration</label>
+                <input id="video-duration" type="text" value="04:20" placeholder="04:20"
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Custom Thumbnail URL (Optional)</label>
+                <input id="video-thumb" type="url" placeholder="https://..."
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Or Direct Video Stream URL (Optional)</label>
+                <input id="video-custom-url" type="url" placeholder="https://..."
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Description (Optional)</label>
+              <textarea id="video-desc" rows="2" placeholder="Add video description..."
+                class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500"></textarea>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button id="upload-submit-btn" type="submit"
+                class="px-6 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
+                Upload & Publish Video
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right 5 Cols: Selected Server File Explorer (/api/list & /api/delete) -->
+        <div class="lg:col-span-5 p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 flex flex-col justify-between space-y-4">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+              <div>
+                <h2 class="text-base font-bold text-white">Server Files Explorer</h2>
+                <p id="explorer-server-title" class="text-xs text-zinc-400">Files stored on active server</p>
+              </div>
+              <button id="refresh-files-btn" type="button"
+                class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 cursor-pointer">
+                Reload Files
+              </button>
+            </div>
+
+            <div id="r2-files-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              <p class="text-xs text-zinc-500 py-8 text-center">Enter your X-Admin-Key and click Reload Files to view server objects.</p>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span id="explorer-file-count">0 files</span>
+            <span id="explorer-total-size">0 MB used</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: PUBLISHED VIDEOS ON WEBSITE (FIREBASE CATALOG) -->
+      <section class="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-white">Published Website Videos</h2>
+            <p class="text-xs text-zinc-400">Manage videos currently live on the main video platform</p>
+          </div>
+          <span id="catalog-count" class="text-xs font-mono text-zinc-400">0 videos</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
+                <th class="py-2.5 px-3">VIDEO TITLE</th>
+                <th class="py-2.5 px-3">CATEGORY</th>
+                <th class="py-2.5 px-3">STREAM URL</th>
+                <th class="py-2.5 px-3 text-right">VIEWS</th>
+                <th class="py-2.5 px-3 text-right">ACTION</th>
+              </tr>
+            </thead>
+            <tbody id="catalog-table-body" class="divide-y divide-zinc-800/60 text-xs"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
+    import {
+      getDatabase,
+      ref,
+      onValue,
+      push,
+      set,
+      remove
+    } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPrgfeMTuy3GI1nb2jgw-qqQn6wPvH-0w",
+      authDomain: "video-platform-7c031.firebaseapp.com",
+      databaseURL: "https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "video-platform-7c031",
+      storageBucket: "video-platform-7c031.firebasestorage.app",
+      messagingSenderId: "1095431449628",
+      appId: "1:1095431449628:web:4527ae65c83fd9966403d9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const normalizeBaseUrl = (url) => (url || '').trim().replace(/\/+$/, '');
+
+    const formatBytes = (bytes) => {
+      if (!bytes || bytes <= 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // Multi-server storage configuration saved in localStorage
+    const DEFAULT_SERVERS = [
+      {
+        id: 'srv-primary-1',
+        name: 'Primary R2 Server (mrghost-storage)',
+        workerUrl: 'https://mrghost-storage.djsungroup.workers.dev',
+        publicUrl: 'https://mrghost-storage.djsungroup.workers.dev',
+        adminKey: localStorage.getItem('r2_admin_key') || '',
+        quotaGB: 10
+      }
+    ];
+
+    let servers = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem('streamtube_servers') || 'null');
+      servers = Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SERVERS;
+    } catch {
+      servers = DEFAULT_SERVERS;
+    }
+
+    let activeServerId = servers[0].id;
+    let serverStats = {}; // { [serverId]: { usedBytes, fileCount, files, status, error } }
+    let isRegisterMode = false;
+    let currentUser = null;
+
+    const saveServers = () => {
+      localStorage.setItem('streamtube_servers', JSON.stringify(servers));
+    };
+
+    const showStatus = (text, type = 'info') => {
+      const banner = document.getElementById('status-banner');
+      const span = document.getElementById('status-text');
+      banner.classList.remove('hidden', 'border-emerald-800', 'bg-emerald-950/40', 'text-emerald-300', 'border-red-800', 'bg-red-950/40', 'text-red-300', 'border-zinc-800', 'bg-zinc-900', 'text-zinc-200');
+      if (type === 'success') {
+        banner.classList.add('border-emerald-800', 'bg-emerald-950/40', 'text-emerald-300');
+      } else if (type === 'error') {
+        banner.classList.add('border-red-800', 'bg-red-950/40', 'text-red-300');
+      } else {
+        banner.classList.add('border-zinc-800', 'bg-zinc-900', 'text-zinc-200');
+      }
+      span.textContent = text;
+    };
+
+    document.getElementById('status-close').addEventListener('click', () => {
+      document.getElementById('status-banner').classList.add('hidden');
+    });
+
+    // Helper to fetch /api/list with automatic proxy fallback
+    async function fetchServerFileList(server) {
+      const baseUrl = normalizeBaseUrl(server.workerUrl);
+      const key = (server.adminKey || '').trim();
+      if (!key) {
+        serverStats[server.id] = {
+          usedBytes: 0,
+          fileCount: 0,
+          files: [],
+          status: 'needs_key',
+          error: 'Enter X-Admin-Key to check live storage'
+        };
+        return;
+      }
+
+      serverStats[server.id] = { ...(serverStats[server.id] || {}), status: 'loading' };
+      renderStorageCards();
+
+      try {
+        let res;
+        try {
+          res = await fetch(`${baseUrl}/api/list`, {
+            method: 'GET',
+            headers: { 'X-Admin-Key': key }
+          });
+        } catch {
+          res = await fetch('/api/r2-proxy/list', {
+            method: 'GET',
+            headers: { 'X-Admin-Key': key, 'X-Worker-Url': baseUrl }
+          });
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        const files = Array.isArray(data.files) ? data.files : [];
+        const usedBytes = files.reduce((acc, f) => acc + (Number(f.size) || 0), 0);
+
+        serverStats[server.id] = {
+          usedBytes,
+          fileCount: files.length,
+          files,
+          status: 'online',
+          error: null
+        };
+      } catch (err) {
+        serverStats[server.id] = {
+          usedBytes: 0,
+          fileCount: 0,
+          files: [],
+          status: 'error',
+          error: err.message || 'Connection failed'
+        };
+      }
+    }
+
+    async function refreshAllServers() {
+      await Promise.all(servers.map((s) => fetchServerFileList(s)));
+      renderStorageCards();
+      renderActiveServerFiles();
+    }
+
+    function renderServerSelect() {
+      const select = document.getElementById('upload-server-select');
+      select.innerHTML = '';
+      servers.forEach((s) => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.name} (${normalizeBaseUrl(s.workerUrl).replace('https://', '')})`;
+        if (s.id === activeServerId) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+      if (activeSrv) {
+        document.getElementById('upload-admin-key').value = activeSrv.adminKey || '';
+        document.getElementById('active-server-badge').textContent = activeSrv.name;
+        document.getElementById('explorer-server-title').textContent = `${activeSrv.name} · ${normalizeBaseUrl(activeSrv.workerUrl)}`;
+      }
+    }
+
+    // Render Live Storage Usage Cards (Used %, Used space, Remaining Free space)
+    function renderStorageCards() {
+      const grid = document.getElementById('storage-cards-grid');
+      grid.innerHTML = '';
+
+      servers.forEach((srv) => {
+        const st = serverStats[srv.id] || { usedBytes: 0, fileCount: 0, files: [], status: 'idle' };
+        const quotaBytes = (Number(srv.quotaGB) || 10) * 1024 * 1024 * 1024;
+        const usedBytes = st.usedBytes || 0;
+        const freeBytes = Math.max(0, quotaBytes - usedBytes);
+        const usedPercent = Math.min(100, (usedBytes / quotaBytes) * 100);
+        const freePercent = Math.max(0, 100 - usedPercent);
+
+        const isSelected = srv.id === activeServerId;
+        const barColor =
+          usedPercent > 85 ? 'bg-red-500' : usedPercent > 65 ? 'bg-amber-500' : 'bg-emerald-500';
+
+        const card = document.createElement('div');
+        card.className = `p-5 rounded-2xl border transition-all cursor-pointer ${
+          isSelected
+            ? 'border-red-500/80 bg-zinc-900/90 shadow-lg'
+            : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-white truncate">${srv.name}</h3>
+                ${isSelected ? '<span class="text-[10px] font-mono text-red-400 uppercase">Active</span>' : ''}
+              </div>
+              <p class="text-[11px] font-mono text-zinc-400 truncate mt-0.5">${normalizeBaseUrl(srv.workerUrl)}</p>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="text-[11px] font-mono ${
+                st.status === 'online'
+                  ? 'text-emerald-400'
+                  : st.status === 'error'
+                  ? 'text-red-400'
+                  : 'text-amber-400'
+              }">
+                ${st.status === 'online' ? 'LIVE' : st.status === 'loading' ? 'SYNCING...' : 'KEY NEEDED'}
+              </span>
+              ${
+                servers.length > 1
+                  ? `<button data-remove-srv="${srv.id}" class="text-zinc-500 hover:text-red-400 text-xs ml-1" title="Remove server">✕</button>`
+                  : ''
+              }
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="space-y-1.5 my-3">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="text-zinc-200 font-semibold">${usedPercent.toFixed(2)}% Used</span>
+              <span class="text-emerald-400">${freePercent.toFixed(2)}% Free</span>
+            </div>
+            <div class="w-full h-2.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div class="h-full ${barColor} transition-all duration-300" style="width: ${Math.max(usedBytes > 0 ? 2 : 0, usedPercent)}%"></div>
+            </div>
+          </div>
+
+          <!-- Storage Metrics Row -->
+          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-800/80 text-[11px] font-mono">
+            <div>
+              <span class="text-zinc-500 block">USED</span>
+              <span class="text-zinc-200 font-semibold">${formatBytes(usedBytes)}</span>
+            </div>
+            <div>
+              <span class="text-zinc-500 block">FREE SPACE</span>
+              <span class="text-emerald-400 font-semibold">${formatBytes(freeBytes)}</span>
+            </div>
+            <div class="text-right">
+              <span class="text-zinc-500 block">FILES / TOTAL</span>
+              <span class="text-zinc-300">${st.fileCount || 0} / ${srv.quotaGB} GB</span>
+            </div>
+          </div>
+          ${
+            st.error
+              ? `<p class="text-[11px] text-amber-400/90 mt-2 font-mono truncate">${st.error}</p>`
+              : ''
+          }
+        `;
+
+        card.addEventListener('click', (e) => {
+          const removeBtn = e.target.closest('[data-remove-srv]');
+          if (removeBtn) {
+            e.stopPropagation();
+            const rmId = removeBtn.getAttribute('data-remove-srv');
+            servers = servers.filter((s) => s.id !== rmId);
+            if (activeServerId === rmId) activeServerId = servers[0].id;
+            saveServers();
+            renderServerSelect();
+            renderStorageCards();
+            renderActiveServerFiles();
+            return;
+          }
+          activeServerId = srv.id;
+          renderServerSelect();
+          renderStorageCards();
+          renderActiveServerFiles();
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    function renderActiveServerFiles() {
+      const container = document.getElementById('r2-files-list');
+      const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+      const st = serverStats[activeSrv.id] || { files: [], usedBytes: 0 };
+
+      document.getElementById('explorer-file-count').textContent = `${(st.files || []).length} files`;
+      document.getElementById('explorer-total-size').textContent = `${formatBytes(st.usedBytes || 0)} used`;
+
+      if (!st.files || st.files.length === 0) {
+        container.innerHTML = `<p class="text-xs text-zinc-500 py-8 text-center">${
+          st.error ? st.error : 'No files found on this server.'
+        }</p>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      st.files.forEach((file) => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between gap-3 hover:border-zinc-700';
+        row.innerHTML = `
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-mono text-zinc-200 truncate">${file.key}</p>
+            <p class="text-[11px] font-mono text-zinc-500 mt-0.5">${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button data-pub-key="${file.key}" class="px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium cursor-pointer">
+              + Publish
+            </button>
+            <button data-del-key="${file.key}" class="px-2.5 py-1 rounded bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium cursor-pointer">
+              Delete
+            </button>
+          </div>
+        `;
+
+        row.querySelector('[data-pub-key]').addEventListener('click', async () => {
+          const cleanDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
+          const videoUrl = `${cleanDomain}/${file.key}`;
+          const title = file.key.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+          const newRef = push(ref(db, 'videos'));
+          await set(newRef, {
+            id: newRef.key,
+            title,
+            description: '',
+            category: 'Entertainment',
+            videoUrl,
+            r2Key: file.key,
+            duration: '04:00',
+            views: 1,
+            createdAt: Date.now(),
+            author: 'Official Channel'
+          });
+          showStatus(`Published "${title}" to the live website!`, 'success');
+        });
+
+        row.querySelector('[data-del-key]').addEventListener('click', async () => {
+          const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
+          const key = (activeSrv.adminKey || '').trim();
+          try {
+            let res;
+            try {
+              res = await fetch(`${baseUrl}/api/delete`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Key': key },
+                body: JSON.stringify({ key: file.key })
+              });
+            } catch {
+              res = await fetch('/api/r2-proxy/delete', {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Admin-Key': key,
+                  'X-Worker-Url': baseUrl
+                },
+                body: JSON.stringify({ key: file.key })
+              });
+            }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Delete failed');
+            showStatus(`Deleted "${file.key}" from ${activeSrv.name}.`, 'success');
+            await fetchServerFileList(activeSrv);
+            renderStorageCards();
+            renderActiveServerFiles();
+          } catch (err) {
+            showStatus(`Delete failed: ${err.message}`, 'error');
+          }
+        });
+
+        container.appendChild(row);
+      });
+    }
+
+    // Event Listeners for Multi-Server Management
+    document.getElementById('open-add-server-btn').addEventListener('click', () => {
+      document.getElementById('add-server-card').classList.remove('hidden');
+    });
+    document.getElementById('close-add-server-btn').addEventListener('click', () => {
+      document.getElementById('add-server-card').classList.add('hidden');
+    });
+
+    document.getElementById('add-server-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('srv-name').value.trim();
+      const workerUrl = normalizeBaseUrl(document.getElementById('srv-url').value);
+      const publicUrl = normalizeBaseUrl(document.getElementById('srv-public').value || workerUrl);
+      const adminKey = document.getElementById('srv-key').value.trim();
+      const quotaGB = Number(document.getElementById('srv-quota').value) || 10;
+
+      const newSrv = {
+        id: 'srv-' + Date.now(),
+        name,
+        workerUrl,
+        publicUrl,
+        adminKey,
+        quotaGB
+      };
+
+      servers.push(newSrv);
+      activeServerId = newSrv.id;
+      saveServers();
+      document.getElementById('add-server-form').reset();
+      document.getElementById('add-server-card').classList.add('hidden');
+
+      renderServerSelect();
+      await fetchServerFileList(newSrv);
+      renderStorageCards();
+      renderActiveServerFiles();
+      showStatus(`Added server "${name}" and synced live storage!`, 'success');
+    });
+
+    document.getElementById('upload-server-select').addEventListener('change', (e) => {
+      activeServerId = e.target.value;
+      renderServerSelect();
+      renderStorageCards();
+      renderActiveServerFiles();
+    });
+
+    document.getElementById('upload-admin-key').addEventListener('input', (e) => {
+      const activeSrv = servers.find((s) => s.id === activeServerId);
+      if (activeSrv) {
+        activeSrv.adminKey = e.target.value.trim();
+        localStorage.setItem('r2_admin_key', activeSrv.adminKey);
+        saveServers();
+      }
+    });
+
+    document.getElementById('refresh-files-btn').addEventListener('click', async () => {
+      const activeSrv = servers.find((s) => s.id === activeServerId);
+      if (activeSrv) {
+        await fetchServerFileList(activeSrv);
+        renderStorageCards();
+        renderActiveServerFiles();
+      }
+    });
+
+    document.getElementById('refresh-all-storage-btn').addEventListener('click', () => {
+      refreshAllServers();
+    });
+
+    // File input preview + Automatic Thumbnail & Duration Extraction
+    let selectedVideoFile = null;
+    let autoGeneratedThumbDataUrl = '';
+
+    const extractVideoThumbnailAndDuration = (file) => {
+      return new Promise((resolve) => {
+        try {
+          const url = URL.createObjectURL(file);
+          const tempVideo = document.createElement('video');
+          tempVideo.preload = 'metadata';
+          tempVideo.muted = true;
+          tempVideo.playsInline = true;
+          tempVideo.src = url;
+
+          const cleanup = () => {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {}
+          };
+
+          const timeout = setTimeout(() => {
+            cleanup();
+            resolve({ thumb: '', duration: '' });
+          }, 5000);
+
+          tempVideo.addEventListener('loadedmetadata', () => {
+            const dur = tempVideo.duration || 0;
+            const mins = Math.floor(dur / 60);
+            const secs = Math.floor(dur % 60);
+            const formattedDuration = dur > 0 ? `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}` : '';
+            if (formattedDuration) {
+              document.getElementById('video-duration').value = formattedDuration;
+            }
+            tempVideo.currentTime = dur > 2 ? 1.5 : 0.1;
+          });
+
+          tempVideo.addEventListener('seeked', () => {
+            clearTimeout(timeout);
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = 480;
+              canvas.height = 270;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+              cleanup();
+              resolve({ thumb: dataUrl });
+            } catch {
+              cleanup();
+              resolve({ thumb: '' });
+            }
+          });
+
+          tempVideo.addEventListener('error', () => {
+            clearTimeout(timeout);
+            cleanup();
+            resolve({ thumb: '' });
+          });
+        } catch {
+          resolve({ thumb: '' });
+        }
+      });
+    };
+
+    document.getElementById('upload-file-input').addEventListener('change', async (e) => {
+      selectedVideoFile = e.target.files[0] || null;
+      autoGeneratedThumbDataUrl = '';
+      const nameEl = document.getElementById('file-chosen-name');
+      const sizeEl = document.getElementById('file-chosen-size');
+      const titleInput = document.getElementById('video-title');
+
+      if (selectedVideoFile) {
+        nameEl.textContent = selectedVideoFile.name;
+        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Generating thumbnail...`;
+        if (!titleInput.value.trim()) {
+          titleInput.value = selectedVideoFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+        }
+        const extracted = await extractVideoThumbnailAndDuration(selectedVideoFile);
+        if (extracted.thumb) {
+          autoGeneratedThumbDataUrl = extracted.thumb;
+          sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Auto-Thumbnail Ready ✓`;
+        } else {
+          sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Ready to upload`;
+        }
+      } else {
+        nameEl.textContent = 'Click to select a video file from your device';
+        sizeEl.textContent = 'MP4, WEBM, MKV, MOV supported';
+      }
+    });
+
+    // Upload Form Submit (sends FormData WITHOUT manual Content-Type, includes X-Admin-Key, strips trailing slashes)
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+      const adminKey = document.getElementById('upload-admin-key').value.trim();
+      const title = document.getElementById('video-title').value.trim();
+      const author = document.getElementById('video-author').value.trim() || 'Bd Collection';
+      const category = document.getElementById('video-category').value;
+      const folder = document.getElementById('video-folder').value.trim().replace(/^\/+|\/+$/g, '');
+      const duration = document.getElementById('video-duration').value.trim() || '04:00';
+      const thumbnailUrl = document.getElementById('video-thumb').value.trim() || autoGeneratedThumbDataUrl;
+      const customUrl = document.getElementById('video-custom-url').value.trim();
+      const description = document.getElementById('video-desc').value.trim();
+
+      if (!title) {
+        showStatus('Please enter a video title.', 'error');
+        return;
+      }
+
+      if (activeSrv && adminKey) {
+        activeSrv.adminKey = adminKey;
+        saveServers();
+      }
+
+      const submitBtn = document.getElementById('upload-submit-btn');
+      const progWrap = document.getElementById('upload-progress-wrap');
+      const progBar = document.getElementById('upload-progress-bar');
+      const progPct = document.getElementById('upload-progress-pct');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading...';
+
+      let finalVideoUrl = customUrl;
+      let uploadedKey = '';
+
+      try {
+        if (selectedVideoFile) {
+          if (!adminKey) {
+            throw new Error('Please enter the X-Admin-Key for the selected server.');
+          }
+
+          progWrap.classList.remove('hidden');
+          progBar.style.width = '35%';
+          progPct.textContent = 'Uploading...';
+
+          const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
+          const formData = new FormData();
+          formData.append('file', selectedVideoFile);
+          formData.append('folder', folder);
+
+          let res;
+          try {
+            // Do NOT set Content-Type manually so browser sets multipart/form-data boundary
+            res = await fetch(`${baseUrl}/api/upload`, {
+              method: 'POST',
+              headers: {
+                'X-Admin-Key': adminKey
+              },
+              body: formData
+            });
+          } catch {
+            res = await fetch('/api/r2-proxy/upload', {
+              method: 'POST',
+              headers: {
+                'X-Admin-Key': adminKey,
+                'X-Worker-Url': baseUrl
+              },
+              body: formData
+            });
+          }
+
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || `Upload failed (${res.status})`);
+          }
+
+          progBar.style.width = '100%';
+          progPct.textContent = '100%';
+
+          uploadedKey = data.key;
+          const cleanPublic = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
+          finalVideoUrl = `${cleanPublic}/${uploadedKey}`;
+        }
+
+        if (!finalVideoUrl) {
+          throw new Error('Select a video file to upload or provide a direct video stream URL.');
+        }
+
+        const newVideoRef = push(ref(db, 'videos'));
+        await set(newVideoRef, {
+          id: newVideoRef.key,
+          title,
+          description,
+          category,
+          videoUrl: finalVideoUrl,
+          r2Key: uploadedKey || null,
+          thumbnailUrl: thumbnailUrl || null,
+          duration,
+          views: 1,
+          createdAt: Date.now(),
+          author
+        });
+
+        showStatus(
+          uploadedKey
+            ? `Uploaded "${uploadedKey}" to ${activeSrv.name} and published to website!`
+            : `Published "${title}" to website!`,
+          'success'
+        );
+
+        // Reset form and refresh live storage metrics
+        selectedVideoFile = null;
+        document.getElementById('upload-file-input').value = '';
+        document.getElementById('file-chosen-name').textContent = 'Click to select a video file from your device';
+        document.getElementById('file-chosen-size').textContent = 'MP4, WEBM, MKV, MOV supported';
+        document.getElementById('video-title').value = '';
+        document.getElementById('video-desc').value = '';
+        document.getElementById('video-custom-url').value = '';
+
+        await fetchServerFileList(activeSrv);
+        renderStorageCards();
+        renderActiveServerFiles();
+      } catch (err) {
+        showStatus(err.message || 'Upload failed.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload & Publish Video';
+        setTimeout(() => progWrap.classList.add('hidden'), 1500);
+      }
+    });
+
+    // Firebase Auth Listeners
+    document.getElementById('toggle-auth-mode').addEventListener('click', (e) => {
+      isRegisterMode = !isRegisterMode;
+      document.getElementById('auth-submit-btn').textContent = isRegisterMode
+        ? 'Create Admin Account'
+        : 'Sign In to Admin Panel';
+      e.target.textContent = isRegisterMode ? 'Back to Sign In' : 'Create Admin Account';
+    });
+
+    document.getElementById('auth-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('auth-error');
+      errBox.classList.add('hidden');
+      const email = document.getElementById('auth-email').value.trim();
+      const pass = document.getElementById('auth-password').value;
+
+      try {
+        if (isRegisterMode) {
+          await createUserWithEmailAndPassword(auth, email, pass);
+        } else {
+          await signInWithEmailAndPassword(auth, email, pass);
+        }
+      } catch (err) {
+        errBox.textContent = err.message || 'Authentication failed';
+        errBox.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      signOut(auth);
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (user) {
+        document.getElementById('login-view').classList.add('hidden');
+        document.getElementById('dashboard-view').classList.remove('hidden');
+        document.getElementById('admin-user-email').textContent = user.email;
+        renderServerSelect();
+        refreshAllServers();
+      } else {
+        document.getElementById('dashboard-view').classList.add('hidden');
+        document.getElementById('login-view').classList.remove('hidden');
+      }
+    });
+
+    // Sync Published Website Videos Table from Firebase RTDB
+    onValue(ref(db, 'videos'), (snapshot) => {
+      const tbody = document.getElementById('catalog-table-body');
+      const countEl = document.getElementById('catalog-count');
+      tbody.innerHTML = '';
+
+      const val = snapshot.val();
+      if (!val || typeof val !== 'object') {
+        countEl.textContent = '0 videos';
+        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-zinc-500">No published videos in Firebase yet.</td></tr>';
+        return;
+      }
+
+      const list = Object.entries(val).map(([id, item]) => ({ id, ...item }));
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      countEl.textContent = `${list.length} videos`;
+
+      list.forEach((v) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-zinc-900/60';
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-medium text-white">${v.title || 'Untitled'}</td>
+          <td class="py-3 px-3 text-zinc-400">${v.category || 'Video'}</td>
+          <td class="py-3 px-3 font-mono text-zinc-400 max-w-xs truncate">
+            <a href="${v.videoUrl}" target="_blank" class="hover:text-red-400">${v.videoUrl}</a>
+          </td>
+          <td class="py-3 px-3 text-right font-mono text-zinc-300">${Number(v.views || 0).toLocaleString()}</td>
+          <td class="py-3 px-3 text-right">
+            <button data-rm-vid="${v.id}" class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
+              Remove
+            </button>
+          </td>
+        `;
+        tr.querySelector('[data-rm-vid]').addEventListener('click', async () => {
+          await remove(ref(db, `videos/${v.id}`));
+          showStatus(`Removed "${v.title}" from website.`, 'success');
+        });
+        tbody.appendChild(tr);
+      });
+    });
+  </script>
+</body>
+</html>

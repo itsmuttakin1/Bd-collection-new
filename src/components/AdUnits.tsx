@@ -10,9 +10,7 @@ import {
 } from '../firebase';
 
 /**
- * Native Banner Ad
- * <script async="async" data-cfasync="false" src="https://brijmohan.org/21/9e05788a1e91471d1f2353aad323fd56"></script>
- * <div id="container-9e05788a1e91471d1f2353aad323fd56"></div>
+ * Native Banner Ad (Clean integration without debug labels)
  */
 export const NativeBannerAd: React.FC<{ className?: string }> = ({ className = '' }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -21,7 +19,6 @@ export const NativeBannerAd: React.FC<{ className?: string }> = ({ className = '
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
-    // Avoid duplicate script injection inside this mount
     const existingScript = document.querySelector(`script[src="${NATIVE_BANNER_SCRIPT_SRC}"]`);
     if (!existingScript) {
       const script = document.createElement('script');
@@ -33,24 +30,14 @@ export const NativeBannerAd: React.FC<{ className?: string }> = ({ className = '
   }, []);
 
   return (
-    <div
-      ref={wrapperRef}
-      className={`w-full border border-zinc-900 bg-zinc-950/70 rounded-xl p-4 my-6 transition-colors ${className}`}
-    >
-      <div className="flex items-center justify-between text-[11px] text-zinc-500 mb-2 font-mono">
-        <span>SPONSORED NATIVE FEED</span>
-        <span>AD NETWORK · BRIJMOHAN</span>
-      </div>
-      <div id={NATIVE_BANNER_CONTAINER_ID} className="min-h-[90px] flex items-center justify-center text-xs text-zinc-600">
-        <span className="pointer-events-none select-none">Sponsored Recommendation Space</span>
-      </div>
+    <div ref={wrapperRef} className={`w-full my-4 ${className}`}>
+      <div id={NATIVE_BANNER_CONTAINER_ID} className="w-full flex items-center justify-center" />
     </div>
   );
 };
 
 /**
  * 320x50 Iframe Banner Ad
- * Uses srcdoc iframe to isolate global `atOptions` and `document.write` calls safely inside React SPA
  */
 export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '' }) => {
   const srcDocContent = `
@@ -59,7 +46,7 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
       <head>
         <meta charset="utf-8" />
         <style>
-          body { margin: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; font-family: sans-serif; color: #52525b; font-size: 11px; }
+          body { margin: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         </style>
       </head>
       <body>
@@ -78,17 +65,16 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
   `;
 
   return (
-    <div className={`flex flex-col items-center justify-center my-4 ${className}`}>
-      <div className="w-[320px] h-[50px] bg-zinc-950 border border-zinc-900 rounded overflow-hidden flex items-center justify-center relative">
-        <span className="text-[10px] font-mono text-zinc-700 absolute pointer-events-none">320×50 SPONSORED BANNER</span>
+    <div className={`flex items-center justify-center my-2 ${className}`}>
+      <div className="w-[320px] h-[50px] overflow-hidden flex items-center justify-center">
         <iframe
-          title="Sponsored 320x50 Banner"
+          title="Ad Banner"
           width={320}
           height={50}
           scrolling="no"
           frameBorder={0}
           srcDoc={srcDocContent}
-          className="relative z-10 w-[320px] h-[50px]"
+          className="w-[320px] h-[50px]"
           sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
         />
       </div>
@@ -97,8 +83,7 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
 };
 
 /**
- * Social Bar Ad Loader (Only loaded when enabled on Watch pages, NOT on initial index landing)
- * <script data-cfasync="false" src="https://brijmohan.org/14/9685e94c6cd837de7f2e6be4199a8040"></script>
+ * Social Bar Ad Loader
  */
 export const SocialBarLoader: React.FC<{ active: boolean }> = ({ active }) => {
   useEffect(() => {
@@ -119,11 +104,9 @@ export const SocialBarLoader: React.FC<{ active: boolean }> = ({ active }) => {
 
 /**
  * Triggers the Popunder script dynamically on Play button click (3-step gate)
- * <script data-cfasync="false" src="https://ahuramazda.org/1/eab46957ba8ada08fe799687dd63716f"></script>
  */
 export function triggerPopunderAd() {
   try {
-    // Re-inject popunder script with cache-busting query or fresh element so it fires per click
     const existing = document.getElementById('dynamic-popunder-script');
     if (existing) {
       existing.remove();
@@ -135,13 +118,12 @@ export function triggerPopunderAd() {
     script.async = true;
     document.body.appendChild(script);
   } catch (e) {
-    console.error('Popunder trigger error:', e);
+    console.error(e);
   }
 }
 
 /**
- * Opens the Smartlink URL safely inside a new tab/window or fallback anchor click
- * Smartlink: https://asiaso.org/4/83d7ffcba5e9ff163422eb60b234e632
+ * Opens the Smartlink URL
  */
 export function triggerSmartlinkAd() {
   try {
@@ -153,6 +135,6 @@ export function triggerSmartlinkAd() {
     link.click();
     document.body.removeChild(link);
   } catch (e) {
-    console.error('Smartlink trigger error:', e);
+    console.error(e);
   }
 }

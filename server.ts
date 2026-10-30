@@ -88,6 +88,9 @@ async function startServer() {
   } else {
     const distPath = path.join(__dirname, 'dist');
     app.use(express.static(distPath));
+    app.get('/ad.html', (_req, res) => {
+      res.sendFile(path.join(distPath, 'ad.html'));
+    });
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
