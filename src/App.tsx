@@ -77,7 +77,16 @@ const DEFAULT_VIDEOS: VideoItem[] = [
 type ViewMode = 'home' | 'watch';
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<ViewMode>('home');
+  // Read `?v=<videoId>` from URL if someone opened a shared video link
+  const [sharedVideoId, setSharedVideoId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('v');
+  });
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('v') ? 'watch' : 'home';
+  });
   const [videos, setVideos] = useState<VideoItem[]>(DEFAULT_VIDEOS);
   const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
@@ -95,6 +104,46 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
   const [copiedShare, setCopiedShare] = useState<boolean>(false);
+
+  // Helper to update browser URL with ?v=<videoId> or return to clean root URL
+  const syncUrlWithVideo = (videoId: string | null) => {
+    try {
+      const url = new URL(window.location.href);
+      if (videoId) {
+        url.searchParams.set('v', videoId);
+      } else {
+        url.searchParams.delete('v');
+      }
+      window.history.pushState({}, '', url.toString());
+    } catch {}
+  };
+
+  const goHome = () => {
+    setViewMode('home');
+    setSharedVideoId(null);
+    syncUrlWithVideo(null);
+  };
+
+  // Listen to browser Back / Forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const vidId = params.get('v');
+      if (vidId) {
+        setSharedVideoId(vidId);
+        const found = videos.find((item) => item.id === vidId);
+        if (found) {
+          setActiveVideo(found);
+          setViewMode('watch');
+        }
+      } else {
+        setSharedVideoId(null);
+        setViewMode('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [videos]);
 
   // Auto-detect visitor country from IP if user hasn't manually picked a language
   useEffect(() => {
@@ -117,13 +166,26 @@ export default function App() {
     }
   };
 
+  // Increment view count atomically in Firebase RTDB (`videos/$videoId/views`)
+  const incrementVideoViews = (videoId: string) => {
+    if (!videoId || videoId.startsWith('vid-')) return;
+    const viewsRef = ref(db, `videos/${videoId}/views`);
+    runTransaction(viewsRef, (currentViews) => {
+      return (Number(currentViews) || 0) + 1;
+    }).catch(() => {});
+  };
+
   // Sync videos from Firebase Realtime Database (`video-platform-7c031`)
   useEffect(() => {
     const videosRef = ref(db, 'videos');
+    let initialSharedViewCounted = false;
+
     const unsubscribe = onValue(
       videosRef,
       (snapshot) => {
         const data = snapshot.val();
+        let finalVideos = DEFAULT_VIDEOS;
+
         if (data && typeof data === 'object') {
           const parsed: VideoItem[] = Object.entries(data).map(([key, val]: [string, any]) => {
             const resolvedThumb = val.thumbnail || val.thumbnailUrl || val.thumb || '';
@@ -150,35 +212,57 @@ export default function App() {
             };
           });
           parsed.sort((a, b) => b.createdAt - a.createdAt);
-          setVideos(parsed.length > 0 ? parsed : DEFAULT_VIDEOS);
+          if (parsed.length > 0) {
+            finalVideos = parsed;
+          }
+        }
 
+        setVideos(finalVideos);
+
+        // Check if visitor arrived via a shared video link `?v=<videoId>`
+        const params = new URLSearchParams(window.location.search);
+        const urlVidId = params.get('v');
+        if (urlVidId) {
+          const targetVideo = finalVideos.find((item) => item.id === urlVidId);
+          if (targetVideo) {
+            setActiveVideo(targetVideo);
+            setViewMode('watch');
+            if (!initialSharedViewCounted) {
+              initialSharedViewCounted = true;
+              incrementVideoViews(targetVideo.id);
+            }
+          } else {
+            setViewMode('home');
+          }
+        } else {
           setActiveVideo((prev) => {
             if (!prev) return null;
-            const updated = parsed.find((item) => item.id === prev.id);
+            const updated = finalVideos.find((item) => item.id === prev.id);
             return updated || prev;
           });
-        } else {
-          setVideos(DEFAULT_VIDEOS);
         }
+
         setLoadingVideos(false);
       },
       () => {
         setVideos(DEFAULT_VIDEOS);
+        const params = new URLSearchParams(window.location.search);
+        const urlVidId = params.get('v');
+        if (urlVidId) {
+          const targetVideo = DEFAULT_VIDEOS.find((item) => item.id === urlVidId);
+          if (targetVideo) {
+            setActiveVideo(targetVideo);
+            setViewMode('watch');
+          } else {
+            setViewMode('home');
+          }
+        }
         setLoadingVideos(false);
       }
     );
 
     return () => unsubscribe();
   }, []);
-
-  // Increment view count atomically in Firebase RTDB (`videos/$videoId/views`)
-  const incrementVideoViews = (videoId: string) => {
-    if (!videoId || videoId.startsWith('vid-')) return;
-    const viewsRef = ref(db, `videos/${videoId}/views`);
-    runTransaction(viewsRef, (currentViews) => {
-      return (Number(currentViews) || 0) + 1;
-    }).catch(() => {});
-  };
 
   // 3x Smartlink clicks on any video card before opening Watch page
   const handleVideoCardClick = (video: VideoItem) => {
@@ -197,13 +281,37 @@ export default function App() {
     }
 
     setActiveVideo(video);
+    setSharedVideoId(video.id);
     setViewMode('watch');
+    syncUrlWithVideo(video.id);
     incrementVideoViews(video.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleVideoPlaySuccess = (video: VideoItem) => {
     incrementVideoViews(video.id);
+  };
+
+  // Build and copy direct shareable link for the active video (`https://domain/?v=<videoId>`)
+  const handleShareVideo = async (video: VideoItem) => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?v=${encodeURIComponent(
+      video.id
+    )}`;
+    syncUrlWithVideo(video.id);
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+
+    setCopiedShare(true);
+    setTimeout(() => setCopiedShare(false), 2000);
   };
 
   const filteredVideos = useMemo(() => {
@@ -255,7 +363,7 @@ export default function App() {
             onClick={(e) => {
               e.preventDefault();
               setSortByTrending(false);
-              setViewMode('home');
+              goHome();
             }}
             className="flex items-center gap-2 whitespace-nowrap shrink-0"
           >
@@ -277,7 +385,7 @@ export default function App() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  if (viewMode !== 'home') setViewMode('home');
+                  if (viewMode !== 'home') goHome();
                 }}
                 placeholder={t.searchPlaceholder}
                 className="w-full pl-4 pr-8 py-1.5 sm:py-2 rounded-l-full bg-[#121212] border border-zinc-800 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
@@ -285,7 +393,7 @@ export default function App() {
             </div>
             <button
               type="button"
-              onClick={() => setViewMode('home')}
+              onClick={() => goHome()}
               className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-r-full bg-zinc-800 hover:bg-zinc-700 border border-l-0 border-zinc-800 text-zinc-200 transition-colors cursor-pointer"
               aria-label="Search"
             >
@@ -323,7 +431,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setSortByTrending(false);
-                setViewMode('home');
+                goHome();
               }}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 !sortByTrending
@@ -339,7 +447,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setSortByTrending(true);
-                setViewMode('home');
+                goHome();
               }}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 sortByTrending
@@ -405,6 +513,22 @@ export default function App() {
             </div>
           )}
 
+          {/* Loading state when opening a shared ?v=<videoId> link while Firebase fetches */}
+          {viewMode === 'watch' && !activeVideo && loadingVideos && (
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-8 space-y-4">
+                <div className="aspect-video rounded-xl bg-zinc-900 animate-pulse" />
+                <div className="h-6 bg-zinc-900 rounded animate-pulse w-2/3" />
+                <div className="h-10 bg-zinc-900 rounded animate-pulse w-1/3" />
+              </div>
+              <div className="lg:col-span-4 space-y-3">
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} className="h-24 rounded-xl bg-zinc-900 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* YouTube Watch View */}
           {viewMode === 'watch' && activeVideo && (
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -458,11 +582,7 @@ export default function App() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(window.location.href);
-                          setCopiedShare(true);
-                          setTimeout(() => setCopiedShare(false), 2000);
-                        }}
+                        onClick={() => handleShareVideo(activeVideo)}
                         className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Share2 className="w-4 h-4" />
