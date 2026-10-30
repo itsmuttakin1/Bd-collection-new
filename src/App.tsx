@@ -8,7 +8,7 @@ import {
   db,
   ref,
   onValue,
-  update,
+  runTransaction,
   VideoItem,
 } from './firebase';
 import {
@@ -68,42 +68,6 @@ const DEFAULT_VIDEOS: VideoItem[] = [
     createdAt: Date.now() - 3600000 * 30,
     author: 'Bd Collection',
   },
-  {
-    id: 'vid-4',
-    title: 'Late Night Studio Beats - Live Session',
-    description: 'Live studio jam session and synth performance.',
-    category: 'Music',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoy.mp4',
-    thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerJoy.jpg',
-    duration: '0:15',
-    views: 9840,
-    createdAt: Date.now() - 3600000 * 48,
-    author: 'Bd Collection',
-  },
-  {
-    id: 'vid-5',
-    title: 'Festival Mainstage Aftermovie 2026',
-    description: 'Official highlight reel from the summer tour.',
-    category: 'Entertainment',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-    thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerMeltdowns.jpg',
-    duration: '0:15',
-    views: 45200,
-    createdAt: Date.now() - 3600000 * 60,
-    author: 'Bd Collection',
-  },
-  {
-    id: 'vid-6',
-    title: 'Mountain Offroad Overland Adventure',
-    description: 'Crossing high-altitude mountain passes.',
-    category: 'Vlog',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4',
-    thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/SubaruOutbackSeeTheWorld.jpg',
-    duration: '0:59',
-    views: 21700,
-    createdAt: Date.now() - 3600000 * 72,
-    author: 'Bd Collection',
-  },
 ];
 
 type ViewMode = 'home' | 'watch';
@@ -124,6 +88,7 @@ export default function App() {
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
 
   // Sync videos from Firebase Realtime Database (`video-platform-7c031`)
+  // Supports both schema formats: { thumbnail, url, addedAt, keywords, title, views } AND { thumbnailUrl, videoUrl, createdAt, category }
   useEffect(() => {
     const videosRef = ref(db, 'videos');
     const unsubscribe = onValue(
@@ -131,21 +96,39 @@ export default function App() {
       (snapshot) => {
         const data = snapshot.val();
         if (data && typeof data === 'object') {
-          const parsed: VideoItem[] = Object.entries(data).map(([key, val]: [string, any]) => ({
-            id: key,
-            title: val.title || 'Untitled Video',
-            description: val.description || '',
-            category: val.category || 'Entertainment',
-            videoUrl: val.videoUrl || '',
-            r2Key: val.r2Key,
-            thumbnailUrl: val.thumbnailUrl,
-            duration: val.duration || '03:30',
-            views: Number(val.views) || 1,
-            createdAt: Number(val.createdAt) || Date.now(),
-            author: val.author || 'Creator',
-          }));
+          const parsed: VideoItem[] = Object.entries(data).map(([key, val]: [string, any]) => {
+            const resolvedThumb = val.thumbnail || val.thumbnailUrl || val.thumb || '';
+            const resolvedUrl = val.url || val.videoUrl || val.streamUrl || '';
+            const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
+            const resolvedKeywords = val.keywords || '';
+
+            return {
+              id: key,
+              title: val.title || 'Untitled Video',
+              description: val.description || resolvedKeywords || '',
+              category: val.category || (resolvedKeywords ? resolvedKeywords.split(' ')[0] : 'Viral'),
+              keywords: resolvedKeywords,
+              videoUrl: resolvedUrl,
+              url: resolvedUrl,
+              r2Key: val.r2Key,
+              thumbnailUrl: resolvedThumb,
+              thumbnail: resolvedThumb,
+              duration: val.duration || '',
+              views: Number(val.views) || 0,
+              createdAt: resolvedTime,
+              addedAt: resolvedTime,
+              author: val.author || 'Bd Collection',
+            };
+          });
           parsed.sort((a, b) => b.createdAt - a.createdAt);
           setVideos(parsed.length > 0 ? parsed : DEFAULT_VIDEOS);
+
+          // Keep activeVideo view count live-synced
+          setActiveVideo((prev) => {
+            if (!prev) return null;
+            const updated = parsed.find((item) => item.id === prev.id);
+            return updated || prev;
+          });
         } else {
           setVideos(DEFAULT_VIDEOS);
         }
@@ -159,6 +142,18 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // Increment view count atomically in Firebase RTDB (`videos/$videoId/views`)
+  // Matches the security rule: `!data.exists() || (newData.isNumber() && newData.val() === data.val() + 1)`
+  const incrementVideoViews = (videoId: string) => {
+    if (!videoId || videoId.startsWith('vid-')) return;
+    const viewsRef = ref(db, `videos/${videoId}/views`);
+    runTransaction(viewsRef, (currentViews) => {
+      return (Number(currentViews) || 0) + 1;
+    }).catch((err) => {
+      console.warn('View count update error:', err?.message);
+    });
+  };
 
   // 3x Smartlink clicks on any video card before opening Watch page
   const handleVideoCardClick = (video: VideoItem) => {
@@ -178,19 +173,13 @@ export default function App() {
 
     setActiveVideo(video);
     setViewMode('watch');
+    // Count a view as soon as the user unlocks and opens the video watch page
+    incrementVideoViews(video.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleVideoPlaySuccess = (video: VideoItem) => {
-    try {
-      if (!video.id.startsWith('vid-')) {
-        update(ref(db, `videos/${video.id}`), {
-          views: (video.views || 0) + 1,
-        }).catch(() => {});
-      }
-    } catch {
-      // ignore
-    }
+    incrementVideoViews(video.id);
   };
 
   const categories = useMemo(() => {

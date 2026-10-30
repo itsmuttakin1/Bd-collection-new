@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getDatabase, ref, onValue, push, set, remove, get, update } from 'firebase/database';
+import { getDatabase, ref, onValue, push, set, remove, get, update, runTransaction } from 'firebase/database';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyBPrgfeMTuy3GI1nb2jgw-qqQn6wPvH-0w",
@@ -21,16 +21,21 @@ export interface VideoItem {
   title: string;
   description: string;
   category: string;
+  keywords?: string;
   videoUrl: string;
+  url?: string;
   r2Key?: string;
   thumbnailUrl?: string;
+  thumbnail?: string;
   duration: string;
   views: number;
   createdAt: number;
+  addedAt?: number;
   author: string;
 }
 
 export const WORKER_BASE_URL = "https://mrghost-storage.djsungroup.workers.dev";
+export const R2_PUBLIC_BUCKET_URL = "https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev";
 
 export const SMARTLINK_URL = "https://asiaso.org/4/83d7ffcba5e9ff163422eb60b234e632";
 export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/eab46957ba8ada08fe799687dd63716f";
@@ -40,4 +45,4 @@ export const BANNER_320x50_KEY = "f9d96eee7a61e1baf855ad37f42838ae";
 export const BANNER_320x50_SCRIPT_SRC = "https://brijmohan.org/22/f9d96eee7a61e1baf855ad37f42838ae";
 export const SOCIAL_BAR_SCRIPT_SRC = "https://brijmohan.org/14/9685e94c6cd837de7f2e6be4199a8040";
 
-export { ref, onValue, push, set, remove, get, update };
+export { ref, onValue, push, set, remove, get, update, runTransaction };

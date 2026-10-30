@@ -62,6 +62,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
+  const thumbSrc = video.thumbnail || video.thumbnailUrl || '';
+  const streamSrc = video.url || video.videoUrl || '';
+
   const renderThumbnailMedia = () => (
     <>
       {/* Instant Rich Visual Backdrop (Always visible immediately while frame loads or if stream lacks CORS) */}
@@ -76,10 +79,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         </p>
       </div>
 
-      {/* 1. Custom Thumbnail Image or Auto-Generated Base64 Frame if present */}
-      {video.thumbnailUrl && !imgFailed && (
+      {/* 1. Custom Thumbnail Image (from `thumbnail` or `thumbnailUrl` in Firebase) */}
+      {thumbSrc && !imgFailed && (
         <img
-          src={video.thumbnailUrl}
+          src={thumbSrc}
           alt={video.title}
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}
@@ -87,11 +90,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         />
       )}
 
-      {/* 2. Live Video Frame Extraction when no thumbnailUrl is stored */}
-      {(!video.thumbnailUrl || imgFailed) && video.videoUrl && (
+      {/* 2. Live Video Frame Extraction when no thumbnail image is stored */}
+      {(!thumbSrc || imgFailed) && streamSrc && (
         <video
           ref={videoRef}
-          src={video.videoUrl}
+          src={streamSrc}
           preload="auto"
           muted
           playsInline
