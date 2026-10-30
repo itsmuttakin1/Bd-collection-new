@@ -1,0 +1,6 @@
+{
+  "name": "GhostStream Video Platform",
+  "description": "Protected video streaming platform with multi-step ad monetization, Firebase Realtime Database sync, and direct Cloudflare R2 storage admin panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
