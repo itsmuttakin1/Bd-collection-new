@@ -20,15 +20,19 @@ import {
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 import { VideoCard } from './components/VideoCard';
 import {
+  LANGUAGES,
+  detectInitialLanguage,
+  detectCountryLanguageFromIP,
+} from './i18n';
+import {
   Play,
   Search,
   Home,
   Flame,
-  Film,
-  Compass,
   ThumbsUp,
   Share2,
   Menu,
+  Globe,
 } from 'lucide-react';
 
 const DEFAULT_VIDEOS: VideoItem[] = [
@@ -48,7 +52,7 @@ const DEFAULT_VIDEOS: VideoItem[] = [
     id: 'vid-2',
     title: 'Iceland Black Sand Coast - Aerial Film',
     description: 'Cinematic drone flight over volcanic coastline and ocean waves.',
-    category: 'Travel',
+    category: 'Trending',
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerEscapes.jpg',
     duration: '0:15',
@@ -60,7 +64,7 @@ const DEFAULT_VIDEOS: VideoItem[] = [
     id: 'vid-3',
     title: 'GT Endurance Track Day - Wet Circuit Highlights',
     description: 'Full onboard and trackside highlights from the evening endurance session.',
-    category: 'Sports',
+    category: 'Trending',
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
     thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerFun.jpg',
     duration: '1:00',
@@ -78,17 +82,42 @@ export default function App() {
   const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  const [sortByTrending, setSortByTrending] = useState<boolean>(false);
+
+  // Language State (34+ languages, auto-detected by Visitor Country / Timezone)
+  const [langCode, setLangCode] = useState<string>(() => detectInitialLanguage());
+  const t = LANGUAGES[langCode] || LANGUAGES.bn;
 
   // Per-video Smartlink click counter (requires 3 clicks before opening the Watch page)
   const [smartlinkCounts, setSmartlinkCounts] = useState<Record<string, number>>({});
 
-  // Filtering and Search
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  // Search & Like State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
+  const [copiedShare, setCopiedShare] = useState<boolean>(false);
+
+  // Auto-detect visitor country from IP if user hasn't manually picked a language
+  useEffect(() => {
+    const manualChoice = localStorage.getItem('bd_collection_lang_manual');
+    if (manualChoice) return;
+
+    detectCountryLanguageFromIP().then((detected) => {
+      if (detected && LANGUAGES[detected]) {
+        setLangCode(detected);
+        localStorage.setItem('bd_collection_lang', detected);
+      }
+    });
+  }, []);
+
+  const handleLanguageChange = (newCode: string) => {
+    if (LANGUAGES[newCode]) {
+      setLangCode(newCode);
+      localStorage.setItem('bd_collection_lang', newCode);
+      localStorage.setItem('bd_collection_lang_manual', '1');
+    }
+  };
 
   // Sync videos from Firebase Realtime Database (`video-platform-7c031`)
-  // Supports both schema formats: { thumbnail, url, addedAt, keywords, title, views } AND { thumbnailUrl, videoUrl, createdAt, category }
   useEffect(() => {
     const videosRef = ref(db, 'videos');
     const unsubscribe = onValue(
@@ -106,7 +135,7 @@ export default function App() {
               id: key,
               title: val.title || 'Untitled Video',
               description: val.description || resolvedKeywords || '',
-              category: val.category || (resolvedKeywords ? resolvedKeywords.split(' ')[0] : 'Viral'),
+              category: val.category || 'Viral',
               keywords: resolvedKeywords,
               videoUrl: resolvedUrl,
               url: resolvedUrl,
@@ -123,7 +152,6 @@ export default function App() {
           parsed.sort((a, b) => b.createdAt - a.createdAt);
           setVideos(parsed.length > 0 ? parsed : DEFAULT_VIDEOS);
 
-          // Keep activeVideo view count live-synced
           setActiveVideo((prev) => {
             if (!prev) return null;
             const updated = parsed.find((item) => item.id === prev.id);
@@ -144,15 +172,12 @@ export default function App() {
   }, []);
 
   // Increment view count atomically in Firebase RTDB (`videos/$videoId/views`)
-  // Matches the security rule: `!data.exists() || (newData.isNumber() && newData.val() === data.val() + 1)`
   const incrementVideoViews = (videoId: string) => {
     if (!videoId || videoId.startsWith('vid-')) return;
     const viewsRef = ref(db, `videos/${videoId}/views`);
     runTransaction(viewsRef, (currentViews) => {
       return (Number(currentViews) || 0) + 1;
-    }).catch((err) => {
-      console.warn('View count update error:', err?.message);
-    });
+    }).catch(() => {});
   };
 
   // 3x Smartlink clicks on any video card before opening Watch page
@@ -173,7 +198,6 @@ export default function App() {
 
     setActiveVideo(video);
     setViewMode('watch');
-    // Count a view as soon as the user unlocks and opens the video watch page
     incrementVideoViews(video.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -182,26 +206,23 @@ export default function App() {
     incrementVideoViews(video.id);
   };
 
-  const categories = useMemo(() => {
-    const set = new Set<string>(['All', 'Trending', 'Entertainment', 'Music', 'Vlog', 'Viral', 'Sports', 'Travel']);
-    videos.forEach((v) => {
-      if (v.category) set.add(v.category);
-    });
-    return Array.from(set);
-  }, [videos]);
-
   const filteredVideos = useMemo(() => {
-    return videos.filter((v) => {
-      const matchesCategory =
-        selectedCategory === 'All' || v.category.toLowerCase() === selectedCategory.toLowerCase();
-      const matchesSearch =
-        !searchQuery.trim() ||
-        v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.author.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
+    const list = videos.filter((v) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        v.title.toLowerCase().includes(q) ||
+        v.description.toLowerCase().includes(q) ||
+        (v.keywords || '').toLowerCase().includes(q) ||
+        v.author.toLowerCase().includes(q)
+      );
     });
-  }, [videos, selectedCategory, searchQuery]);
+
+    if (sortByTrending) {
+      return [...list].sort((a, b) => b.views - a.views);
+    }
+    return list;
+  }, [videos, searchQuery, sortByTrending]);
 
   const suggestedVideos = useMemo(() => {
     if (!activeVideo) return videos;
@@ -209,14 +230,17 @@ export default function App() {
   }, [videos, activeVideo]);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-zinc-100 flex flex-col">
+    <div
+      className="min-h-screen bg-[#0f0f0f] text-zinc-100 flex flex-col"
+      dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
+    >
       {/* Social Bar Ad only activates on Watch page so Index strictly has ONLY the Native Banner */}
       <SocialBarLoader active={viewMode === 'watch'} />
 
       {/* YouTube-Style Top Navigation Bar */}
-      <header className="h-14 px-4 flex items-center justify-between gap-4 bg-[#0f0f0f] sticky top-0 z-40 border-b border-zinc-900">
+      <header className="h-14 px-4 flex items-center justify-between gap-3 bg-[#0f0f0f] sticky top-0 z-40 border-b border-zinc-900">
         {/* Left: Menu + Brand Logo */}
-        <div className="flex items-center gap-4 shrink-0">
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -230,6 +254,7 @@ export default function App() {
             href="/"
             onClick={(e) => {
               e.preventDefault();
+              setSortByTrending(false);
               setViewMode('home');
             }}
             className="flex items-center gap-2 whitespace-nowrap shrink-0"
@@ -254,14 +279,14 @@ export default function App() {
                   setSearchQuery(e.target.value);
                   if (viewMode !== 'home') setViewMode('home');
                 }}
-                placeholder="Search"
-                className="w-full pl-4 pr-10 py-2 rounded-l-full bg-[#121212] border border-zinc-800 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                placeholder={t.searchPlaceholder}
+                className="w-full pl-4 pr-8 py-1.5 sm:py-2 rounded-l-full bg-[#121212] border border-zinc-800 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
               />
             </div>
             <button
               type="button"
               onClick={() => setViewMode('home')}
-              className="px-5 py-2 rounded-r-full bg-zinc-800 hover:bg-zinc-700 border border-l-0 border-zinc-800 text-zinc-200 transition-colors cursor-pointer"
+              className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-r-full bg-zinc-800 hover:bg-zinc-700 border border-l-0 border-zinc-800 text-zinc-200 transition-colors cursor-pointer"
               aria-label="Search"
             >
               <Search className="w-5 h-5" />
@@ -269,77 +294,61 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right spacer to balance YouTube header */}
-        <div className="w-8 shrink-0 hidden sm:block" />
+        {/* Right: 34+ Languages Selector (Auto-detected by Country + Manual Switch) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="relative flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2.5 py-1.5 hover:border-zinc-700 transition-colors">
+            <Globe className="w-4 h-4 text-zinc-400 mr-1.5 shrink-0 pointer-events-none" />
+            <select
+              value={langCode}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              aria-label="Select Language"
+              className="bg-transparent text-xs font-medium text-zinc-200 focus:outline-none cursor-pointer pr-1"
+            >
+              {Object.values(LANGUAGES).map((lang) => (
+                <option key={lang.code} value={lang.code} className="bg-zinc-900 text-white">
+                  {lang.nativeName} ({lang.name})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </header>
 
       {/* Main Layout */}
       <div className="flex-1 flex">
-        {/* YouTube Left Sidebar (shown on Home view) */}
+        {/* YouTube Left Sidebar (Only Home & Trending — removed Music/Vlog/Viral/Sports/Travel) */}
         {viewMode === 'home' && sidebarOpen && (
-          <aside className="hidden md:flex flex-col w-56 shrink-0 p-3 space-y-1 border-r border-zinc-900/80 bg-[#0f0f0f]">
+          <aside className="hidden md:flex flex-col w-52 shrink-0 p-3 space-y-1 border-r border-zinc-900/80 bg-[#0f0f0f]">
             <button
               type="button"
               onClick={() => {
-                setSelectedCategory('All');
+                setSortByTrending(false);
                 setViewMode('home');
               }}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                selectedCategory === 'All'
+                !sortByTrending
                   ? 'bg-zinc-800 text-white'
                   : 'text-zinc-300 hover:bg-zinc-900'
               }`}
             >
               <Home className="w-5 h-5" />
-              <span>Home</span>
+              <span>{t.home}</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setSelectedCategory('Trending');
+                setSortByTrending(true);
                 setViewMode('home');
               }}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                selectedCategory === 'Trending'
+                sortByTrending
                   ? 'bg-zinc-800 text-white'
                   : 'text-zinc-300 hover:bg-zinc-900'
               }`}
             >
               <Flame className="w-5 h-5" />
-              <span>Trending</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategory('Entertainment');
-                setViewMode('home');
-              }}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                selectedCategory === 'Entertainment'
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-300 hover:bg-zinc-900'
-              }`}
-            >
-              <Compass className="w-5 h-5" />
-              <span>Explore</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategory('Music');
-                setViewMode('home');
-              }}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                selectedCategory === 'Music'
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-300 hover:bg-zinc-900'
-              }`}
-            >
-              <Film className="w-5 h-5" />
-              <span>Music &amp; Live</span>
+              <span>{t.trending}</span>
             </button>
           </aside>
         )}
@@ -348,28 +357,10 @@ export default function App() {
         <main className="flex-1 min-w-0">
           {viewMode === 'home' && (
             <div className="px-4 sm:px-6 py-4 space-y-6 max-w-[1600px] mx-auto">
-              {/* YouTube Filter Bar */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                      selectedCategory === cat
-                        ? 'bg-white text-black font-semibold'
-                        : 'bg-zinc-800/90 text-zinc-200 hover:bg-zinc-700'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
               {/* Native Banner Ad ONLY on Index */}
               <NativeBannerAd />
 
-              {/* YouTube Video Grid */}
+              {/* YouTube Video Grid (Category filter chips removed as requested) */}
               {loadingVideos ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -387,16 +378,16 @@ export default function App() {
                 </div>
               ) : filteredVideos.length === 0 ? (
                 <div className="py-20 text-center space-y-3">
-                  <p className="text-sm text-zinc-400">No videos found.</p>
+                  <p className="text-sm text-zinc-400">{t.noVideos}</p>
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedCategory('All');
                       setSearchQuery('');
+                      setSortByTrending(false);
                     }}
                     className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-white cursor-pointer"
                   >
-                    Show All Videos
+                    {t.showAll}
                   </button>
                 </div>
               ) : (
@@ -406,6 +397,7 @@ export default function App() {
                       key={video.id}
                       video={video}
                       onCardClick={handleVideoCardClick}
+                      t={t}
                     />
                   ))}
                 </div>
@@ -416,13 +408,13 @@ export default function App() {
           {/* YouTube Watch View */}
           {viewMode === 'watch' && activeVideo && (
             <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Primary Column: Player + Info + Below-Video Suggestions on Mobile */}
+              {/* Primary Column: Player + Info + Below-Video Suggestions */}
               <div className="lg:col-span-8 space-y-4">
                 <ProtectedVideoPlayer
                   videoId={activeVideo.id}
-                  videoUrl={activeVideo.videoUrl}
+                  videoUrl={activeVideo.url || activeVideo.videoUrl}
                   title={activeVideo.title}
-                  poster={activeVideo.thumbnailUrl}
+                  poster={activeVideo.thumbnail || activeVideo.thumbnailUrl}
                   onPlaySuccess={() => handleVideoPlaySuccess(activeVideo)}
                 />
 
@@ -435,12 +427,12 @@ export default function App() {
                   <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-800/80">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-zinc-800 text-white font-semibold flex items-center justify-center">
-                        {(activeVideo.author || 'C').charAt(0).toUpperCase()}
+                        {(activeVideo.author || 'B').charAt(0).toUpperCase()}
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-white">{activeVideo.author}</p>
                         <p className="text-xs text-zinc-400">
-                          {activeVideo.views.toLocaleString()} views
+                          {activeVideo.views.toLocaleString()} {t.views}
                         </p>
                       </div>
                     </div>
@@ -461,18 +453,20 @@ export default function App() {
                         }`}
                       >
                         <ThumbsUp className="w-4 h-4" />
-                        <span>Like</span>
+                        <span>{t.like}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => {
                           navigator.clipboard?.writeText(window.location.href);
+                          setCopiedShare(true);
+                          setTimeout(() => setCopiedShare(false), 2000);
                         }}
                         className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Share2 className="w-4 h-4" />
-                        <span>Share</span>
+                        <span>{copiedShare ? t.copied : t.share}</span>
                       </button>
                     </div>
                   </div>
@@ -491,13 +485,14 @@ export default function App() {
 
                 {/* Suggested Videos Grid directly below the video player */}
                 <div className="pt-4 space-y-4">
-                  <h2 className="text-base font-semibold text-white">More Videos</h2>
+                  <h2 className="text-base font-semibold text-white">{t.moreVideos}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {suggestedVideos.map((video) => (
                       <VideoCard
                         key={video.id}
                         video={video}
                         onCardClick={handleVideoCardClick}
+                        t={t}
                       />
                     ))}
                   </div>
@@ -507,7 +502,7 @@ export default function App() {
               {/* Right Column: Up Next Sidebar + 320x50 Banner */}
               <div className="lg:col-span-4 space-y-4">
                 <Banner320x50Ad className="my-0" />
-                <h3 className="text-sm font-semibold text-zinc-200 px-1">Up Next</h3>
+                <h3 className="text-sm font-semibold text-zinc-200 px-1">{t.upNext}</h3>
                 <div className="space-y-2">
                   {suggestedVideos.map((video) => (
                     <VideoCard
@@ -515,6 +510,7 @@ export default function App() {
                       video={video}
                       compact
                       onCardClick={handleVideoCardClick}
+                      t={t}
                     />
                   ))}
                 </div>

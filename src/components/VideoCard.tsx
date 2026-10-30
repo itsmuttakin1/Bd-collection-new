@@ -1,11 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { Play, Film } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { VideoItem } from '../firebase';
+import { TranslationStrings } from '../i18n';
 
 interface VideoCardProps {
   video: VideoItem;
   onCardClick: (video: VideoItem) => void;
   compact?: boolean;
+  t: TranslationStrings;
 }
 
 const CARD_GRADIENTS = [
@@ -21,6 +23,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   onCardClick,
   compact = false,
+  t,
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
@@ -33,24 +36,23 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const gradientBg = CARD_GRADIENTS[hashIdx];
 
   const formatViews = (views: number) => {
-    if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M views`;
-    if (views >= 1000) return `${(views / 1000).toFixed(1)}K views`;
-    return `${views} views`;
+    if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M ${t.views}`;
+    if (views >= 1000) return `${(views / 1000).toFixed(1)}K ${t.views}`;
+    return `${views} ${t.views}`;
   };
 
   const formatTimeAgo = (timestamp: number) => {
     const diff = Math.max(0, Date.now() - timestamp);
     const hours = Math.floor(diff / 3600000);
-    if (hours < 1) return 'Just now';
-    if (hours < 24) return `${hours} hours ago`;
+    if (hours < 1) return t.justNow;
+    if (hours < 24) return `${hours} ${t.hoursAgo}`;
     const days = Math.floor(hours / 24);
-    if (days < 30) return `${days} days ago`;
-    return `${Math.floor(days / 30)} months ago`;
+    if (days < 30) return `${days} ${t.daysAgo}`;
+    return `${Math.floor(days / 30)} ${t.monthsAgo}`;
   };
 
   const authorInitial = (video.author || 'B').charAt(0).toUpperCase();
 
-  // Seek to 1.5s once metadata loads so the browser decodes and renders an actual video frame
   const handleLoadedMetadata = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -67,7 +69,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
   const renderThumbnailMedia = () => (
     <>
-      {/* Instant Rich Visual Backdrop (Always visible immediately while frame loads or if stream lacks CORS) */}
       <div
         className={`absolute inset-0 bg-gradient-to-br ${gradientBg} flex flex-col items-center justify-center p-4 text-center select-none`}
       >
@@ -79,7 +80,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         </p>
       </div>
 
-      {/* 1. Custom Thumbnail Image (from `thumbnail` or `thumbnailUrl` in Firebase) */}
       {thumbSrc && !imgFailed && (
         <img
           src={thumbSrc}
@@ -90,7 +90,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         />
       )}
 
-      {/* 2. Live Video Frame Extraction when no thumbnail image is stored */}
       {(!thumbSrc || imgFailed) && streamSrc && (
         <video
           ref={videoRef}
@@ -108,14 +107,12 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         />
       )}
 
-      {/* Hover Play Button Overlay */}
       <div className="absolute inset-0 z-20 bg-black/10 group-hover:bg-black/25 transition-colors flex items-center justify-center">
         <div className="w-11 h-11 rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all">
           <Play className="w-5 h-5 fill-white ml-0.5" />
         </div>
       </div>
 
-      {/* Duration Badge */}
       {video.duration && (
         <span className="absolute bottom-2 right-2 z-20 px-1.5 py-0.5 rounded bg-black/85 text-[11px] font-mono font-medium text-white tabular-nums">
           {video.duration}

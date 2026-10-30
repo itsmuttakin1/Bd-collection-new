@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="bn" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bd Collection Admin · Multi-Server Storage & Upload</title>
+  <title>Bd Collection Admin · Multi-Server Storage & Video Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -69,6 +69,84 @@
     </div>
   </div>
 
+  <!-- OLD VIDEO EDIT MODAL -->
+  <div id="edit-video-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white">Edit Video Details (পুরাতন ভিডিও এডিট করুন)</h3>
+          <p id="edit-video-id-label" class="text-[11px] font-mono text-zinc-500 mt-0.5"></p>
+        </div>
+        <button id="close-edit-modal-btn" type="button" class="text-zinc-400 hover:text-white text-sm cursor-pointer">✕</button>
+      </div>
+
+      <form id="edit-video-form" class="space-y-4">
+        <input type="hidden" id="edit-vid-id" />
+
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1">Video Title (`title`) *</label>
+          <input id="edit-vid-title" type="text" required
+            class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Keywords (`keywords`)</label>
+            <input id="edit-vid-keywords" type="text"
+              class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Channel / Author (`author`)</label>
+            <input id="edit-vid-author" type="text"
+              class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1">Thumbnail Image URL (`thumbnail`)</label>
+          <input id="edit-vid-thumb" type="url" placeholder="https://i.ibb.co/..."
+            class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1">Video Stream URL (`url`) *</label>
+          <input id="edit-vid-url" type="url" required placeholder="https://pub-....r2.dev/video.mp4"
+            class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Views Count (`views`)</label>
+            <input id="edit-vid-views" type="number" min="0"
+              class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-zinc-300 mb-1">Duration (`duration`)</label>
+            <input id="edit-vid-duration" type="text" placeholder="04:20"
+              class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-zinc-300 mb-1">Description</label>
+          <textarea id="edit-vid-desc" rows="2"
+            class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500"></textarea>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-3 border-t border-zinc-800">
+          <button id="cancel-edit-modal-btn" type="button"
+            class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit"
+            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white cursor-pointer">
+            Save Changes (আপডেট করুন)
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- DASHBOARD VIEW -->
   <div id="dashboard-view" class="hidden min-h-screen flex flex-col">
     <!-- Top Header -->
@@ -89,7 +167,7 @@
       <div class="flex flex-wrap items-center gap-2.5">
         <button id="toggle-guide-btn" type="button"
           class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition-colors cursor-pointer">
-          📖 New Storage & Firebase Rules Setup Code
+          📖 নতুন Storage ও Firebase Rules গাইড (বাংলা)
         </button>
         <button id="refresh-all-storage-btn" type="button"
           class="px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors cursor-pointer">
@@ -112,71 +190,85 @@
         <button id="status-close" type="button" class="ml-4 text-zinc-400 hover:text-white">✕</button>
       </div>
 
-      <!-- STEP-BY-STEP NEW STORAGE SETUP GUIDE + WORKER CODE + FIREBASE RULES DRAWER -->
+      <!-- STEP-BY-STEP NEW STORAGE SETUP GUIDE IN EASY BENGALI (ENGLISH TOOL NAMES) -->
       <section id="setup-guide-panel" class="p-6 rounded-2xl border border-emerald-800/60 bg-zinc-900/80 space-y-6">
         <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
           <div>
-            <h2 class="text-base font-bold text-white">New Cloudflare R2 Storage Server Setup Steps & Fixed Firebase Rules</h2>
-            <p class="text-xs text-zinc-400 mt-0.5">Follow these exact steps whenever you want to add a new 10GB free Cloudflare R2 storage server or update Firebase Rules</p>
+            <h2 class="text-base font-bold text-white">নতুন Cloudflare R2 Storage Server যুক্ত করার সহজ বাংলা টিউটোরিয়াল ও Firebase Rules</h2>
+            <p class="text-xs text-zinc-400 mt-0.5">একটি সার্ভারের 10GB ফুল হয়ে গেলে নিচের নিয়ম মেনে খুব সহজেই নতুন Cloudflare R2 Storage Server যুক্ত করতে পারবেন (Tool-এর নামগুলো English-এই রাখা হয়েছে)</p>
           </div>
-          <button id="close-guide-btn" type="button" class="text-xs text-zinc-400 hover:text-white cursor-pointer">✕ Hide Guide</button>
+          <button id="close-guide-btn" type="button" class="text-xs text-zinc-400 hover:text-white cursor-pointer">✕ বন্ধ করুন</button>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Left: Step-by-Step R2 + Worker Guide & Copyable Worker Code -->
+          <!-- Left: Easy Bengali Step-by-Step R2 + Worker Guide & Copyable Worker Code -->
           <div class="space-y-4">
-            <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2.5 text-xs text-zinc-300 leading-relaxed">
-              <h3 class="text-sm font-bold text-emerald-400">Step-by-Step: How to Add a New Cloudflare R2 Server</h3>
-              <ol class="list-decimal list-inside space-y-1.5 text-zinc-300">
-                <li>Go to <strong>Cloudflare Dashboard → R2 Object Storage → Create Bucket</strong> (e.g., <code class="text-emerald-300">bd-videos-2</code>).</li>
-                <li>Inside the Bucket → <strong>Settings → Public Access (R2.dev subdomain) → Allow Access</strong>. Copy your public R2 URL (e.g. <code class="text-emerald-300">https://pub-xxxx.r2.dev</code>).</li>
-                <li>Go to <strong>Workers & Pages → Create Worker</strong> (e.g., <code class="text-emerald-300">storage-server-2</code>) and paste the <strong>Cloudflare Worker Code</strong> below, then click <strong>Deploy</strong>.</li>
-                <li>Open the Worker's <strong>Settings → Bindings → Add Binding → R2 Bucket</strong>:
-                  <br/>• Variable name: <code class="text-amber-300 font-mono">BUCKET</code> (must be exact)
-                  <br/>• R2 Bucket: Select your bucket.</li>
-                <li>In Worker <strong>Settings → Variables and Secrets → Add</strong>:
-                  <br/>• Variable name: <code class="text-amber-300 font-mono">ADMIN_KEY</code>
-                  <br/>• Value: Your secret password (e.g. <code class="text-amber-300 font-mono">mysecret123</code>), then click Deploy.</li>
-                <li>In this Admin Panel below, click <strong>+ Add Storage Server</strong>, paste the Worker URL, Public R2 URL, and <code class="text-amber-300 font-mono">ADMIN_KEY</code>.</li>
+            <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2.5 text-xs text-zinc-200 leading-relaxed">
+              <h3 class="text-sm font-bold text-emerald-400">ধাপে ধাপে নতুন Cloudflare R2 Storage তৈরির নিয়ম:</h3>
+              <ol class="list-decimal list-inside space-y-2 text-zinc-300">
+                <li>
+                  প্রথমে আপনার <strong>Cloudflare Dashboard</strong>-এ লগইন করে বাম পাশের মেনু থেকে <strong>R2 Object Storage</strong>-এ যান এবং <strong>Create Bucket</strong> বাটনে ক্লিক করে নতুন একটি Bucket খুলুন (যেমন: <code class="text-emerald-300 font-mono">bd-videos-2</code>)।
+                </li>
+                <li>
+                  এবার আপনার তৈরি করা Bucket-এর ভেতরে গিয়ে <strong>Settings</strong> ট্যাবে যান। নিচে <strong>Public Access (R2.dev subdomain)</strong> অপশন থেকে <strong>Allow Access</strong> অন করুন এবং সেখান থেকে আপনার <strong>Public Bucket URL</strong> কপি করে রাখুন (যেমন: <code class="text-emerald-300 font-mono">https://pub-xxxx.r2.dev</code>)।
+                </li>
+                <li>
+                  এরপর বাম পাশের মেনু থেকে <strong>Workers &amp; Pages</strong> → <strong>Create</strong> → <strong>Create Worker</strong>-এ ক্লিক করুন। যেকোনো নাম দিয়ে <strong>Deploy</strong> করুন। তারপর <strong>Edit Code</strong> বাটনে ক্লিক করে নিচের বক্সের <strong>Cloudflare Worker Code</strong>-টি কপি করে সেখানে সম্পূর্ণ পেস্ট করে উপরে ডান পাশে <strong>Deploy</strong> বাটনে ক্লিক করুন।
+                </li>
+                <li>
+                  এখন Worker-এর <strong>Settings</strong> → <strong>Bindings</strong> → <strong>Add</strong> → <strong>R2 Bucket</strong> সিলেক্ট করুন:
+                  <br/>• <strong>Variable name</strong> বক্সে বড় হাতের অক্ষরে লিখুন: <code class="text-amber-300 font-mono">BUCKET</code>
+                  <br/>• <strong>R2 bucket</strong> অপশনে আপনার নতুন Bucket-টি সিলেক্ট করে <strong>Deploy</strong> দিন।
+                </li>
+                <li>
+                  এরপর একই জায়গায় <strong>Variables and Secrets</strong> → <strong>Add</strong> বাটনে ক্লিক করুন:
+                  <br/>• <strong>Variable name</strong> বক্সে লিখুন: <code class="text-amber-300 font-mono">ADMIN_KEY</code>
+                  <br/>• <strong>Value</strong> বক্সে আপনার নিজের পছন্দমতো একটি গোপন পাসওয়ার্ড দিন (যেমন: <code class="text-amber-300 font-mono">mysecret123</code>) এবং <strong>Deploy</strong> দিন।
+                </li>
+                <li>
+                  সবশেষে এই Admin Panel-এর নিচে <strong>+ Add Storage Server</strong> বাটনে ক্লিক করে আপনার <strong>Server Name</strong>, <strong>Worker API URL</strong>, <strong>Public R2 Stream URL</strong>, এবং আপনার দেওয়া <strong>ADMIN_KEY</strong> বসিয়ে <strong>Save</strong> করলেই নতুন সার্ভার চালু হয়ে যাবে!
+                </li>
               </ol>
             </div>
 
             <div class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-zinc-200">1. Cloudflare Worker Code (CORS Fixed + Direct Stream + Upload/List/Delete)</span>
+                <span class="text-xs font-semibold text-zinc-200">১. Cloudflare Worker Code (CORS Fixed + Upload/List/Delete)</span>
                 <button id="copy-worker-code-btn" type="button"
                   class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold cursor-pointer">
                   Copy Worker Code
                 </button>
               </div>
-              <pre id="worker-code-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-300 overflow-x-auto max-h-64"></pre>
+              <pre id="worker-code-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-300 overflow-x-auto max-h-60"></pre>
             </div>
           </div>
 
-          <!-- Right: Fixed Firebase Realtime Database Rules -->
+          <!-- Right: Easy Bengali Explanation for Firebase Realtime Database Rules -->
           <div class="space-y-4">
-            <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2 text-xs text-zinc-300 leading-relaxed">
-              <h3 class="text-sm font-bold text-amber-400">Why Your Firebase Rules Needed Fixing & How to Update</h3>
+            <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2.5 text-xs text-zinc-300 leading-relaxed">
+              <h3 class="text-sm font-bold text-amber-400">Firebase Realtime Database Rules সেটআপ করার নিয়ম:</h3>
               <p>
-                Your previous rule only allowed 2 specific UIDs OR public view increments. If you sign in with a new admin email, your UID (<code id="guide-uid-inline" class="text-emerald-400 font-mono">...</code>) is automatically included in the fixed rules below!
+                আপনার বর্তমান লগইন করা Admin Account-এর <strong>UID</strong> (<code id="guide-uid-inline" class="text-emerald-400 font-mono">...</code>) নিচের <strong>Firebase Rules</strong>-এর ভেতরে অটোমেটিক যুক্ত করে দেওয়া হয়েছে।
               </p>
               <p>
-                It also allows any visitor to increment <code class="text-amber-300 font-mono">views</code> by <code class="text-amber-300 font-mono">+1</code> (even if <code class="text-amber-300 font-mono">views</code> was 0 or not set yet) while keeping video add/delete strictly locked to logged-in Admins.
+                এই Rules ব্যবহার করলে যেকোনো ভিজিটর ভিডিও দেখলে অটোমেটিক <code class="text-amber-300 font-mono">views</code> <code class="text-amber-300 font-mono">+1</code> করে বাড়বে, কিন্তু আপনি (Admin) ছাড়া অন্য কেউ ভিডিও Upload, Edit বা Delete করতে পারবে না।
               </p>
-              <p class="text-zinc-400">
-                Copy the JSON below → Go to <strong>Firebase Console → Realtime Database → Rules</strong> → Paste & click <strong>Publish</strong>.
-              </p>
+              <ol class="list-decimal list-inside space-y-1.5 text-zinc-300">
+                <li>নিচের <strong>Copy Firebase Rules</strong> বাটনে ক্লিক করে কোডটি কপি করুন।</li>
+                <li>আপনার <strong>Firebase Console</strong> → <strong>Realtime Database</strong> → <strong>Rules</strong> ট্যাবে যান।</li>
+                <li>পুরাতন কোড মুছে এই নতুন কোডটি পেস্ট করে উপরে <strong>Publish</strong> বাটনে ক্লিক করুন।</li>
+              </ol>
             </div>
 
             <div class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-zinc-200">2. Fixed Firebase Realtime Database Rules (`database.rules.json`)</span>
+                <span class="text-xs font-semibold text-zinc-200">২. Fixed Firebase Realtime Database Rules (`database.rules.json`)</span>
                 <button id="copy-fb-rules-btn" type="button"
                   class="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer">
                   Copy Firebase Rules
                 </button>
               </div>
-              <pre id="fb-rules-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-64"></pre>
+              <pre id="fb-rules-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-60"></pre>
             </div>
           </div>
         </div>
@@ -187,7 +279,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 class="text-lg font-bold text-white">Live Server Storage Usage & Capacity</h2>
-            <p class="text-xs text-zinc-400">Real-time used percentage, used space, and remaining free storage across all connected servers (Synced with Firebase `/settings/servers`)</p>
+            <p class="text-xs text-zinc-400">কোন সার্ভারে কত পার্সেন্ট (% Used) ব্যবহার হয়েছে এবং কতটুকু জায়গা খালি (% Free / GB Free) আছে তার লাইভ স্ট্যাটাস</p>
           </div>
           <button id="open-add-server-btn" type="button"
             class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
@@ -247,7 +339,7 @@
           <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
             <div>
               <h2 class="text-base font-bold text-white">Upload New Video</h2>
-              <p class="text-xs text-zinc-400">Select target storage server, choose video file, and publish to Firebase database</p>
+              <p class="text-xs text-zinc-400">সার্ভার সিলেক্ট করে নতুন ভিডিও ফাইল আপলোড করুন</p>
             </div>
             <span class="text-xs font-mono text-red-400 font-semibold" id="active-server-badge"></span>
           </div>
@@ -306,18 +398,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Category</label>
-                <select id="video-category"
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500">
-                  <option value="Viral">Viral</option>
-                  <option value="Trending">Trending</option>
-                  <option value="Entertainment">Entertainment</option>
-                  <option value="Music">Music</option>
-                  <option value="Vlog">Vlog</option>
-                </select>
-              </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-medium text-zinc-300 mb-1.5">Folder on R2 (Leave empty for root)</label>
                 <input id="video-folder" type="text" value="" placeholder="Optional folder name"
@@ -378,12 +459,12 @@
         </div>
       </section>
 
-      <!-- SECTION 3: PUBLISHED VIDEOS ON WEBSITE (FIREBASE CATALOG) -->
+      <!-- SECTION 3: PUBLISHED VIDEOS ON WEBSITE + OLD VIDEO EDIT SYSTEM -->
       <section class="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-4">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-base font-bold text-white">Published Website Videos (`/videos`)</h2>
-            <p class="text-xs text-zinc-400">Live videos with thumbnail preview, stream URL, and real-time view count</p>
+            <h2 class="text-base font-bold text-white">Published Website Videos & Old Video Editor (`/videos`)</h2>
+            <p class="text-xs text-zinc-400">যেকোনো পুরাতন ভিডিওর Title, Thumbnail, Stream URL বা Views পরিবর্তন করতে <strong>Edit</strong> বাটনে ক্লিক করুন</p>
           </div>
           <span id="catalog-count" class="text-xs font-mono text-zinc-400">0 videos</span>
         </div>
@@ -396,7 +477,7 @@
                 <th class="py-2.5 px-3">TITLE & KEYWORDS</th>
                 <th class="py-2.5 px-3">VIDEO STREAM URL (`url`)</th>
                 <th class="py-2.5 px-3 text-right">LIVE VIEWS</th>
-                <th class="py-2.5 px-3 text-right">ACTION</th>
+                <th class="py-2.5 px-3 text-right">ACTIONS (EDIT / DELETE)</th>
               </tr>
             </thead>
             <tbody id="catalog-table-body" class="divide-y divide-zinc-800/60 text-xs"></tbody>
@@ -421,6 +502,7 @@
       onValue,
       push,
       set,
+      update,
       remove
     } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js';
 
@@ -448,7 +530,6 @@
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Ready-to-copy Cloudflare Worker Code for adding new R2 Storage Servers
     const WORKER_TEMPLATE_CODE = `const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
@@ -472,7 +553,6 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // Public Video Stream Endpoint (if streaming directly through Worker)
     if (request.method === "GET" && !url.pathname.startsWith("/api/")) {
       const key = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
       if (!key) return json({ status: "ok", message: "R2 Storage Worker Active" });
@@ -594,7 +674,6 @@ export default {
       document.getElementById('setup-guide-panel').classList.add('hidden');
     });
 
-    // Multi-server storage configuration (Uses your exact pub-a89cc17745e446439972f8e3a1b3c661.r2.dev domain by default!)
     const DEFAULT_SERVERS = [
       {
         id: 'srv-primary-1',
@@ -628,10 +707,10 @@ export default {
     let serverStats = {};
     let isRegisterMode = false;
     let currentUser = null;
+    let rawVideosMap = {};
 
     const saveServers = () => {
       localStorage.setItem('streamtube_servers', JSON.stringify(servers));
-      // Also sync server list (without exposing secret keys if you want, or full config for admin) to Firebase `/settings/servers` if admin has write access
       if (currentUser) {
         set(
           ref(db, 'settings/servers'),
@@ -895,7 +974,6 @@ export default {
             await set(newRef, {
               title,
               keywords: 'Virallink bdgirl',
-              category: 'Viral',
               url: streamUrl,
               videoUrl: streamUrl,
               thumbnail: '',
@@ -1114,7 +1192,7 @@ export default {
       }
     });
 
-    // Upload Form Submit — Saves BOTH { thumbnail, url, addedAt, keywords, title, views } AND { thumbnailUrl, videoUrl, createdAt }
+    // Upload Form Submit
     document.getElementById('upload-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
@@ -1126,7 +1204,6 @@ export default {
       );
       const title = document.getElementById('video-title').value.trim();
       const keywords = document.getElementById('video-keywords').value.trim() || 'Virallink bdgirl';
-      const category = document.getElementById('video-category').value;
       const folder = document.getElementById('video-folder').value.trim().replace(/^\/+|\/+$/g, '');
       const duration = document.getElementById('video-duration').value.trim() || '04:00';
       const finalThumb = document.getElementById('video-thumb').value.trim() || autoGeneratedThumbDataUrl || '';
@@ -1211,7 +1288,6 @@ export default {
           addedAt: now,
           createdAt: now,
           keywords,
-          category,
           title,
           thumbnail: finalThumb,
           thumbnailUrl: finalThumb,
@@ -1251,6 +1327,64 @@ export default {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Upload & Publish Video';
         setTimeout(() => progWrap.classList.add('hidden'), 1500);
+      }
+    });
+
+    // OLD VIDEO EDIT MODAL LOGIC
+    const editModal = document.getElementById('edit-video-modal');
+    const closeEditModal = () => editModal.classList.add('hidden');
+    document.getElementById('close-edit-modal-btn').addEventListener('click', closeEditModal);
+    document.getElementById('cancel-edit-modal-btn').addEventListener('click', closeEditModal);
+
+    function openEditVideoModal(id) {
+      const item = rawVideosMap[id];
+      if (!item) return;
+
+      document.getElementById('edit-vid-id').value = id;
+      document.getElementById('edit-video-id-label').textContent = `Video ID: ${id}`;
+      document.getElementById('edit-vid-title').value = item.title || '';
+      document.getElementById('edit-vid-keywords').value = item.keywords || '';
+      document.getElementById('edit-vid-author').value = item.author || 'Bd Collection';
+      document.getElementById('edit-vid-thumb').value = item.thumbnail || item.thumbnailUrl || '';
+      document.getElementById('edit-vid-url').value = item.url || item.videoUrl || '';
+      document.getElementById('edit-vid-views').value = Number(item.views) || 0;
+      document.getElementById('edit-vid-duration').value = item.duration || '';
+      document.getElementById('edit-vid-desc').value = item.description || '';
+
+      editModal.classList.remove('hidden');
+    }
+
+    document.getElementById('edit-video-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('edit-vid-id').value;
+      if (!id) return;
+
+      const updatedTitle = document.getElementById('edit-vid-title').value.trim();
+      const updatedKeywords = document.getElementById('edit-vid-keywords').value.trim();
+      const updatedAuthor = document.getElementById('edit-vid-author').value.trim() || 'Bd Collection';
+      const updatedThumb = document.getElementById('edit-vid-thumb').value.trim();
+      const updatedUrl = document.getElementById('edit-vid-url').value.trim();
+      const updatedViews = Number(document.getElementById('edit-vid-views').value) || 0;
+      const updatedDuration = document.getElementById('edit-vid-duration').value.trim();
+      const updatedDesc = document.getElementById('edit-vid-desc').value.trim();
+
+      try {
+        await update(ref(db, `videos/${id}`), {
+          title: updatedTitle,
+          keywords: updatedKeywords,
+          author: updatedAuthor,
+          thumbnail: updatedThumb,
+          thumbnailUrl: updatedThumb,
+          url: updatedUrl,
+          videoUrl: updatedUrl,
+          views: updatedViews,
+          duration: updatedDuration,
+          description: updatedDesc
+        });
+        closeEditModal();
+        showStatus(`Updated video "${updatedTitle}" successfully!`, 'success');
+      } catch (err) {
+        showStatus(`Update Error: ${err.message}. Check your UID in Firebase Rules.`, 'error');
       }
     });
 
@@ -1311,7 +1445,7 @@ export default {
       }
     });
 
-    // Sync Published Website Videos Table from Firebase RTDB (Supports { thumbnail, url, addedAt, keywords, views })
+    // Sync Published Website Videos Table from Firebase RTDB
     onValue(ref(db, 'videos'), (snapshot) => {
       const tbody = document.getElementById('catalog-table-body');
       const countEl = document.getElementById('catalog-count');
@@ -1319,11 +1453,13 @@ export default {
 
       const val = snapshot.val();
       if (!val || typeof val !== 'object') {
+        rawVideosMap = {};
         countEl.textContent = '0 videos';
         tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-zinc-500">No published videos in Firebase yet.</td></tr>';
         return;
       }
 
+      rawVideosMap = val;
       const list = Object.entries(val).map(([id, item]) => ({
         id,
         title: item.title || 'Untitled',
@@ -1355,12 +1491,20 @@ export default {
             <a href="${v.streamUrl}" target="_blank" class="hover:text-red-400">${v.streamUrl}</a>
           </td>
           <td class="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">${v.views.toLocaleString()}</td>
-          <td class="py-2.5 px-3 text-right">
+          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+            <button data-edit-vid="${v.id}" class="px-3 py-1 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-800/60 text-amber-300 text-[11px] font-medium cursor-pointer">
+              ✎ Edit
+            </button>
             <button data-rm-vid="${v.id}" class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
               Delete
             </button>
           </td>
         `;
+
+        tr.querySelector('[data-edit-vid]').addEventListener('click', () => {
+          openEditVideoModal(v.id);
+        });
+
         tr.querySelector('[data-rm-vid]').addEventListener('click', async () => {
           try {
             await remove(ref(db, `videos/${v.id}`));
