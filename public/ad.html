@@ -622,27 +622,32 @@ export default {
   }
 };`;
 
-    const buildFirebaseRulesJson = (uid) => {
-      const uidCheck = uid && uid !== '5JSYDqYRizMUZoLrOqQcCV0Cr603' && uid !== 'ZXP9g8XgNRTcgq8fVyAgkWyiuKd2'
-        ? `auth != null && (auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || auth.uid === 'ZXP9g8XgNRTcgq8fVyAgkWyiuKd2' || auth.uid === '${uid}')`
-        : `auth != null && (auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || auth.uid === 'ZXP9g8XgNRTcgq8fVyAgkWyiuKd2')`;
+    const ADMIN_UID = '5JSYDqYRizMUZoLrOqQcCV0Cr603';
+
+    const buildFirebaseRulesJson = () => {
+      const adminOnly = `auth != null && auth.uid === '${ADMIN_UID}'`;
 
       return JSON.stringify(
         {
           rules: {
+            ".read": false,
+            ".write": false,
             videos: {
               ".read": true,
               "$videoId": {
-                ".write": uidCheck,
+                ".write": adminOnly,
                 views: {
                   ".read": true,
-                  ".write": `!data.exists() || (newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1)) || (${uidCheck})`
+                  ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
+                },
+                "$other": {
+                  ".write": adminOnly
                 }
               }
             },
             settings: {
-              ".read": true,
-              ".write": uidCheck
+              ".read": adminOnly,
+              ".write": adminOnly
             }
           }
         },
@@ -652,7 +657,7 @@ export default {
     };
 
     document.getElementById('worker-code-block').textContent = WORKER_TEMPLATE_CODE;
-    document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson(null);
+    document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson();
 
     document.getElementById('copy-worker-code-btn').addEventListener('click', (e) => {
       navigator.clipboard.writeText(WORKER_TEMPLATE_CODE);
@@ -1428,18 +1433,26 @@ export default {
       }
     });
 
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
+        if (user.uid !== ADMIN_UID) {
+          const errBox = document.getElementById('auth-error');
+          errBox.textContent = `Access Denied! Only the owner Admin UID (${ADMIN_UID}) can access this panel. Your UID (${user.uid}) is not authorized.`;
+          errBox.classList.remove('hidden');
+          await signOut(auth);
+          return;
+        }
+        currentUser = user;
         document.getElementById('login-view').classList.add('hidden');
         document.getElementById('dashboard-view').classList.remove('hidden');
         document.getElementById('admin-user-email').textContent = user.email;
         document.getElementById('admin-user-uid').textContent = user.uid;
-        document.getElementById('guide-uid-inline').textContent = user.uid;
-        document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson(user.uid);
+        document.getElementById('guide-uid-inline').textContent = ADMIN_UID;
+        document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson();
         renderServerSelect();
         refreshAllServers();
       } else {
+        currentUser = null;
         document.getElementById('dashboard-view').classList.add('hidden');
         document.getElementById('login-view').classList.remove('hidden');
       }
