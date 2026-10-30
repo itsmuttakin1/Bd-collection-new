@@ -92,6 +92,8 @@ export default function App() {
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [sortByTrending, setSortByTrending] = useState<boolean>(false);
+  const [trendingSeed, setTrendingSeed] = useState<number>(0);
+  const [trendingVideos, setTrendingVideos] = useState<VideoItem[]>([]);
 
   // Language State (34+ languages, auto-detected by Visitor Country / Timezone)
   const [langCode, setLangCode] = useState<string>(() => detectInitialLanguage());
@@ -314,8 +316,50 @@ export default function App() {
     setTimeout(() => setCopiedShare(false), 2000);
   };
 
+  // Fisher-Yates shuffle that guarantees a new random video at the top every time
+  const shuffleVideosRandomly = (items: VideoItem[], prevTopId?: string): VideoItem[] => {
+    const arr = [...items];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    if (arr.length > 1 && prevTopId && arr[0].id === prevTopId) {
+      const swapIdx = 1 + Math.floor(Math.random() * (arr.length - 1));
+      [arr[0], arr[swapIdx]] = [arr[swapIdx], arr[0]];
+    }
+    return arr;
+  };
+
+  // Triggered every time user clicks "Trending" — brings random videos to the top each time
+  const handleSelectTrending = () => {
+    const currentTopId =
+      (sortByTrending && trendingVideos[0]?.id) || videos[0]?.id || undefined;
+    const freshlyShuffled = shuffleVideosRandomly(videos, currentTopId);
+    setTrendingVideos(freshlyShuffled);
+    setTrendingSeed((prev) => prev + 1);
+    setSortByTrending(true);
+    goHome();
+  };
+
   const filteredVideos = useMemo(() => {
-    const list = videos.filter((v) => {
+    // Base list: if Trending is active, use the randomized trending order (synced with latest video data)
+    let sourceList = videos;
+    if (sortByTrending) {
+      if (trendingVideos.length > 0) {
+        const videoMap = new Map<string, VideoItem>(videos.map((v) => [v.id, v]));
+        const syncedRandom = trendingVideos
+          .map((tv) => videoMap.get(tv.id))
+          .filter((v): v is VideoItem => Boolean(v));
+        // Include any newly added videos that weren't in trendingVideos yet
+        const existingIds = new Set(syncedRandom.map((v) => v.id));
+        const newOnes = videos.filter((v) => !existingIds.has(v.id));
+        sourceList = [...syncedRandom, ...newOnes];
+      } else {
+        sourceList = shuffleVideosRandomly(videos);
+      }
+    }
+
+    return sourceList.filter((v) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -325,17 +369,12 @@ export default function App() {
         v.author.toLowerCase().includes(q)
       );
     });
-
-    if (sortByTrending) {
-      return [...list].sort((a, b) => b.views - a.views);
-    }
-    return list;
-  }, [videos, searchQuery, sortByTrending]);
+  }, [videos, searchQuery, sortByTrending, trendingVideos, trendingSeed]);
 
   const suggestedVideos = useMemo(() => {
-    if (!activeVideo) return videos;
-    return videos.filter((v) => v.id !== activeVideo.id);
-  }, [videos, activeVideo]);
+    const others = activeVideo ? videos.filter((v) => v.id !== activeVideo.id) : videos;
+    return shuffleVideosRandomly(others);
+  }, [videos, activeVideo?.id]);
 
   return (
     <div
@@ -445,17 +484,14 @@ export default function App() {
 
             <button
               type="button"
-              onClick={() => {
-                setSortByTrending(true);
-                goHome();
-              }}
+              onClick={handleSelectTrending}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 sortByTrending
                   ? 'bg-zinc-800 text-white'
                   : 'text-zinc-300 hover:bg-zinc-900'
               }`}
             >
-              <Flame className="w-5 h-5" />
+              <Flame className="w-5 h-5 text-red-500" />
               <span>{t.trending}</span>
             </button>
           </aside>
@@ -465,6 +501,37 @@ export default function App() {
         <main className="flex-1 min-w-0">
           {viewMode === 'home' && (
             <div className="px-4 sm:px-6 py-4 space-y-6 max-w-[1600px] mx-auto">
+              {/* Mobile Home & Trending Bar so phone users can also tap Trending anytime */}
+              <div className="flex md:hidden items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortByTrending(false);
+                    goHome();
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                    !sortByTrending
+                      ? 'bg-zinc-800 text-white'
+                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+                  }`}
+                >
+                  <Home className="w-4 h-4" />
+                  <span>{t.home}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectTrending}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                    sortByTrending
+                      ? 'bg-zinc-800 text-white'
+                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
+                  }`}
+                >
+                  <Flame className="w-4 h-4 text-red-500" />
+                  <span>{t.trending}</span>
+                </button>
+              </div>
+
               {/* Native Banner Ad ONLY on Index */}
               <NativeBannerAd />
 
