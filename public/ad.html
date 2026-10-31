@@ -102,14 +102,27 @@
           </div>
         </div>
 
-        <div class="space-y-2 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+        <div class="space-y-2.5 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <label class="block text-xs font-medium text-zinc-200">Thumbnail Image (`thumbnail` · ImgBB Auto-Upload)</label>
-            <label class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer transition-colors">
-              📤 Upload Custom Thumbnail
-              <input id="edit-thumb-file-input" type="file" accept="image/*" class="hidden" />
-            </label>
+            <label class="block text-xs font-medium text-zinc-200">Thumbnail Image (`thumbnail` · YouTube 3-Frame Picker + Custom Upload)</label>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button id="edit-gen-3thumbs-btn" type="button"
+                class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium cursor-pointer transition-colors">
+                🎬 Generate 3 Frames
+              </button>
+              <label class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer transition-colors">
+                📤 Custom Thumbnail
+                <input id="edit-thumb-file-input" type="file" accept="image/*" class="hidden" />
+              </label>
+            </div>
           </div>
+
+          <!-- 3 Auto-Generated Thumbnails Grid inside Edit Modal -->
+          <div id="edit-auto-thumbs-wrap" class="hidden space-y-1.5 pt-1">
+            <span class="block text-[11px] text-emerald-400 font-medium">পছন্দের থাম্বনেইলটিতে ক্লিক করে সিলেক্ট করুন (Click any of the 3 frames):</span>
+            <div id="edit-auto-thumbs-grid" class="grid grid-cols-3 gap-2"></div>
+          </div>
+
           <input id="edit-vid-thumb" type="url" placeholder="https://i.ibb.co/..."
             class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
           <div class="flex items-center gap-3 pt-1">
@@ -118,7 +131,7 @@
               <img id="edit-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-md scale-125 opacity-70" />
               <img id="edit-thumb-preview-img" src="" alt="Preview" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
             </div>
-            <p id="edit-thumb-status" class="text-[11px] text-zinc-400">Upload an image file (auto-uploads to ImgBB) or paste a direct image URL.</p>
+            <p id="edit-thumb-status" class="text-[11px] text-zinc-400">Upload a custom image or click "Generate 3 Frames" to pick from 3 video thumbnails.</p>
           </div>
         </div>
 
@@ -410,17 +423,17 @@
               </div>
             </div>
 
-            <!-- Custom Thumbnail Upload (ImgBB API) + Smart Non-Black Auto-Frame Preview -->
-            <div class="p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3">
+            <!-- Custom Thumbnail Upload (ImgBB API) + YouTube-Style 3 Auto-Generated Thumbnails Selector -->
+            <div class="p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <label class="block text-xs font-semibold text-white">Video Thumbnail (Custom Upload or Auto Frame via ImgBB)</label>
-                  <p id="thumb-upload-status" class="text-[11px] text-zinc-400">কাস্টম ছবি সিলেক্ট করলে অথবা ভিডিও দিলে অটোমেটিক ImgBB-তে আপলোড হয়ে নিখুঁত 16:9 সাইজে অ্যাডজাস্ট হবে</p>
+                  <label class="block text-xs font-semibold text-white">Video Thumbnail (YouTube-Style 3 Auto Thumbnails + Custom Upload)</label>
+                  <p id="thumb-upload-status" class="text-[11px] text-zinc-400">ভিডিও সিলেক্ট করলে YouTube-এর মতো অটোমেটিক ৩টি থাম্বনেইল তৈরি হবে—যার মধ্যে যেটা ভালো লাগে সেটি সিলেক্ট করতে পারবেন</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                   <button id="regenerate-frame-btn" type="button"
-                    class="hidden px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium cursor-pointer transition-colors">
-                    ↻ অন্য ফ্রেম নিন (Change Frame)
+                    class="hidden px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium cursor-pointer transition-colors">
+                    ↻ নতুন ৩টি থাম্বনেইল নিন (Regenerate 3)
                   </button>
                   <label class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer transition-colors">
                     🖼️ Upload Custom Thumbnail
@@ -429,13 +442,23 @@
                 </div>
               </div>
 
+              <!-- YouTube-Style 3 Auto-Generated Thumbnails Picker -->
+              <div id="auto-thumbs-section" class="hidden p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/90 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold text-emerald-400">🎬 অটো-জেনারেটেড ৩টি থাম্বনেইল (যেটি ভালো লাগে সেটিতে ক্লিক করুন):</span>
+                  <span class="text-[11px] font-mono text-zinc-400">16:9 Auto-Adjusted · ImgBB</span>
+                </div>
+                <div id="auto-thumbs-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+              </div>
+
               <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                <!-- 16:9 Adjusted Preview Box -->
+                <!-- 16:9 Adjusted Active Preview Box -->
                 <div class="sm:col-span-5">
                   <div id="upload-thumb-preview-box" class="relative w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
                     <span id="upload-thumb-placeholder" class="text-[11px] text-zinc-500 text-center px-2">No Thumbnail Selected Yet</span>
                     <img id="upload-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-lg scale-125 opacity-75" />
                     <img id="upload-thumb-preview-img" src="" alt="Thumbnail Preview" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
+                    <span class="absolute bottom-1.5 left-2 z-20 px-2 py-0.5 rounded bg-black/75 border border-white/10 text-[10px] font-mono text-emerald-300">Selected Thumbnail</span>
                   </div>
                 </div>
 
@@ -1320,10 +1343,21 @@ service cloud.firestore {
       refreshAllServers();
     });
 
-    // Smart Non-Black Video Frame Extractor + Aspect Ratio Adjustment (16:9 640x360) + ImgBB Auto-Upload
+    // Smart Non-Black 3-Thumbnail Video Frame Extractor (YouTube Studio Style) + Aspect Ratio Adjustment (16:9 640x360) + ImgBB Auto-Upload
     let selectedVideoFile = null;
     let autoGeneratedThumbDataUrl = '';
-    let frameAttemptIndex = 0;
+    let generatedThreeThumbs = []; // Array of { dataUrl, hostedUrl, timeLabel, brightness }
+    let selectedThumbOptionIdx = 0;
+
+    let editGeneratedThreeThumbs = [];
+    let selectedEditThumbIdx = -1;
+
+    const formatTimeLabel = (sec) => {
+      const s = Math.max(0, Math.floor(Number(sec) || 0));
+      const mins = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${String(mins).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+    };
 
     // Draw video frame onto 640x360 16:9 canvas with blurred background + aspect-preserved foreground
     const drawAdjustedFrameToCanvas = (videoEl) => {
@@ -1358,7 +1392,6 @@ service cloud.firestore {
       let drawW = canvas.width;
       let drawH = canvas.height;
       if (Math.abs(videoRatio - canvasRatio) < 0.25) {
-        // Close to 16:9 -> fill cleanly with cover crop
         if (videoRatio > canvasRatio) {
           drawH = canvas.height;
           drawW = canvas.height * videoRatio;
@@ -1367,7 +1400,6 @@ service cloud.firestore {
           drawH = canvas.width / videoRatio;
         }
       } else {
-        // Portrait (9:16) or ultra-wide -> fit height/width cleanly over blurred backdrop
         if (videoRatio < canvasRatio) {
           drawH = canvas.height;
           drawW = canvas.height * videoRatio;
@@ -1399,47 +1431,73 @@ service cloud.firestore {
       };
     };
 
-    const extractVideoThumbnailAndDuration = (file, forceRandom = false) => {
+    // Extract 3 distinct non-black 16:9 thumbnails from a video File or video URL
+    const extractThreeVideoThumbnails = (fileOrUrl, forceRandom = false, updateDurationInput = true) => {
       return new Promise((resolve) => {
         try {
-          const url = URL.createObjectURL(file);
+          const isFile = typeof fileOrUrl !== 'string';
+          const srcUrl = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
           const tempVideo = document.createElement('video');
+          if (!isFile) tempVideo.crossOrigin = 'anonymous';
           tempVideo.preload = 'auto';
           tempVideo.muted = true;
           tempVideo.playsInline = true;
-          tempVideo.src = url;
+          tempVideo.src = srcUrl;
 
-          // Candidate ratios into the video to avoid black fade-in at 0.0s–1.5s
-          const candidateRatios = forceRandom
-            ? [0.15 + Math.random() * 0.7, 0.35, 0.55, 0.25]
-            : [0.25, 0.42, 0.58, 0.18, 0.72];
-          let attemptIdx = 0;
-          let bestDataUrl = '';
+          // 3 distinct zones in the video (Early ~20%, Middle ~50%, Late ~80%) with fallback ratios if a frame is black
+          const slotCandidates = forceRandom
+            ? [
+                [0.12 + Math.random() * 0.18, 0.22, 0.31],
+                [0.38 + Math.random() * 0.22, 0.48, 0.57],
+                [0.68 + Math.random() * 0.22, 0.76, 0.85]
+              ]
+            : [
+                [0.20, 0.27, 0.14],
+                [0.50, 0.58, 0.42],
+                [0.78, 0.85, 0.68]
+              ];
+
+          let currentSlot = 0;
+          let currentRetry = 0;
+          const frames = [];
+          let currentTargetSec = 1.0;
 
           const cleanup = () => {
-            try {
-              URL.revokeObjectURL(url);
-            } catch {}
+            if (isFile) {
+              try {
+                URL.revokeObjectURL(srcUrl);
+              } catch {}
+            }
           };
 
           const timeout = setTimeout(() => {
             cleanup();
-            resolve({ thumb: bestDataUrl });
-          }, 8000);
+            resolve({ frames });
+          }, 12000);
 
-          const seekToCandidate = () => {
-            const dur = Number(tempVideo.duration) || 0;
-            const ratio = candidateRatios[attemptIdx] || 0.3;
-            let target = dur > 1 ? dur * ratio : 1.0;
-            if (dur > 3) {
-              target = Math.min(Math.max(target, 2.0), dur - 0.4);
+          const seekCurrentSlot = () => {
+            if (currentSlot >= 3) {
+              clearTimeout(timeout);
+              cleanup();
+              resolve({ frames });
+              return;
             }
+            const dur = Number(tempVideo.duration) || 0;
+            const ratioList = slotCandidates[currentSlot];
+            const ratio = ratioList[currentRetry] ?? ratioList[0];
+
+            let target = dur > 1 ? dur * ratio : 1.0 + currentSlot * 1.5;
+            if (dur > 4) {
+              target = Math.min(Math.max(target, 1.5), dur - 0.4);
+            }
+            currentTargetSec = target;
+
             try {
               tempVideo.currentTime = target;
             } catch {
               clearTimeout(timeout);
               cleanup();
-              resolve({ thumb: bestDataUrl });
+              resolve({ frames });
             }
           };
 
@@ -1449,81 +1507,178 @@ service cloud.firestore {
             const secs = Math.floor(dur % 60);
             const formattedDuration =
               dur > 0 ? `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}` : '';
-            if (formattedDuration) {
+            if (updateDurationInput && formattedDuration) {
               document.getElementById('video-duration').value = formattedDuration;
             }
-            seekToCandidate();
+            seekCurrentSlot();
           });
 
           tempVideo.addEventListener('seeked', () => {
             try {
               const { dataUrl, brightness } = drawAdjustedFrameToCanvas(tempVideo);
-              if (dataUrl) bestDataUrl = dataUrl;
+              const ratioList = slotCandidates[currentSlot];
 
-              // If frame is too dark/black (< 24 luminance) and we have more candidate timestamps, try next!
-              if (brightness < 24 && attemptIdx < candidateRatios.length - 1) {
-                attemptIdx++;
-                seekToCandidate();
+              // Retry within the same slot if frame is too dark/black (< 24 luminance)
+              if (brightness < 24 && currentRetry < ratioList.length - 1) {
+                currentRetry++;
+                seekCurrentSlot();
                 return;
               }
 
-              clearTimeout(timeout);
-              cleanup();
-              resolve({ thumb: bestDataUrl });
+              if (dataUrl) {
+                frames.push({
+                  dataUrl,
+                  hostedUrl: '',
+                  timeLabel: formatTimeLabel(currentTargetSec),
+                  brightness
+                });
+              }
+
+              currentSlot++;
+              currentRetry = 0;
+              seekCurrentSlot();
             } catch {
               clearTimeout(timeout);
               cleanup();
-              resolve({ thumb: bestDataUrl });
+              resolve({ frames });
             }
           });
 
           tempVideo.addEventListener('error', () => {
             clearTimeout(timeout);
             cleanup();
-            resolve({ thumb: bestDataUrl });
+            resolve({ frames });
           });
         } catch {
-          resolve({ thumb: '' });
+          resolve({ frames: [] });
         }
       });
     };
 
-    // Handle Video File Selection + Smart Auto-Thumbnail + Auto Upload to ImgBB
+    // Render the 3-thumbnail selector cards in Upload section
+    const renderThreeThumbsPicker = () => {
+      const section = document.getElementById('auto-thumbs-section');
+      const grid = document.getElementById('auto-thumbs-grid');
+      if (!section || !grid) return;
+
+      if (!generatedThreeThumbs || generatedThreeThumbs.length === 0) {
+        section.classList.add('hidden');
+        grid.innerHTML = '';
+        return;
+      }
+
+      section.classList.remove('hidden');
+      grid.innerHTML = '';
+
+      generatedThreeThumbs.forEach((item, idx) => {
+        const isSelected = idx === selectedThumbOptionIdx;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `group relative aspect-video w-full rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
+          isSelected
+            ? 'border-emerald-500 ring-2 ring-emerald-500/40 shadow-lg scale-[1.01]'
+            : 'border-zinc-800 hover:border-zinc-600 opacity-85 hover:opacity-100'
+        }`;
+
+        btn.innerHTML = `
+          <img src="${item.hostedUrl || item.dataUrl}" alt="Thumbnail ${idx + 1}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2 flex items-center justify-between">
+            <span class="text-[11px] font-semibold ${isSelected ? 'text-emerald-300' : 'text-zinc-200'}">
+              ${isSelected ? '✓ Selected' : `Option ${idx + 1}`}
+            </span>
+            <span class="px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-mono text-zinc-300">${item.timeLabel}</span>
+          </div>
+        `;
+
+        btn.addEventListener('click', () => {
+          selectGeneratedThumbnailOption(idx);
+        });
+
+        grid.appendChild(btn);
+      });
+    };
+
+    // Select one of the 3 generated thumbnails and upload to ImgBB if not already uploaded
+    const selectGeneratedThumbnailOption = async (idx) => {
+      const chosen = generatedThreeThumbs[idx];
+      if (!chosen) return;
+
+      selectedThumbOptionIdx = idx;
+      const thumbStatus = document.getElementById('thumb-upload-status');
+      const sizeEl = document.getElementById('file-chosen-size');
+
+      autoGeneratedThumbDataUrl = chosen.hostedUrl || chosen.dataUrl;
+      updateThumbPreviewUI('upload', chosen.hostedUrl || chosen.dataUrl);
+      renderThreeThumbsPicker();
+
+      if (chosen.hostedUrl) {
+        document.getElementById('video-thumb').value = chosen.hostedUrl;
+        thumbStatus.textContent = `Thumbnail Option ${idx + 1} (${chosen.timeLabel}) selected ✓ (${chosen.hostedUrl})`;
+        return;
+      }
+
+      try {
+        thumbStatus.textContent = `Uploading Thumbnail Option ${idx + 1} (${chosen.timeLabel}) to ImgBB...`;
+        const hostedUrl = await uploadToImgBB(chosen.dataUrl);
+        chosen.hostedUrl = hostedUrl;
+
+        // If still the selected option, update input and preview
+        if (selectedThumbOptionIdx === idx) {
+          document.getElementById('video-thumb').value = hostedUrl;
+          autoGeneratedThumbDataUrl = hostedUrl;
+          updateThumbPreviewUI('upload', hostedUrl);
+          thumbStatus.textContent = `Thumbnail Option ${idx + 1} (${chosen.timeLabel}) uploaded to ImgBB ✓ (${hostedUrl})`;
+          if (selectedVideoFile) {
+            sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · 3 Thumbnails Ready (Option ${idx + 1} Selected) ✓`;
+          }
+        }
+        renderThreeThumbsPicker();
+      } catch {
+        if (selectedThumbOptionIdx === idx) {
+          document.getElementById('video-thumb').value = chosen.dataUrl;
+          thumbStatus.textContent = `Thumbnail Option ${idx + 1} (${chosen.timeLabel}) selected ✓`;
+        }
+      }
+    };
+
+    // Generate 3 thumbnails from selected video file
     const processVideoFrameThumbnail = async (file, forceRandom = false) => {
       const sizeEl = document.getElementById('file-chosen-size');
       const thumbStatus = document.getElementById('thumb-upload-status');
       const regenBtn = document.getElementById('regenerate-frame-btn');
 
-      thumbStatus.textContent = 'Generating bright 16:9 adjusted frame from video...';
-      const extracted = await extractVideoThumbnailAndDuration(file, forceRandom);
+      thumbStatus.textContent = 'ভিডিও থেকে YouTube-এর মতো ৩টি উজ্জ্বল 16:9 থাম্বনেইল তৈরি হচ্ছে...';
+      const extracted = await extractThreeVideoThumbnails(file, forceRandom, true);
 
-      if (extracted.thumb) {
-        autoGeneratedThumbDataUrl = extracted.thumb;
-        updateThumbPreviewUI('upload', extracted.thumb);
+      if (extracted.frames && extracted.frames.length > 0) {
+        generatedThreeThumbs = extracted.frames;
         regenBtn.classList.remove('hidden');
 
-        // Upload the extracted frame to ImgBB automatically so Firebase gets a clean https://i.ibb.co/... URL
-        try {
-          thumbStatus.textContent = 'Uploading generated thumbnail to ImgBB...';
-          const hostedUrl = await uploadToImgBB(extracted.thumb);
-          document.getElementById('video-thumb').value = hostedUrl;
-          updateThumbPreviewUI('upload', hostedUrl);
-          thumbStatus.textContent = `Auto-Thumbnail uploaded to ImgBB ✓ (${hostedUrl})`;
-          sizeEl.textContent = `${formatBytes(file.size)} · ImgBB Thumbnail Ready ✓`;
-        } catch {
-          document.getElementById('video-thumb').value = extracted.thumb;
-          thumbStatus.textContent = 'Auto-Thumbnail generated and adjusted ✓';
-          sizeEl.textContent = `${formatBytes(file.size)} · Auto-Thumbnail Ready ✓`;
-        }
+        // Pick the brightest frame by default so the initial selection is crisp
+        let bestIdx = 0;
+        let maxBright = -1;
+        generatedThreeThumbs.forEach((f, i) => {
+          if (f.brightness > maxBright) {
+            maxBright = f.brightness;
+            bestIdx = i;
+          }
+        });
+
+        await selectGeneratedThumbnailOption(bestIdx);
       } else {
+        generatedThreeThumbs = [];
+        renderThreeThumbsPicker();
         sizeEl.textContent = `${formatBytes(file.size)} · Ready to upload`;
-        thumbStatus.textContent = 'Could not auto-extract frame. Please upload a custom thumbnail image.';
+        thumbStatus.textContent = 'Could not auto-extract 3 frames. Please upload a custom thumbnail image.';
       }
     };
 
     document.getElementById('upload-file-input').addEventListener('change', async (e) => {
       selectedVideoFile = e.target.files[0] || null;
       autoGeneratedThumbDataUrl = '';
+      generatedThreeThumbs = [];
+      renderThreeThumbsPicker();
+
       const nameEl = document.getElementById('file-chosen-name');
       const sizeEl = document.getElementById('file-chosen-size');
       const titleInput = document.getElementById('video-title');
@@ -1531,7 +1686,7 @@ service cloud.firestore {
 
       if (selectedVideoFile) {
         nameEl.textContent = selectedVideoFile.name;
-        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Extracting bright frame...`;
+        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Generating 3 YouTube-style thumbnails...`;
         if (!titleInput.value.trim()) {
           titleInput.value = selectedVideoFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
         }
@@ -1543,10 +1698,9 @@ service cloud.firestore {
       }
     });
 
-    // "Pick Another Frame" button to grab a different non-black timestamp from the selected video
+    // "Regenerate 3 Thumbnails" button to grab 3 new non-black timestamps from the selected video
     document.getElementById('regenerate-frame-btn').addEventListener('click', async () => {
       if (!selectedVideoFile) return;
-      frameAttemptIndex++;
       await processVideoFrameThumbnail(selectedVideoFile, true);
     });
 
@@ -1554,6 +1708,9 @@ service cloud.firestore {
     document.getElementById('custom-thumb-file-input').addEventListener('change', async (e) => {
       const imgFile = e.target.files[0];
       if (!imgFile) return;
+
+      selectedThumbOptionIdx = -1;
+      renderThreeThumbsPicker();
 
       const thumbStatus = document.getElementById('thumb-upload-status');
       const localPreview = URL.createObjectURL(imgFile);
@@ -1578,10 +1735,94 @@ service cloud.firestore {
       updateThumbPreviewUI('upload', e.target.value.trim());
     });
 
+    // Render 3 auto-generated thumbnails inside Edit Video Modal
+    const renderEditThreeThumbsPicker = () => {
+      const wrap = document.getElementById('edit-auto-thumbs-wrap');
+      const grid = document.getElementById('edit-auto-thumbs-grid');
+      if (!wrap || !grid) return;
+
+      if (!editGeneratedThreeThumbs || editGeneratedThreeThumbs.length === 0) {
+        wrap.classList.add('hidden');
+        grid.innerHTML = '';
+        return;
+      }
+
+      wrap.classList.remove('hidden');
+      grid.innerHTML = '';
+
+      editGeneratedThreeThumbs.forEach((item, idx) => {
+        const isSelected = idx === selectedEditThumbIdx;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+          isSelected
+            ? 'border-emerald-500 ring-2 ring-emerald-500/40'
+            : 'border-zinc-800 hover:border-zinc-600 opacity-85 hover:opacity-100'
+        }`;
+        btn.innerHTML = `
+          <img src="${item.hostedUrl || item.dataUrl}" alt="Frame ${idx + 1}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+          <div class="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5 flex items-center justify-between text-[10px]">
+            <span class="${isSelected ? 'text-emerald-300 font-semibold' : 'text-zinc-200'}">${isSelected ? '✓ Selected' : `#${idx + 1}`}</span>
+            <span class="font-mono text-zinc-400">${item.timeLabel}</span>
+          </div>
+        `;
+        btn.addEventListener('click', async () => {
+          selectedEditThumbIdx = idx;
+          const statusEl = document.getElementById('edit-thumb-status');
+          updateThumbPreviewUI('edit', item.hostedUrl || item.dataUrl);
+          renderEditThreeThumbsPicker();
+
+          if (item.hostedUrl) {
+            document.getElementById('edit-vid-thumb').value = item.hostedUrl;
+            statusEl.textContent = `Selected Frame #${idx + 1} (${item.timeLabel}) ✓`;
+            return;
+          }
+
+          try {
+            statusEl.textContent = `Uploading Frame #${idx + 1} (${item.timeLabel}) to ImgBB...`;
+            const hostedUrl = await uploadToImgBB(item.dataUrl);
+            item.hostedUrl = hostedUrl;
+            document.getElementById('edit-vid-thumb').value = hostedUrl;
+            updateThumbPreviewUI('edit', hostedUrl);
+            statusEl.textContent = `Uploaded Frame #${idx + 1} to ImgBB ✓ (${hostedUrl})`;
+            renderEditThreeThumbsPicker();
+          } catch (err) {
+            document.getElementById('edit-vid-thumb').value = item.dataUrl;
+            statusEl.textContent = `Selected Frame #${idx + 1} (${item.timeLabel}) ✓`;
+          }
+        });
+        grid.appendChild(btn);
+      });
+    };
+
+    document.getElementById('edit-gen-3thumbs-btn').addEventListener('click', async () => {
+      const streamUrl = document.getElementById('edit-vid-url').value.trim();
+      const statusEl = document.getElementById('edit-thumb-status');
+      if (!streamUrl) {
+        statusEl.textContent = 'Please enter a valid Video Stream URL first.';
+        return;
+      }
+      statusEl.textContent = 'ভিডিও থেকে ৩টি অটো থাম্বনেইল তৈরি করা হচ্ছে...';
+      const extracted = await extractThreeVideoThumbnails(streamUrl, true, false);
+      if (extracted.frames && extracted.frames.length > 0) {
+        editGeneratedThreeThumbs = extracted.frames;
+        selectedEditThumbIdx = 0;
+        renderEditThreeThumbsPicker();
+        // Trigger click on first frame to upload to ImgBB
+        const firstBtn = document.querySelector('#edit-auto-thumbs-grid button');
+        if (firstBtn) firstBtn.click();
+      } else {
+        statusEl.textContent = 'CORS বা ভিডিও ফরম্যাটের কারণে ফ্রেম নেওয়া যায়নি—Custom Thumbnail আপলোড করুন।';
+      }
+    });
+
     // Custom Thumbnail File Upload in Old Video Edit Modal (Uploads directly to ImgBB)
     document.getElementById('edit-thumb-file-input').addEventListener('change', async (e) => {
       const imgFile = e.target.files[0];
       if (!imgFile) return;
+
+      selectedEditThumbIdx = -1;
+      renderEditThreeThumbsPicker();
 
       const statusEl = document.getElementById('edit-thumb-status');
       const localPreview = URL.createObjectURL(imgFile);
@@ -1727,6 +1968,8 @@ service cloud.firestore {
 
         selectedVideoFile = null;
         autoGeneratedThumbDataUrl = '';
+        generatedThreeThumbs = [];
+        renderThreeThumbsPicker();
         document.getElementById('upload-file-input').value = '';
         document.getElementById('custom-thumb-file-input').value = '';
         document.getElementById('regenerate-frame-btn').classList.add('hidden');
@@ -1763,6 +2006,10 @@ service cloud.firestore {
       if (!item) return;
 
       const currentThumb = item.thumbnail || item.thumbnailUrl || '';
+      editGeneratedThreeThumbs = [];
+      selectedEditThumbIdx = -1;
+      renderEditThreeThumbsPicker();
+
       document.getElementById('edit-vid-id').value = id;
       document.getElementById('edit-video-id-label').textContent = `Video ID: ${id}`;
       document.getElementById('edit-vid-title').value = item.title || '';
@@ -1775,7 +2022,7 @@ service cloud.firestore {
       document.getElementById('edit-vid-desc').value = item.description || '';
       document.getElementById('edit-thumb-file-input').value = '';
       document.getElementById('edit-thumb-status').textContent =
-        'Upload an image file (auto-uploads to ImgBB) or paste a direct image URL.';
+        'Upload a custom image or click "Generate 3 Frames" to pick from 3 video thumbnails.';
       updateThumbPreviewUI('edit', currentThumb);
 
       editModal.classList.remove('hidden');
