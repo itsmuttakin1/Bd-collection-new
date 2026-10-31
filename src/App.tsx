@@ -18,6 +18,7 @@ import {
   NativeBannerAd,
   Banner320x50Ad,
   SocialBarLoader,
+  AntiAdBlockGuard,
   triggerSmartlinkAd,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
@@ -73,6 +74,7 @@ export default function App() {
   });
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
   const [copiedShare, setCopiedShare] = useState<boolean>(false);
+  const [adBlockActive, setAdBlockActive] = useState<boolean>(false);
 
   // Convert "MM:SS" or "HH:MM:SS" duration string to ISO-8601 duration (e.g. "PT3M30S") for Google VideoObject
   const formatIsoDuration = (raw?: string): string => {
@@ -512,6 +514,7 @@ export default function App() {
 
   // 3x Smartlink clicks on any video card before opening Watch page
   const handleVideoCardClick = (video: VideoItem) => {
+    if (adBlockActive) return;
     const currentClicks = smartlinkCounts[video.id] || 0;
 
     if (currentClicks < 3) {
@@ -622,9 +625,14 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-[#0f0f0f] text-zinc-100 flex flex-col"
+      className={`min-h-screen bg-[#0f0f0f] text-zinc-100 flex flex-col ${
+        adBlockActive ? 'h-screen overflow-hidden' : ''
+      }`}
       dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
     >
+      {/* Anti-AdBlocker & Anti-AdGuard DNS Full-Screen Lock Wall */}
+      <AntiAdBlockGuard onBlockStateChange={setAdBlockActive} />
+
       {/* Social Bar Ad only activates on Watch page so Index strictly has ONLY the Native Banner */}
       <SocialBarLoader active={viewMode === 'watch'} />
 
