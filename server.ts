@@ -19,6 +19,104 @@ const corsHeaders: Record<string, string> = {
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const CANONICAL_SITE_URL = 'https://bdcollection.pages.dev';
+  const FIREBASE_RTDB_VIDEOS_URL =
+    'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos.json';
+
+  const escapeXml = (str: string) =>
+    String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+  // SEO robots.txt route
+  app.get('/robots.txt', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.send(
+      [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /ad.html',
+        'Disallow: /api/',
+        '',
+        'User-agent: Googlebot',
+        'Allow: /',
+        'Disallow: /ad.html',
+        '',
+        'User-agent: Googlebot-Video',
+        'Allow: /',
+        '',
+        'User-agent: Googlebot-Image',
+        'Allow: /',
+        '',
+        `Sitemap: ${CANONICAL_SITE_URL}/sitemap.xml`,
+        '',
+      ].join('\n')
+    );
+  });
+
+  // Dynamic Google Video Sitemap (/sitemap.xml) synced live with Firebase Realtime Database
+  app.get('/sitemap.xml', async (_req, res) => {
+    try {
+      const fbRes = await fetch(FIREBASE_RTDB_VIDEOS_URL);
+      const data = fbRes.ok ? await fbRes.json() : {};
+      const todayIso = new Date().toISOString().split('T')[0];
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
+      xml += `        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n`;
+      xml += `  <url>\n`;
+      xml += `    <loc>${CANONICAL_SITE_URL}/</loc>\n`;
+      xml += `    <lastmod>${todayIso}</lastmod>\n`;
+      xml += `    <changefreq>hourly</changefreq>\n`;
+      xml += `    <priority>1.0</priority>\n`;
+      xml += `  </url>\n`;
+
+      if (data && typeof data === 'object') {
+        for (const [id, rawVal] of Object.entries(data as Record<string, any>)) {
+          if (!rawVal || typeof rawVal !== 'object') continue;
+          const title = rawVal.title || 'Bd Collection Viral Video';
+          const desc =
+            rawVal.description ||
+            rawVal.keywords ||
+            `${title} - Watch exclusive Bangladeshi viral video on Bd Collection.`;
+          const thumb = rawVal.thumbnail || rawVal.thumbnailUrl || '';
+          const contentLoc = rawVal.url || rawVal.videoUrl || '';
+          const views = Number(rawVal.views) || 0;
+          const ts = Number(rawVal.addedAt || rawVal.createdAt) || Date.now();
+          const dateStr = new Date(ts).toISOString().split('T')[0];
+          const pageLoc = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(id)}`;
+
+          xml += `  <url>\n`;
+          xml += `    <loc>${escapeXml(pageLoc)}</loc>\n`;
+          xml += `    <lastmod>${dateStr}</lastmod>\n`;
+          xml += `    <changefreq>daily</changefreq>\n`;
+          xml += `    <priority>0.9</priority>\n`;
+          if (contentLoc && thumb) {
+            xml += `    <video:video>\n`;
+            xml += `      <video:thumbnail_loc>${escapeXml(thumb)}</video:thumbnail_loc>\n`;
+            xml += `      <video:title>${escapeXml(title)}</video:title>\n`;
+            xml += `      <video:description>${escapeXml(desc)}</video:description>\n`;
+            xml += `      <video:content_loc>${escapeXml(contentLoc)}</video:content_loc>\n`;
+            xml += `      <video:view_count>${views}</video:view_count>\n`;
+            xml += `      <video:publication_date>${dateStr}</video:publication_date>\n`;
+            xml += `      <video:family_friendly>no</video:family_friendly>\n`;
+            xml += `    </video:video>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+
+      xml += `</urlset>\n`;
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.send(xml);
+    } catch {
+      res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+    }
+  });
 
   // High-speed Video Stream Proxy & Codec Transcoder (/api/stream)
   // Fixes playback for pub-*.r2.dev/*.mp4 across all ISPs, browsers, Range requests, and HEVC/AV1 codecs

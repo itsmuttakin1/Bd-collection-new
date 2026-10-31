@@ -63,10 +63,119 @@ export default function App() {
   // Per-video Smartlink click counter (requires 3 clicks before opening the Watch page)
   const [smartlinkCounts, setSmartlinkCounts] = useState<Record<string, number>>({});
 
-  // Search & Like State
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  // Search & Like State (Supports Google SearchAction ?q= parameter)
+  const [searchQuery, setSearchQuery] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('q') || '';
+  });
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
   const [copiedShare, setCopiedShare] = useState<boolean>(false);
+
+  // Dynamic Google SEO, OpenGraph, Canonical URL, and Schema.org VideoObject JSON-LD
+  useEffect(() => {
+    const SITE_ORIGIN = 'https://bdcollection.pages.dev';
+    const defaultTitle = 'Bd Collection – Watch Bangladeshi Viral Videos & Trending Streams';
+    const defaultDesc =
+      'Watch and stream the latest Bangladeshi viral videos, trending clips, and exclusive HD entertainment on Bd Collection.';
+    const defaultImg = 'https://i.ibb.co/23nQP6mb/1000012168.jpg';
+
+    const setMetaContent = (selector: string, val: string) => {
+      const el = document.querySelector(selector);
+      if (el) el.setAttribute('content', val);
+    };
+
+    const canonicalEl = document.getElementById('canonical-link');
+    const jsonLdEl = document.getElementById('dynamic-video-jsonld');
+
+    if (viewMode === 'watch' && activeVideo) {
+      const vidTitle = `${activeVideo.title} – Bd Collection`;
+      const vidDesc =
+        activeVideo.description ||
+        activeVideo.keywords ||
+        `Watch "${activeVideo.title}" in HD on Bd Collection. Bangladeshi viral video stream.`;
+      const vidThumb = activeVideo.thumbnail || activeVideo.thumbnailUrl || defaultImg;
+      const vidPageUrl = `${SITE_ORIGIN}/?v=${encodeURIComponent(activeVideo.id)}`;
+      const uploadIso = new Date(
+        Number(activeVideo.addedAt || activeVideo.createdAt) || Date.now()
+      ).toISOString();
+
+      document.title = vidTitle;
+      setMetaContent('meta[name="description"]', vidDesc);
+      setMetaContent('#og-title', vidTitle);
+      setMetaContent('#og-description', vidDesc);
+      setMetaContent('#og-image', vidThumb);
+      setMetaContent('#og-url', vidPageUrl);
+      setMetaContent('#twitter-title', vidTitle);
+      setMetaContent('#twitter-description', vidDesc);
+      setMetaContent('#twitter-image', vidThumb);
+      if (canonicalEl) canonicalEl.setAttribute('href', vidPageUrl);
+
+      if (jsonLdEl) {
+        const videoSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'VideoObject',
+          name: activeVideo.title,
+          description: vidDesc,
+          thumbnailUrl: [vidThumb],
+          uploadDate: uploadIso,
+          contentUrl: activeVideo.url || activeVideo.videoUrl,
+          embedUrl: vidPageUrl,
+          interactionStatistic: {
+            '@type': 'InteractionCounter',
+            interactionType: { '@type': 'WatchAction' },
+            userInteractionCount: Number(activeVideo.views) || 0,
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'Bd Collection',
+            url: SITE_ORIGIN,
+          },
+        };
+        jsonLdEl.textContent = JSON.stringify(videoSchema);
+      }
+    } else {
+      document.title = defaultTitle;
+      setMetaContent('meta[name="description"]', defaultDesc);
+      setMetaContent('#og-title', defaultTitle);
+      setMetaContent('#og-description', defaultDesc);
+      setMetaContent('#og-image', videos[0]?.thumbnail || defaultImg);
+      setMetaContent('#og-url', `${SITE_ORIGIN}/`);
+      setMetaContent('#twitter-title', defaultTitle);
+      setMetaContent('#twitter-description', defaultDesc);
+      setMetaContent('#twitter-image', videos[0]?.thumbnail || defaultImg);
+      if (canonicalEl) canonicalEl.setAttribute('href', `${SITE_ORIGIN}/`);
+
+      if (jsonLdEl && videos.length > 0) {
+        const itemListSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Bd Collection Trending & Viral Videos',
+          itemListElement: videos.slice(0, 20).map((v, idx) => ({
+            '@type': 'ListItem',
+            position: idx + 1,
+            item: {
+              '@type': 'VideoObject',
+              name: v.title,
+              description:
+                v.description ||
+                v.keywords ||
+                `${v.title} - Watch on Bd Collection.`,
+              url: `${SITE_ORIGIN}/?v=${encodeURIComponent(v.id)}`,
+              thumbnailUrl: [v.thumbnail || v.thumbnailUrl || defaultImg],
+              uploadDate: new Date(Number(v.addedAt || v.createdAt) || Date.now()).toISOString(),
+              contentUrl: v.url || v.videoUrl,
+              interactionStatistic: {
+                '@type': 'InteractionCounter',
+                interactionType: { '@type': 'WatchAction' },
+                userInteractionCount: Number(v.views) || 0,
+              },
+            },
+          })),
+        };
+        jsonLdEl.textContent = JSON.stringify(itemListSchema);
+      }
+    }
+  }, [viewMode, activeVideo, videos]);
 
   // Helper to update browser URL with ?v=<videoId> or return to clean root URL
   const syncUrlWithVideo = (videoId: string | null) => {

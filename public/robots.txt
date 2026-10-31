@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Disallow: /ad.html
+Disallow: /api/
+
+User-agent: Googlebot
+Allow: /
+Disallow: /ad.html
+
+User-agent: Googlebot-Video
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+Sitemap: https://bdcollection.pages.dev/sitemap.xml
