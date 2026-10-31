@@ -798,21 +798,33 @@ export default {
     const buildFirestoreRulesText = () => `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isAdmin() {
-      return request.auth != null && request.auth.uid == '${ADMIN_UID}';
+      return isSignedIn() && request.auth.uid == '${ADMIN_UID}';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\\\-]+$');
     }
 
     // Storage servers & admin configuration: strictly Admin-only read/write
     match /admin_storage/{docId} {
-      allow read, write: if isAdmin();
+      allow get, list: if isAdmin();
+      allow create, update: if isAdmin() && isValidId(docId) && request.resource.data.servers is list && request.resource.data.servers.size() <= 50;
+      allow delete: if isAdmin() && isValidId(docId);
     }
 
     match /storage_servers/{serverId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin() && isValidId(serverId);
     }
   }
 }`;
