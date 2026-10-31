@@ -71,7 +71,26 @@ export default function App() {
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
   const [copiedShare, setCopiedShare] = useState<boolean>(false);
 
-  // Dynamic Google SEO, OpenGraph, Canonical URL, and Schema.org VideoObject JSON-LD
+  // Convert "MM:SS" or "HH:MM:SS" duration string to ISO-8601 duration (e.g. "PT3M30S") for Google VideoObject
+  const formatIsoDuration = (raw?: string): string => {
+    if (!raw || typeof raw !== 'string') return 'PT3M30S';
+    const parts = raw
+      .trim()
+      .split(':')
+      .map((n) => parseInt(n, 10));
+    if (parts.some((n) => isNaN(n) || n < 0)) return 'PT3M30S';
+    if (parts.length === 3) {
+      return `PT${parts[0]}H${parts[1]}M${parts[2]}S`;
+    }
+    if (parts.length === 2) {
+      const m = parts[0] || 0;
+      const s = parts[1] || 0;
+      return m === 0 && s === 0 ? 'PT3M30S' : `PT${m}M${s}S`;
+    }
+    return 'PT3M30S';
+  };
+
+  // Dynamic Google SEO, OpenGraph, Canonical URL, and Schema.org VideoObject JSON-LD for ALL videos
   useEffect(() => {
     const SITE_ORIGIN = 'https://bdcollection.pages.dev';
     const defaultTitle = 'Bd Collection – Watch Bangladeshi Viral Videos & Trending Streams';
@@ -87,6 +106,54 @@ export default function App() {
     const canonicalEl = document.getElementById('canonical-link');
     const jsonLdEl = document.getElementById('dynamic-video-jsonld');
 
+    const buildVideoObjectNode = (v: VideoItem) => {
+      const vTitle = (v.title || 'Bd Collection Viral Video').trim();
+      const vDesc = (
+        v.description ||
+        v.keywords ||
+        `Watch "${vTitle}" in HD on Bd Collection. Bangladeshi viral video stream.`
+      ).trim();
+      const vThumb = (v.thumbnail || v.thumbnailUrl || defaultImg).trim();
+      const vStream = (v.url || v.videoUrl || '').trim();
+      const vWatchUrl = `${SITE_ORIGIN}/?v=${encodeURIComponent(v.id)}`;
+      const vUploadIso = new Date(
+        Number(v.addedAt || v.createdAt) || 1761868800000
+      ).toISOString();
+
+      return {
+        '@type': 'VideoObject',
+        '@id': `${vWatchUrl}#video`,
+        url: vWatchUrl,
+        name: vTitle,
+        description: vDesc,
+        thumbnailUrl: [vThumb],
+        uploadDate: vUploadIso,
+        duration: formatIsoDuration(v.duration),
+        contentUrl: vStream,
+        embedUrl: vWatchUrl,
+        isFamilyFriendly: true,
+        inLanguage: 'bn',
+        potentialAction: {
+          '@type': 'WatchAction',
+          target: vWatchUrl,
+        },
+        interactionStatistic: {
+          '@type': 'InteractionCounter',
+          interactionType: { '@type': 'WatchAction' },
+          userInteractionCount: Number(v.views) || 0,
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'Bd Collection',
+          url: SITE_ORIGIN,
+          logo: {
+            '@type': 'ImageObject',
+            url: `${SITE_ORIGIN}/favicon.png`,
+          },
+        },
+      };
+    };
+
     if (viewMode === 'watch' && activeVideo) {
       const vidTitle = `${activeVideo.title} – Bd Collection`;
       const vidDesc =
@@ -94,85 +161,69 @@ export default function App() {
         activeVideo.keywords ||
         `Watch "${activeVideo.title}" in HD on Bd Collection. Bangladeshi viral video stream.`;
       const vidThumb = activeVideo.thumbnail || activeVideo.thumbnailUrl || defaultImg;
+      const vidStream = activeVideo.url || activeVideo.videoUrl || '';
       const vidPageUrl = `${SITE_ORIGIN}/?v=${encodeURIComponent(activeVideo.id)}`;
-      const uploadIso = new Date(
-        Number(activeVideo.addedAt || activeVideo.createdAt) || Date.now()
-      ).toISOString();
 
       document.title = vidTitle;
       setMetaContent('meta[name="description"]', vidDesc);
+      setMetaContent('meta[property="og:type"]', 'video.other');
       setMetaContent('#og-title', vidTitle);
       setMetaContent('#og-description', vidDesc);
       setMetaContent('#og-image', vidThumb);
       setMetaContent('#og-url', vidPageUrl);
+      setMetaContent('#og-video', vidStream);
+      setMetaContent('#og-video-secure', vidStream);
       setMetaContent('#twitter-title', vidTitle);
       setMetaContent('#twitter-description', vidDesc);
       setMetaContent('#twitter-image', vidThumb);
       if (canonicalEl) canonicalEl.setAttribute('href', vidPageUrl);
 
       if (jsonLdEl) {
-        const videoSchema = {
+        const singleVideoSchema = {
           '@context': 'https://schema.org',
-          '@type': 'VideoObject',
-          name: activeVideo.title,
-          description: vidDesc,
-          thumbnailUrl: [vidThumb],
-          uploadDate: uploadIso,
-          contentUrl: activeVideo.url || activeVideo.videoUrl,
-          embedUrl: vidPageUrl,
-          interactionStatistic: {
-            '@type': 'InteractionCounter',
-            interactionType: { '@type': 'WatchAction' },
-            userInteractionCount: Number(activeVideo.views) || 0,
-          },
-          publisher: {
-            '@type': 'Organization',
-            name: 'Bd Collection',
-            url: SITE_ORIGIN,
-          },
+          ...buildVideoObjectNode(activeVideo),
         };
-        jsonLdEl.textContent = JSON.stringify(videoSchema);
+        jsonLdEl.textContent = JSON.stringify(singleVideoSchema);
       }
     } else {
       document.title = defaultTitle;
       setMetaContent('meta[name="description"]', defaultDesc);
+      setMetaContent('meta[property="og:type"]', 'website');
       setMetaContent('#og-title', defaultTitle);
       setMetaContent('#og-description', defaultDesc);
       setMetaContent('#og-image', videos[0]?.thumbnail || defaultImg);
       setMetaContent('#og-url', `${SITE_ORIGIN}/`);
+      if (videos[0]?.url) {
+        setMetaContent('#og-video', videos[0].url);
+        setMetaContent('#og-video-secure', videos[0].url);
+      }
       setMetaContent('#twitter-title', defaultTitle);
       setMetaContent('#twitter-description', defaultDesc);
       setMetaContent('#twitter-image', videos[0]?.thumbnail || defaultImg);
       if (canonicalEl) canonicalEl.setAttribute('href', `${SITE_ORIGIN}/`);
 
       if (jsonLdEl && videos.length > 0) {
-        const itemListSchema = {
+        const validVideos = videos.filter((v) => Boolean(v.url && v.thumbnail));
+        const videoNodes = validVideos.map((v) => buildVideoObjectNode(v));
+        const multiVideoGraph = {
           '@context': 'https://schema.org',
-          '@type': 'ItemList',
-          name: 'Bd Collection Trending & Viral Videos',
-          itemListElement: videos.slice(0, 20).map((v, idx) => ({
-            '@type': 'ListItem',
-            position: idx + 1,
-            item: {
-              '@type': 'VideoObject',
-              name: v.title,
-              description:
-                v.description ||
-                v.keywords ||
-                `${v.title} - Watch on Bd Collection.`,
-              url: `${SITE_ORIGIN}/?v=${encodeURIComponent(v.id)}`,
-              thumbnailUrl: [v.thumbnail || v.thumbnailUrl || defaultImg],
-              uploadDate: new Date(Number(v.addedAt || v.createdAt) || Date.now()).toISOString(),
-              contentUrl: v.url || v.videoUrl,
-              interactionStatistic: {
-                '@type': 'InteractionCounter',
-                interactionType: { '@type': 'WatchAction' },
-                userInteractionCount: Number(v.views) || 0,
-              },
+          '@graph': [
+            {
+              '@type': 'ItemList',
+              '@id': `${SITE_ORIGIN}/#videolist`,
+              name: 'Bd Collection Trending & Viral Videos',
+              numberOfItems: videoNodes.length,
+              itemListElement: videoNodes.map((node, idx) => ({
+                '@type': 'ListItem',
+                position: idx + 1,
+                url: node.url,
+                item: node,
+              })),
             },
-          })),
+            ...videoNodes,
+          ],
         };
-        jsonLdEl.textContent = JSON.stringify(itemListSchema);
+        jsonLdEl.textContent = JSON.stringify(multiVideoGraph);
       }
     }
   }, [viewMode, activeVideo, videos]);
@@ -247,23 +298,33 @@ export default function App() {
     }).catch(() => {});
   };
 
-  // Sync videos from Firebase Realtime Database (`video-platform-7c031`)
+  // Sync videos from Firebase Realtime Database (`video-platform-7c031`) + Immediate REST fetch for Googlebot SEO
   useEffect(() => {
     const videosRef = ref(db, 'videos');
     let initialSharedViewCounted = false;
+    const BROKEN_404_FILES = [
+      '5_6230929087481782223.mp4',
+      'VID_20261015_090110_156.mp4',
+    ];
 
-    const unsubscribe = onValue(
-      videosRef,
-      (snapshot) => {
-        const data = snapshot.val();
-        let finalVideos: VideoItem[] = [];
+    const applyRawVideosData = (data: any) => {
+      let finalVideos: VideoItem[] = [];
 
-        if (data && typeof data === 'object') {
-          const parsed: VideoItem[] = Object.entries(data).map(([key, val]: [string, any]) => {
-            const resolvedThumb = val.thumbnail || val.thumbnailUrl || val.thumb || '';
-            const resolvedUrl = val.url || val.videoUrl || val.streamUrl || '';
+      if (data && typeof data === 'object') {
+        const parsed: VideoItem[] = Object.entries(data)
+          .map(([key, val]: [string, any]) => {
+            if (!val || typeof val !== 'object') return null;
+            const resolvedThumb = (val.thumbnail || val.thumbnailUrl || val.thumb || '').trim();
+            const resolvedUrl = (val.url || val.videoUrl || val.streamUrl || '').trim();
             const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
             const resolvedKeywords = val.keywords || '';
+
+            if (
+              !resolvedUrl ||
+              BROKEN_404_FILES.some((broken) => resolvedUrl.includes(broken))
+            ) {
+              return null;
+            }
 
             return {
               id: key,
@@ -282,41 +343,57 @@ export default function App() {
               addedAt: resolvedTime,
               author: val.author || 'Bd Collection',
             };
-          });
-          parsed.sort((a, b) => b.createdAt - a.createdAt);
-          finalVideos = parsed;
-        }
+          })
+          .filter((item): item is VideoItem => Boolean(item));
 
-        setVideos(finalVideos);
+        parsed.sort((a, b) => b.createdAt - a.createdAt);
+        finalVideos = parsed;
+      }
 
-        // Check if visitor arrived via a shared video link `?v=<videoId>`
-        const params = new URLSearchParams(window.location.search);
-        const urlVidId = params.get('v');
-        if (urlVidId) {
-          const targetVideo = finalVideos.find((item) => item.id === urlVidId);
-          if (targetVideo) {
-            setActiveVideo(targetVideo);
-            setViewMode('watch');
-            if (!initialSharedViewCounted) {
-              initialSharedViewCounted = true;
-              incrementVideoViews(targetVideo.id);
-            }
-          } else {
-            setViewMode('home');
+      setVideos(finalVideos);
+
+      // Check if visitor or Googlebot arrived via a shared video link `?v=<videoId>`
+      const params = new URLSearchParams(window.location.search);
+      const urlVidId = params.get('v');
+      if (urlVidId) {
+        const targetVideo = finalVideos.find((item) => item.id === urlVidId);
+        if (targetVideo) {
+          setActiveVideo(targetVideo);
+          setViewMode('watch');
+          if (!initialSharedViewCounted) {
+            initialSharedViewCounted = true;
+            incrementVideoViews(targetVideo.id);
           }
         } else {
-          setActiveVideo((prev) => {
-            if (!prev) return null;
-            const updated = finalVideos.find((item) => item.id === prev.id);
-            return updated || prev;
-          });
+          setViewMode('home');
         }
+      } else {
+        setActiveVideo((prev) => {
+          if (!prev) return null;
+          const updated = finalVideos.find((item) => item.id === prev.id);
+          return updated || prev;
+        });
+      }
 
-        setLoadingVideos(false);
+      setLoadingVideos(false);
+    };
+
+    // Fast HTTP JSON fetch so Googlebot renderer gets all videos immediately without waiting for WebSocket
+    fetch('https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json && typeof json === 'object') {
+          applyRawVideosData(json);
+        }
+      })
+      .catch(() => {});
+
+    const unsubscribe = onValue(
+      videosRef,
+      (snapshot) => {
+        applyRawVideosData(snapshot.val());
       },
       () => {
-        setVideos([]);
-        setViewMode('home');
         setLoadingVideos(false);
       }
     );

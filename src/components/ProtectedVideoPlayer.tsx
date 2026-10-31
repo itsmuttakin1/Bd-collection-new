@@ -13,6 +13,7 @@ interface ProtectedVideoPlayerProps {
 export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   videoId,
   videoUrl,
+  title,
   poster,
   onPlaySuccess,
 }) => {
@@ -206,6 +207,8 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       <video
         ref={videoRef}
         src={resolvedVideoSrc}
+        poster={poster && poster.trim() ? poster.trim() : 'https://bdcollection.pages.dev/favicon.png'}
+        title={title}
         playsInline
         preload="metadata"
         controlsList="nodownload noplaybackrate"
@@ -245,7 +248,9 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
         className="w-full h-full object-contain pointer-events-none"
-      />
+      >
+        {resolvedVideoSrc && <source src={resolvedVideoSrc} type="video/mp4" />}
+      </video>
 
       {/* Smart Adjusted Thumbnail Overlay before video is unlocked */}
       {!isUnlocked && hasValidPoster && (

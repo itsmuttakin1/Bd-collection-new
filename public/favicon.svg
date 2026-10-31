@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="50%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#991b1b" />
+    </linearGradient>
+    <filter id="dropShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <!-- Rounded Squircle Background -->
+  <rect x="6" y="6" width="116" height="116" rx="28" ry="28" fill="url(#bgGrad)" />
+  <rect x="8" y="8" width="112" height="112" rx="26" ry="26" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2" />
+  <!-- Crisp White Play Triangle -->
+  <path
+    d="M50 38.5C50 35.4 53.35 33.48 56.02 35.06L91.58 56.06C94.2 57.61 94.2 61.39 91.58 62.94L56.02 83.94C53.35 85.52 50 83.6 50 80.5V38.5Z"
+    fill="#ffffff"
+    filter="url(#dropShadow)"
+    transform="translate(0, 4.5)"
+  />
+</svg>

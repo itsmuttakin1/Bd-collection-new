@@ -132,6 +132,20 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               isPortraitThumb ? 'object-contain' : 'object-cover object-center'
             }`}
           />
+          {/* Crawl-discoverable HTML5 video element with poster & contentUrl for Googlebot-Video */}
+          {streamSrc && (
+            <video
+              src={streamSrc}
+              poster={thumbSrc}
+              preload="none"
+              muted
+              playsInline
+              aria-label={video.title}
+              className="sr-only"
+            >
+              <source src={streamSrc} type="video/mp4" />
+            </video>
+          )}
         </div>
       )}
 
@@ -140,6 +154,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         <video
           ref={videoRef}
           src={streamWithFragment}
+          poster="https://bdcollection.pages.dev/favicon.png"
           preload="metadata"
           muted
           playsInline
@@ -161,7 +176,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
             videoReady ? 'opacity-100' : 'opacity-0'
           }`}
-        />
+        >
+          <source src={streamSrc} type="video/mp4" />
+        </video>
       )}
 
       {/* Hover Play Overlay */}
@@ -179,10 +196,20 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     </>
   );
 
+  const watchHref = `/?v=${encodeURIComponent(video.id)}`;
+
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Allow Ctrl/Cmd/Middle-click to open in new tab normally; intercept standard left-click
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    onCardClick(video);
+  };
+
   if (compact) {
     return (
-      <div
-        onClick={() => onCardClick(video)}
+      <a
+        href={watchHref}
+        onClick={handleAnchorClick}
         className="group flex gap-3 cursor-pointer rounded-xl p-1.5 hover:bg-zinc-900/70 transition-colors"
       >
         <div className="relative w-40 sm:w-44 aspect-video rounded-lg bg-zinc-900 overflow-hidden shrink-0">
@@ -200,38 +227,41 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <span>{formatTimeAgo(video.createdAt)}</span>
           </div>
         </div>
-      </div>
+      </a>
     );
   }
 
   return (
-    <article
-      onClick={() => onCardClick(video)}
-      className="group cursor-pointer flex flex-col gap-3"
-    >
-      <div className="relative w-full aspect-video rounded-xl bg-zinc-900 overflow-hidden shadow-md">
-        {renderThumbnailMedia()}
-      </div>
-
-      <div className="flex gap-3 items-start px-0.5">
-        <div className="w-9 h-9 rounded-full bg-red-600/20 border border-red-500/30 text-red-400 font-semibold text-sm flex items-center justify-center shrink-0 select-none">
-          {authorInitial}
+    <article className="group cursor-pointer flex flex-col gap-3">
+      <a
+        href={watchHref}
+        onClick={handleAnchorClick}
+        className="flex flex-col gap-3"
+      >
+        <div className="relative w-full aspect-video rounded-xl bg-zinc-900 overflow-hidden shadow-md">
+          {renderThumbnailMedia()}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-semibold text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
-            {video.title}
-          </h3>
-          <p className="text-[13px] text-zinc-400 mt-1 truncate hover:text-zinc-300">
-            {video.author}
-          </p>
-          <div className="flex items-center gap-1.5 text-[13px] text-zinc-400">
-            <span className="tabular-nums">{formatViews(video.views)}</span>
-            <span aria-hidden="true">·</span>
-            <span>{formatTimeAgo(video.createdAt)}</span>
+        <div className="flex gap-3 items-start px-0.5">
+          <div className="w-9 h-9 rounded-full bg-red-600/20 border border-red-500/30 text-red-400 font-semibold text-sm flex items-center justify-center shrink-0 select-none">
+            {authorInitial}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[15px] font-semibold text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
+              {video.title}
+            </h3>
+            <p className="text-[13px] text-zinc-400 mt-1 truncate hover:text-zinc-300">
+              {video.author}
+            </p>
+            <div className="flex items-center gap-1.5 text-[13px] text-zinc-400">
+              <span className="tabular-nums">{formatViews(video.views)}</span>
+              <span aria-hidden="true">·</span>
+              <span>{formatTimeAgo(video.createdAt)}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </a>
     </article>
   );
 };

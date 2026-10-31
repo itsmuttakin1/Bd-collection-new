@@ -62,7 +62,20 @@ async function startServer() {
     try {
       const fbRes = await fetch(FIREBASE_RTDB_VIDEOS_URL);
       const data = fbRes.ok ? await fbRes.json() : {};
-      const todayIso = new Date().toISOString().split('T')[0];
+      const todayIso = new Date().toISOString();
+      const brokenFiles = ['5_6230929087481782223.mp4', 'VID_20261015_090110_156.mp4'];
+
+      const parseDurationSec = (raw?: string): number => {
+        if (!raw || typeof raw !== 'string') return 210;
+        const parts = raw.trim().split(':').map((n) => parseInt(n, 10));
+        if (parts.some((n) => isNaN(n) || n < 0)) return 210;
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) {
+          const total = parts[0] * 60 + parts[1];
+          return total > 0 ? total : 210;
+        }
+        return 210;
+      };
 
       let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
       xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
@@ -77,34 +90,39 @@ async function startServer() {
       if (data && typeof data === 'object') {
         for (const [id, rawVal] of Object.entries(data as Record<string, any>)) {
           if (!rawVal || typeof rawVal !== 'object') continue;
-          const title = rawVal.title || 'Bd Collection Viral Video';
-          const desc =
+          const title = (rawVal.title || 'Bd Collection Viral Video').trim();
+          const desc = (
             rawVal.description ||
             rawVal.keywords ||
-            `${title} - Watch exclusive Bangladeshi viral video on Bd Collection.`;
-          const thumb = rawVal.thumbnail || rawVal.thumbnailUrl || '';
-          const contentLoc = rawVal.url || rawVal.videoUrl || '';
+            `${title} - Watch exclusive Bangladeshi viral video in HD on Bd Collection.`
+          ).trim();
+          const thumb = (rawVal.thumbnail || rawVal.thumbnailUrl || `${CANONICAL_SITE_URL}/favicon.png`).trim();
+          const contentLoc = (rawVal.url || rawVal.videoUrl || '').trim();
+          if (!contentLoc || brokenFiles.some((b) => contentLoc.includes(b))) continue;
+
           const views = Number(rawVal.views) || 0;
           const ts = Number(rawVal.addedAt || rawVal.createdAt) || Date.now();
-          const dateStr = new Date(ts).toISOString().split('T')[0];
+          const pubIso = new Date(ts).toISOString();
+          const durationSec = parseDurationSec(rawVal.duration);
           const pageLoc = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(id)}`;
 
           xml += `  <url>\n`;
           xml += `    <loc>${escapeXml(pageLoc)}</loc>\n`;
-          xml += `    <lastmod>${dateStr}</lastmod>\n`;
+          xml += `    <lastmod>${pubIso}</lastmod>\n`;
           xml += `    <changefreq>daily</changefreq>\n`;
           xml += `    <priority>0.9</priority>\n`;
-          if (contentLoc && thumb) {
-            xml += `    <video:video>\n`;
-            xml += `      <video:thumbnail_loc>${escapeXml(thumb)}</video:thumbnail_loc>\n`;
-            xml += `      <video:title>${escapeXml(title)}</video:title>\n`;
-            xml += `      <video:description>${escapeXml(desc)}</video:description>\n`;
-            xml += `      <video:content_loc>${escapeXml(contentLoc)}</video:content_loc>\n`;
-            xml += `      <video:view_count>${views}</video:view_count>\n`;
-            xml += `      <video:publication_date>${dateStr}</video:publication_date>\n`;
-            xml += `      <video:family_friendly>no</video:family_friendly>\n`;
-            xml += `    </video:video>\n`;
-          }
+          xml += `    <video:video>\n`;
+          xml += `      <video:thumbnail_loc>${escapeXml(thumb)}</video:thumbnail_loc>\n`;
+          xml += `      <video:title>${escapeXml(title)}</video:title>\n`;
+          xml += `      <video:description>${escapeXml(desc)}</video:description>\n`;
+          xml += `      <video:content_loc>${escapeXml(contentLoc)}</video:content_loc>\n`;
+          xml += `      <video:player_loc allow_embed="yes">${escapeXml(pageLoc)}</video:player_loc>\n`;
+          xml += `      <video:duration>${durationSec}</video:duration>\n`;
+          xml += `      <video:view_count>${views}</video:view_count>\n`;
+          xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
+          xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
+          xml += `      <video:live>no</video:live>\n`;
+          xml += `    </video:video>\n`;
           xml += `  </url>\n`;
         }
       }
