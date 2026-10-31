@@ -15,6 +15,22 @@
         }
       }
     },
+    "stats": {
+      ".read": true,
+      "totalUsers": {
+        ".write": "(newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+      },
+      "totalVisits": {
+        ".write": "(newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+      }
+    },
+    "presence": {
+      ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$visitorId": {
+        ".read": true,
+        ".write": "!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+      }
+    },
     "settings": {
       ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"

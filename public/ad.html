@@ -312,6 +312,89 @@
         </div>
       </section>
 
+      <!-- LIVE WEBSITE VISITORS & TRAFFIC ANALYTICS (TOTAL USERS + ONLINE USERS) -->
+      <section class="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/50 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <h2 class="text-base font-bold text-white">Live Website User Count &amp; Online Traffic</h2>
+              <span id="user-rules-status-badge" class="px-2.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/70 text-[11px] font-mono text-emerald-300">
+                ⚡ Real-Time Sync Active
+              </span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-0.5">ওয়েবসাইটে কেউ ঢুকলে অটোমেটিক Total User কাউন্ট হবে এবং বর্তমানে কতজন Online আছে তা রিয়েল-টাইমে দেখাবে</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="quick-copy-rtdb-rules-btn" type="button"
+              class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors cursor-pointer">
+              📋 Copy Updated Firebase Rules (User Count + Online)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Online Users Card -->
+          <div class="p-4 rounded-xl border border-emerald-800/60 bg-zinc-950/90 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-zinc-400">Online Users (বর্তমানে অনলাইনে আছে)</p>
+              <div class="flex items-baseline gap-2 mt-1.5">
+                <span id="stat-online-users" class="text-2xl sm:text-3xl font-bold font-mono text-emerald-400">0</span>
+                <span class="text-[11px] font-mono text-emerald-300/90">● Live Now</span>
+              </div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-lg">
+              🟢
+            </div>
+          </div>
+
+          <!-- Total Users Card -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/90 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-zinc-400">Total Users (মোট ইউজার)</p>
+              <div class="flex items-baseline gap-2 mt-1.5">
+                <span id="stat-total-users" class="text-2xl sm:text-3xl font-bold font-mono text-white">0</span>
+                <span class="text-[11px] font-mono text-zinc-500">Unique Visitors</span>
+              </div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-red-600/15 border border-red-500/30 flex items-center justify-center text-lg">
+              👥
+            </div>
+          </div>
+
+          <!-- Total Visits / Sessions Card -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/90 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-zinc-400">Total Visits (মোট ভিজিট)</p>
+              <div class="flex items-baseline gap-2 mt-1.5">
+                <span id="stat-total-visits" class="text-2xl sm:text-3xl font-bold font-mono text-sky-400">0</span>
+                <span class="text-[11px] font-mono text-zinc-500">All Sessions</span>
+              </div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-lg">
+              🌐
+            </div>
+          </div>
+
+          <!-- Total Video Views Card -->
+          <div class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/90 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium text-zinc-400">Total Video Views (মোট ভিডিও ভিউ)</p>
+              <div class="flex items-baseline gap-2 mt-1.5">
+                <span id="stat-total-views" class="text-2xl sm:text-3xl font-bold font-mono text-amber-400">0</span>
+                <span id="stat-total-videos-sub" class="text-[11px] font-mono text-zinc-500">0 Videos</span>
+              </div>
+            </div>
+            <div class="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-lg">
+              ▶️
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- SECTION 1: LIVE STORAGE MONITOR (USED %, USED GB, FREE GB PER SERVER) -->
       <section class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-4">
@@ -784,6 +867,22 @@ export default {
                 }
               }
             },
+            stats: {
+              ".read": true,
+              totalUsers: {
+                ".write": `(newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
+              },
+              totalVisits: {
+                ".write": `(newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
+              }
+            },
+            presence: {
+              ".read": adminOnly,
+              "$visitorId": {
+                ".read": true,
+                ".write": `!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()) || (${adminOnly})`
+              }
+            },
             settings: {
               ".read": adminOnly,
               ".write": adminOnly
@@ -826,6 +925,18 @@ service cloud.firestore {
       allow get, list: if isAdmin();
       allow create, update, delete: if isAdmin() && isValidId(serverId);
     }
+
+    match /site_stats/{statId} {
+      allow get: if true;
+      allow list, delete: if isAdmin();
+      allow create, update: if isValidId(statId) && request.resource.data.totalUsers is int && request.resource.data.totalUsers >= 1;
+    }
+
+    match /online_users/{visitorId} {
+      allow get, list: if isAdmin();
+      allow create, update: if isValidId(visitorId) && request.resource.data.online is bool && request.resource.data.lastSeen is int;
+      allow delete: if isValidId(visitorId) || isAdmin();
+    }
   }
 }`;
 
@@ -844,6 +955,14 @@ service cloud.firestore {
       navigator.clipboard.writeText(text);
       e.target.textContent = 'Copied RTDB Rules ✓';
       setTimeout(() => (e.target.textContent = 'Copy RTDB Rules'), 2000);
+    });
+
+    document.getElementById('quick-copy-rtdb-rules-btn').addEventListener('click', (e) => {
+      const text = buildFirebaseRulesJson();
+      navigator.clipboard.writeText(text);
+      e.target.textContent = '✓ Copied Updated Firebase Rules!';
+      showStatus('Copied updated Firebase Realtime Database Rules (with Total Users & Online Users)! Paste in Firebase Console → Realtime Database → Rules → Publish.', 'success');
+      setTimeout(() => (e.target.textContent = '📋 Copy Updated Firebase Rules (User Count + Online)'), 2500);
     });
 
     document.getElementById('copy-firestore-rules-btn').addEventListener('click', (e) => {
@@ -2373,6 +2492,117 @@ service cloud.firestore {
       }
     });
 
+    let trafficMonitorStarted = false;
+    let fbTotalUsers = 0;
+    let fbTotalVisits = 0;
+    let settingsSavedUsers = 0;
+    let serverTotalUsers = 0;
+    let fbPresenceMap = {};
+    let serverOnlineIds = [];
+
+    const renderTrafficCounters = () => {
+      const now = Date.now();
+      const activeIds = new Set();
+
+      // Count active Firebase RTDB presence entries (lastSeen within 65 seconds)
+      Object.entries(fbPresenceMap || {}).forEach(([vid, info]) => {
+        if (!info || typeof info !== 'object') return;
+        const lastSeen = Number(info.lastSeen) || 0;
+        if (info.online && (lastSeen === 0 || now - lastSeen < 65000)) {
+          activeIds.add(vid);
+        }
+      });
+
+      // Merge active visitor IDs from server heartbeat
+      (serverOnlineIds || []).forEach((id) => activeIds.add(id));
+
+      const onlineCount = activeIds.size;
+      const totalUsersCount = Math.max(fbTotalUsers, settingsSavedUsers, serverTotalUsers, onlineCount);
+      const totalVisitsCount = Math.max(fbTotalVisits, totalUsersCount);
+
+      const onlineEl = document.getElementById('stat-online-users');
+      const totalUsersEl = document.getElementById('stat-total-users');
+      const totalVisitsEl = document.getElementById('stat-total-visits');
+
+      if (onlineEl) onlineEl.textContent = onlineCount.toLocaleString();
+      if (totalUsersEl) totalUsersEl.textContent = totalUsersCount.toLocaleString();
+      if (totalVisitsEl) totalVisitsEl.textContent = totalVisitsCount.toLocaleString();
+    };
+
+    const initLiveUserTrafficMonitor = () => {
+      if (trafficMonitorStarted) return;
+      trafficMonitorStarted = true;
+
+      const badgeEl = document.getElementById('user-rules-status-badge');
+
+      // 1. Load Admin-backed backup counter from `settings/visitorStats`
+      get(ref(db, 'settings/visitorStats'))
+        .then((snap) => {
+          if (snap.exists() && snap.val()) {
+            settingsSavedUsers = Number(snap.val().totalUsers) || 0;
+            renderTrafficCounters();
+          }
+        })
+        .catch(() => {});
+
+      // 2. Listen to Firebase RTDB `stats` (`totalUsers` & `totalVisits`)
+      onValue(
+        ref(db, 'stats'),
+        (snap) => {
+          const val = snap.val() || {};
+          fbTotalUsers = Number(val.totalUsers) || 0;
+          fbTotalVisits = Number(val.totalVisits) || 0;
+          renderTrafficCounters();
+        },
+        () => {}
+      );
+
+      // 3. Listen to Firebase RTDB `presence` (All live online users)
+      onValue(
+        ref(db, 'presence'),
+        (snap) => {
+          fbPresenceMap = snap.val() || {};
+          if (badgeEl) {
+            badgeEl.textContent = '⚡ Firebase Live Presence Active';
+            badgeEl.className =
+              'px-2.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/70 text-[11px] font-mono text-emerald-300';
+          }
+          renderTrafficCounters();
+        },
+        () => {
+          if (badgeEl) {
+            badgeEl.textContent = '⚠️ নতুন Rules কপি করে Firebase Console-এ Publish করুন';
+            badgeEl.className =
+              'px-2.5 py-0.5 rounded-md bg-amber-950/80 border border-amber-800/70 text-[11px] font-mono text-amber-300';
+          }
+        }
+      );
+
+      // 4. Poll server `/api/visitor-stats` & prune stale presence every 4 seconds
+      const pollServerStats = async () => {
+        try {
+          const res = await fetch('/api/visitor-stats');
+          if (res.ok) {
+            const data = await res.json();
+            serverTotalUsers = Number(data.totalUsers) || 0;
+            serverOnlineIds = Array.isArray(data.onlineVisitorIds) ? data.onlineVisitorIds : [];
+            const mergedMax = Math.max(fbTotalUsers, settingsSavedUsers, serverTotalUsers);
+            if (mergedMax > settingsSavedUsers && currentUser?.uid === ADMIN_UID) {
+              settingsSavedUsers = mergedMax;
+              set(ref(db, 'settings/visitorStats'), {
+                totalUsers: mergedMax,
+                updatedAt: Date.now()
+              }).catch(() => {});
+            }
+          }
+        } catch {}
+        renderTrafficCounters();
+      };
+
+      pollServerStats();
+      setInterval(pollServerStats, 4000);
+    };
+
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         if (user.uid !== ADMIN_UID) {
@@ -2390,6 +2620,7 @@ service cloud.firestore {
         document.getElementById('guide-uid-inline').textContent = ADMIN_UID;
         document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson();
         document.getElementById('firestore-rules-block').textContent = buildFirestoreRulesText();
+        initLiveUserTrafficMonitor();
         renderServerSelect();
         await loadAdminServersFromFirebase();
         refreshAllServers();
@@ -2404,12 +2635,16 @@ service cloud.firestore {
     onValue(ref(db, 'videos'), (snapshot) => {
       const tbody = document.getElementById('catalog-table-body');
       const countEl = document.getElementById('catalog-count');
+      const totalViewsEl = document.getElementById('stat-total-views');
+      const totalVideosSubEl = document.getElementById('stat-total-videos-sub');
       tbody.innerHTML = '';
 
       const val = snapshot.val();
       if (!val || typeof val !== 'object') {
         rawVideosMap = {};
         countEl.textContent = '0 videos';
+        if (totalViewsEl) totalViewsEl.textContent = '0';
+        if (totalVideosSubEl) totalVideosSubEl.textContent = '0 Videos';
         tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-zinc-500">No published videos in Firebase yet.</td></tr>';
         return;
       }
@@ -2426,6 +2661,10 @@ service cloud.firestore {
       }));
       list.sort((a, b) => b.time - a.time);
       countEl.textContent = `${list.length} videos`;
+
+      const sumViews = list.reduce((acc, item) => acc + (Number(item.views) || 0), 0);
+      if (totalViewsEl) totalViewsEl.textContent = sumViews.toLocaleString();
+      if (totalVideosSubEl) totalVideosSubEl.textContent = `${list.length} Videos`;
 
       list.forEach((v) => {
         const tr = document.createElement('tr');

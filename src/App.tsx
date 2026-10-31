@@ -8,7 +8,10 @@ import {
   db,
   ref,
   onValue,
+  set,
+  remove,
   runTransaction,
+  onDisconnect,
   VideoItem,
 } from './firebase';
 import {
@@ -297,6 +300,112 @@ export default function App() {
       return (Number(currentViews) || 0) + 1;
     }).catch(() => {});
   };
+
+  // Track Total Users & Live Online Users in Firebase Realtime Database (`stats/totalUsers` & `presence/$visitorId`)
+  useEffect(() => {
+    let visitorId = '';
+    try {
+      visitorId = localStorage.getItem('bd_collection_visitor_id') || '';
+      if (!visitorId || !/^[a-zA-Z0-9_-]+$/.test(visitorId)) {
+        visitorId = `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        localStorage.setItem('bd_collection_visitor_id', visitorId);
+      }
+    } catch {
+      visitorId = `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    // 1. Count unique user into Firebase `stats/totalUsers` once per unique visitor
+    const countedKey = 'bd_collection_user_counted_v1';
+    let alreadyCounted = false;
+    try {
+      alreadyCounted = localStorage.getItem(countedKey) === '1';
+    } catch {}
+
+    if (!alreadyCounted) {
+      const totalUsersRef = ref(db, 'stats/totalUsers');
+      runTransaction(totalUsersRef, (curr) => (Number(curr) || 0) + 1)
+        .then((res) => {
+          if (res.committed) {
+            try {
+              localStorage.setItem(countedKey, '1');
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 2. Count session visit into Firebase `stats/totalVisits` once per browser session
+    const sessionKey = 'bd_collection_session_counted_v1';
+    let sessionCounted = false;
+    try {
+      sessionCounted = sessionStorage.getItem(sessionKey) === '1';
+    } catch {}
+
+    if (!sessionCounted) {
+      const totalVisitsRef = ref(db, 'stats/totalVisits');
+      runTransaction(totalVisitsRef, (curr) => (Number(curr) || 0) + 1)
+        .then((res) => {
+          if (res.committed) {
+            try {
+              sessionStorage.setItem(sessionKey, '1');
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 3. Track Live Online User Presence in Firebase `presence/$visitorId` + Server Heartbeat
+    const userPresenceRef = ref(db, `presence/${visitorId}`);
+    const connectedRef = ref(db, '.info/connected');
+
+    const writePresence = () => {
+      set(userPresenceRef, {
+        online: true,
+        lastSeen: Date.now(),
+      }).catch(() => {});
+
+      fetch('/api/visitor-ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitorId,
+          page: window.location.pathname + window.location.search,
+        }),
+      }).catch(() => {});
+    };
+
+    const unsubConnected = onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        onDisconnect(userPresenceRef)
+          .remove()
+          .catch(() => {});
+        writePresence();
+      }
+    });
+
+    writePresence();
+    const heartbeatTimer = window.setInterval(writePresence, 20000);
+
+    const handleBeforeUnload = () => {
+      remove(userPresenceRef).catch(() => {});
+      try {
+        navigator.sendBeacon?.(
+          '/api/visitor-ping',
+          new Blob([JSON.stringify({ visitorId, offline: true })], {
+            type: 'application/json',
+          })
+        );
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      unsubConnected();
+      window.clearInterval(heartbeatTimer);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      remove(userPresenceRef).catch(() => {});
+    };
+  }, []);
 
   // Sync videos from Firebase Realtime Database (`video-platform-7c031`) + Immediate REST fetch for Googlebot SEO
   useEffect(() => {

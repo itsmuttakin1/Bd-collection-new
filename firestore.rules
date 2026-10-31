@@ -29,5 +29,17 @@ service cloud.firestore {
       allow get, list: if isAdmin();
       allow create, update, delete: if isAdmin() && isValidId(serverId);
     }
+
+    match /site_stats/{statId} {
+      allow get: if true;
+      allow list, delete: if isAdmin();
+      allow create, update: if isValidId(statId) && request.resource.data.totalUsers is int && request.resource.data.totalUsers >= 1;
+    }
+
+    match /online_users/{visitorId} {
+      allow get, list: if isAdmin();
+      allow create, update: if isValidId(visitorId) && request.resource.data.online is bool && request.resource.data.lastSeen is int;
+      allow delete: if isValidId(visitorId) || isAdmin();
+    }
   }
 }

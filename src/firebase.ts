@@ -1,6 +1,18 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getDatabase, ref, onValue, push, set, remove, get, update, runTransaction } from 'firebase/database';
+import {
+  getDatabase,
+  ref,
+  onValue,
+  push,
+  set,
+  remove,
+  get,
+  update,
+  runTransaction,
+  onDisconnect,
+  serverTimestamp,
+} from 'firebase/database';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyBPrgfeMTuy3GI1nb2jgw-qqQn6wPvH-0w",
@@ -42,4 +54,4 @@ export const BANNER_320x50_KEY = "f9d96eee7a61e1baf855ad37f42838ae";
 export const BANNER_320x50_SCRIPT_SRC = "https://brijmohan.org/22/f9d96eee7a61e1baf855ad37f42838ae";
 export const SOCIAL_BAR_SCRIPT_SRC = "https://brijmohan.org/14/9685e94c6cd837de7f2e6be4199a8040";
 
-export { ref, onValue, push, set, remove, get, update, runTransaction };
+export { ref, onValue, push, set, remove, get, update, runTransaction, onDisconnect, serverTimestamp };

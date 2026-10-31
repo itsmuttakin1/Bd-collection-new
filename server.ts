@@ -31,6 +31,57 @@ async function startServer() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
+  // Live in-memory + persistent visitor tracking fallback alongside Firebase RTDB
+  const seenVisitorIds = new Set<string>();
+  const activeOnlineVisitors = new Map<string, { lastSeen: number; page: string }>();
+
+  app.use(express.json({ limit: '64kb' }));
+
+  app.options('/api/visitor-ping', (_req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    res.status(204).end();
+  });
+
+  app.post('/api/visitor-ping', (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    const visitorId = String(req.body?.visitorId || '').trim().slice(0, 80);
+    const page = String(req.body?.page || '/').trim().slice(0, 120);
+    const offline = Boolean(req.body?.offline);
+
+    if (visitorId) {
+      seenVisitorIds.add(visitorId);
+      if (offline) {
+        activeOnlineVisitors.delete(visitorId);
+      } else {
+        activeOnlineVisitors.set(visitorId, { lastSeen: Date.now(), page });
+      }
+    }
+
+    const cutoff = Date.now() - 65000;
+    for (const [vid, info] of activeOnlineVisitors.entries()) {
+      if (info.lastSeen < cutoff) activeOnlineVisitors.delete(vid);
+    }
+
+    res.json({
+      ok: true,
+      onlineUsers: activeOnlineVisitors.size,
+      totalUsers: seenVisitorIds.size,
+    });
+  });
+
+  app.get('/api/visitor-stats', (_req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    const cutoff = Date.now() - 65000;
+    for (const [vid, info] of activeOnlineVisitors.entries()) {
+      if (info.lastSeen < cutoff) activeOnlineVisitors.delete(vid);
+    }
+    res.json({
+      onlineUsers: activeOnlineVisitors.size,
+      totalUsers: seenVisitorIds.size,
+      onlineVisitorIds: Array.from(activeOnlineVisitors.keys()),
+    });
+  });
+
   // SEO robots.txt route
   app.get('/robots.txt', (_req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
