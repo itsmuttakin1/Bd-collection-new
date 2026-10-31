@@ -513,22 +513,57 @@
           </form>
         </div>
 
-        <!-- Right 5 Cols: Selected Server File Explorer (/api/list & /api/delete) -->
-        <div class="lg:col-span-5 p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 flex flex-col justify-between space-y-4">
+        <!-- Right 5 Cols: Selected Server File Explorer (/api/list, Play Preview & /api/delete) -->
+        <div id="server-explorer-panel" class="lg:col-span-5 p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 flex flex-col justify-between space-y-4">
           <div class="space-y-4">
-            <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-4">
               <div>
-                <h2 class="text-base font-bold text-white">Server Files Explorer</h2>
-                <p id="explorer-server-title" class="text-xs text-zinc-400">Files stored on active server</p>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base font-bold text-white">Server Files Explorer</h2>
+                  <span id="explorer-header-badge" class="px-2 py-0.5 rounded-md bg-red-600/20 border border-red-500/40 text-[11px] font-mono font-semibold text-red-300">
+                    0 files
+                  </span>
+                </div>
+                <p id="explorer-server-title" class="text-xs text-zinc-400 mt-0.5">সার্ভার কার্ডে ক্লিক করলে ওই সার্ভারের সব ফাইল ও ভিডিও এখানে দেখাবে</p>
               </div>
               <button id="refresh-files-btn" type="button"
                 class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 cursor-pointer">
-                Reload Files
+                ↻ Reload Files
               </button>
             </div>
 
+            <!-- Inline Server Video Player Preview (For checking video before Delete or Publish) -->
+            <div id="explorer-player-box" class="hidden rounded-xl border border-red-500/60 bg-zinc-950 overflow-hidden shadow-xl">
+              <div class="px-3 py-2 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p id="explorer-player-title" class="text-xs font-mono font-semibold text-white truncate">Playing video...</p>
+                  <p id="explorer-player-meta" class="text-[10px] font-mono text-zinc-400"></p>
+                </div>
+                <button id="explorer-player-close" type="button"
+                  class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs cursor-pointer shrink-0">
+                  ✕ বন্ধ করুন
+                </button>
+              </div>
+              <div class="relative w-full aspect-video bg-black flex items-center justify-center">
+                <video id="explorer-preview-video" controls playsinline preload="metadata" class="w-full h-full object-contain"></video>
+              </div>
+              <div class="p-2.5 bg-zinc-900/80 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+                <span class="text-[11px] text-zinc-400">ভিডিওটি দেখে ডিলিট বা পাবলিশ করতে পারবেন:</span>
+                <div class="flex items-center gap-2">
+                  <button id="explorer-player-pub-btn" type="button"
+                    class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
+                    + Publish Video
+                  </button>
+                  <button id="explorer-player-del-btn" type="button"
+                    class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer">
+                    🗑️ Delete This File
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div id="r2-files-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              <p class="text-xs text-zinc-500 py-8 text-center">Add a storage server to view and manage files.</p>
+              <p class="text-xs text-zinc-500 py-8 text-center">Add a storage server to view, play, and manage files.</p>
             </div>
           </div>
 
@@ -1131,9 +1166,15 @@ service cloud.firestore {
               <span class="text-emerald-400 font-semibold">${formatBytes(freeBytes)}</span>
             </div>
             <div class="text-right">
-              <span class="text-zinc-500 block">FILES / QUOTA</span>
-              <span class="text-zinc-300">${st.fileCount || 0} / ${srv.quotaGB} GB</span>
+              <span class="text-zinc-500 block">TOTAL FILES</span>
+              <span class="text-amber-300 font-semibold">📁 ${st.fileCount || 0} Files (${srv.quotaGB} GB)</span>
             </div>
+          </div>
+          <div class="mt-3 pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px]">
+            <span class="${isSelected ? 'text-red-400 font-semibold' : 'text-zinc-400'}">
+              ${isSelected ? '✓ ফাইল লিস্ট ও প্লেয়ার নিচে দেখুন' : '▶ ক্লিক করে এই সার্ভারের ফাইলগুলো দেখুন ও প্লে করুন'}
+            </span>
+            <span class="font-mono text-zinc-300">${st.fileCount || 0}টি ফাইল →</span>
           </div>
           ${
             st.error
@@ -1142,128 +1183,238 @@ service cloud.firestore {
           }
         `;
 
-        card.addEventListener('click', (e) => {
+        card.addEventListener('click', async (e) => {
           const removeBtn = e.target.closest('[data-remove-srv]');
           if (removeBtn) {
             e.stopPropagation();
             const rmId = removeBtn.getAttribute('data-remove-srv');
             servers = servers.filter((s) => s.id !== rmId);
             if (activeServerId === rmId) activeServerId = servers[0]?.id || '';
+            closeExplorerVideoPlayer();
             saveServers();
             renderServerSelect();
             renderStorageCards();
             renderActiveServerFiles();
             return;
           }
+          if (activeServerId !== srv.id) {
+            closeExplorerVideoPlayer();
+          }
           activeServerId = srv.id;
           renderServerSelect();
           renderStorageCards();
           renderActiveServerFiles();
+
+          if (!serverStats[srv.id] || serverStats[srv.id].status !== 'online') {
+            await fetchServerFileList(srv);
+            renderStorageCards();
+            renderActiveServerFiles();
+          }
         });
 
         grid.appendChild(card);
       });
     }
 
+    let currentlyPlayingServerFile = null;
+
+    function closeExplorerVideoPlayer() {
+      currentlyPlayingServerFile = null;
+      const box = document.getElementById('explorer-player-box');
+      const vid = document.getElementById('explorer-preview-video');
+      if (vid) {
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+      }
+      if (box) box.classList.add('hidden');
+    }
+
+    document.getElementById('explorer-player-close').addEventListener('click', () => {
+      closeExplorerVideoPlayer();
+      renderActiveServerFiles();
+    });
+
+    async function publishServerFileToWebsite(activeSrv, file) {
+      try {
+        const cleanDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
+        const encodedKey = file.key.split('/').map(encodeURIComponent).join('/');
+        const streamUrl = `${cleanDomain}/${encodedKey}`;
+        const title = file.key.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+        const now = Date.now();
+        const newRef = push(ref(db, 'videos'));
+        await set(newRef, {
+          title,
+          keywords: 'Virallink bdgirl',
+          url: streamUrl,
+          videoUrl: streamUrl,
+          thumbnail: '',
+          thumbnailUrl: '',
+          r2Key: file.key,
+          duration: '04:00',
+          views: 0,
+          addedAt: now,
+          createdAt: now,
+          author: 'Bd Collection'
+        });
+        showStatus(`Published "${title}" to Firebase database!`, 'success');
+      } catch (err) {
+        showStatus(`Firebase Write Error: ${err.message}. Check your UID in Firebase Rules above!`, 'error');
+      }
+    }
+
+    async function deleteServerFileFromR2(activeSrv, file) {
+      const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
+      const key = (activeSrv.adminKey || '').trim();
+      try {
+        let res;
+        try {
+          res = await fetch(`${baseUrl}/api/delete`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'X-Admin-Key': key },
+            body: JSON.stringify({ key: file.key })
+          });
+        } catch {
+          res = await fetch('/api/r2-proxy/delete', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Admin-Key': key,
+              'X-Worker-Url': baseUrl
+            },
+            body: JSON.stringify({ key: file.key })
+          });
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        if (currentlyPlayingServerFile && currentlyPlayingServerFile.key === file.key) {
+          closeExplorerVideoPlayer();
+        }
+        showStatus(`Deleted "${file.key}" from ${activeSrv.name}.`, 'success');
+        await fetchServerFileList(activeSrv);
+        renderStorageCards();
+        renderActiveServerFiles();
+      } catch (err) {
+        showStatus(`Delete failed: ${err.message}`, 'error');
+      }
+    }
+
+    function playServerFileInExplorer(activeSrv, file) {
+      currentlyPlayingServerFile = { serverId: activeSrv.id, key: file.key, file };
+      const box = document.getElementById('explorer-player-box');
+      const vid = document.getElementById('explorer-preview-video');
+      const titleEl = document.getElementById('explorer-player-title');
+      const metaEl = document.getElementById('explorer-player-meta');
+      const pubBtn = document.getElementById('explorer-player-pub-btn');
+      const delBtn = document.getElementById('explorer-player-del-btn');
+
+      const encodedKey = file.key.split('/').map(encodeURIComponent).join('/');
+      const publicDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
+      const workerDomain = normalizeBaseUrl(activeSrv.workerUrl);
+      const primaryStreamUrl = `${publicDomain}/${encodedKey}`;
+      const fallbackStreamUrl = `${workerDomain}/${encodedKey}`;
+
+      titleEl.textContent = `▶ ${file.key}`;
+      metaEl.textContent = `${activeSrv.name} · ${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}`;
+      box.classList.remove('hidden');
+
+      let triedFallback = false;
+      vid.onerror = () => {
+        if (!triedFallback && fallbackStreamUrl !== primaryStreamUrl) {
+          triedFallback = true;
+          vid.src = fallbackStreamUrl;
+          vid.play().catch(() => {});
+        }
+      };
+
+      vid.src = primaryStreamUrl;
+      vid.play().catch(() => {});
+
+      pubBtn.onclick = () => publishServerFileToWebsite(activeSrv, file);
+      delBtn.onclick = () => deleteServerFileFromR2(activeSrv, file);
+
+      renderActiveServerFiles();
+    }
+
     function renderActiveServerFiles() {
       const container = document.getElementById('r2-files-list');
+      const headerBadge = document.getElementById('explorer-header-badge');
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
       if (!activeSrv) {
         document.getElementById('explorer-file-count').textContent = '0 files';
         document.getElementById('explorer-total-size').textContent = '0 B used';
+        if (headerBadge) headerBadge.textContent = '0 files';
+        closeExplorerVideoPlayer();
         container.innerHTML = '<p class="text-xs text-zinc-500 py-8 text-center">No storage server saved yet. Click "+ Add Storage Server" above.</p>';
         return;
       }
 
       const st = serverStats[activeSrv.id] || { files: [], usedBytes: 0 };
+      const count = (st.files || []).length;
 
-      document.getElementById('explorer-file-count').textContent = `${(st.files || []).length} files`;
+      document.getElementById('explorer-file-count').textContent = `${count} files on ${activeSrv.name}`;
       document.getElementById('explorer-total-size').textContent = `${formatBytes(st.usedBytes || 0)} used`;
+      if (headerBadge) headerBadge.textContent = `📁 ${count} files`;
 
       if (!st.files || st.files.length === 0) {
         container.innerHTML = `<p class="text-xs text-zinc-500 py-8 text-center">${
-          st.error ? st.error : 'No files found on this server.'
+          st.error ? st.error : `No files found on "${activeSrv.name}".`
         }</p>`;
         return;
       }
 
       container.innerHTML = '';
-      st.files.forEach((file) => {
+      st.files.forEach((file, idx) => {
+        const isPlaying =
+          currentlyPlayingServerFile &&
+          currentlyPlayingServerFile.serverId === activeSrv.id &&
+          currentlyPlayingServerFile.key === file.key;
+
         const row = document.createElement('div');
-        row.className = 'p-3 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between gap-3 hover:border-zinc-700';
+        row.className = `p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition-colors ${
+          isPlaying
+            ? 'border-red-500/80 bg-red-950/20'
+            : 'border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700'
+        }`;
         row.innerHTML = `
-          <div class="min-w-0 flex-1">
-            <p class="text-xs font-mono text-zinc-200 truncate">${file.key}</p>
+          <div class="min-w-0 flex-1 cursor-pointer" data-play-row="${file.key}">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">#${idx + 1}</span>
+              <p class="text-xs font-mono ${isPlaying ? 'text-red-300 font-semibold' : 'text-zinc-200'} truncate">${file.key}</p>
+            </div>
             <p class="text-[11px] font-mono text-zinc-500 mt-0.5">${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}</p>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <button data-pub-key="${file.key}" class="px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium cursor-pointer">
+            <button data-play-key="${file.key}" type="button" class="px-2.5 py-1 rounded ${
+              isPlaying
+                ? 'bg-red-600 text-white'
+                : 'bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300'
+            } text-[11px] font-semibold cursor-pointer">
+              ${isPlaying ? '▶ Playing' : '▶ Play'}
+            </button>
+            <button data-pub-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium cursor-pointer">
               + Publish
             </button>
-            <button data-del-key="${file.key}" class="px-2.5 py-1 rounded bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium cursor-pointer">
+            <button data-del-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium cursor-pointer">
               Delete
             </button>
           </div>
         `;
 
-        row.querySelector('[data-pub-key]').addEventListener('click', async () => {
-          try {
-            const cleanDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
-            const streamUrl = `${cleanDomain}/${file.key}`;
-            const title = file.key.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
-            const now = Date.now();
-            const newRef = push(ref(db, 'videos'));
-            await set(newRef, {
-              title,
-              keywords: 'Virallink bdgirl',
-              url: streamUrl,
-              videoUrl: streamUrl,
-              thumbnail: '',
-              thumbnailUrl: '',
-              r2Key: file.key,
-              duration: '04:00',
-              views: 0,
-              addedAt: now,
-              createdAt: now,
-              author: 'Bd Collection'
-            });
-            showStatus(`Published "${title}" to Firebase database!`, 'success');
-          } catch (err) {
-            showStatus(`Firebase Write Error: ${err.message}. Check your UID in Firebase Rules above!`, 'error');
-          }
+        row.querySelector('[data-play-key]').addEventListener('click', () => {
+          playServerFileInExplorer(activeSrv, file);
         });
 
-        row.querySelector('[data-del-key]').addEventListener('click', async () => {
-          const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
-          const key = (activeSrv.adminKey || '').trim();
-          try {
-            let res;
-            try {
-              res = await fetch(`${baseUrl}/api/delete`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Key': key },
-                body: JSON.stringify({ key: file.key })
-              });
-            } catch {
-              res = await fetch('/api/r2-proxy/delete', {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-Admin-Key': key,
-                  'X-Worker-Url': baseUrl
-                },
-                body: JSON.stringify({ key: file.key })
-              });
-            }
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Delete failed');
-            showStatus(`Deleted "${file.key}" from ${activeSrv.name}.`, 'success');
-            await fetchServerFileList(activeSrv);
-            renderStorageCards();
-            renderActiveServerFiles();
-          } catch (err) {
-            showStatus(`Delete failed: ${err.message}`, 'error');
-          }
+        row.querySelector('[data-play-row]').addEventListener('click', () => {
+          playServerFileInExplorer(activeSrv, file);
+        });
+
+        row.querySelector('[data-pub-key]').addEventListener('click', () => {
+          publishServerFileToWebsite(activeSrv, file);
+        });
+
+        row.querySelector('[data-del-key]').addEventListener('click', () => {
+          deleteServerFileFromR2(activeSrv, file);
         });
 
         container.appendChild(row);
