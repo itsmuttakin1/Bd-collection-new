@@ -33,10 +33,12 @@ async function startServer() {
   app.all('/api/r2-proxy/:endpoint', async (req, res) => {
     try {
       const endpoint = req.params.endpoint; // 'list', 'upload', or 'delete'
-      const rawWorkerUrl =
-        (req.headers['x-worker-url'] as string) ||
-        'https://mrghost-storage.djsungroup.workers.dev';
+      const rawWorkerUrl = (req.headers['x-worker-url'] as string) || '';
       const baseUrl = rawWorkerUrl.trim().replace(/\/+$/, '');
+      if (!baseUrl) {
+        res.status(400).set(corsHeaders).json({ error: 'Missing X-Worker-Url header' });
+        return;
+      }
       const adminKey = (req.headers['x-admin-key'] as string) || '';
 
       const queryIndex = req.originalUrl.indexOf('?');

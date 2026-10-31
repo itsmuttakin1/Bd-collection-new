@@ -35,45 +35,6 @@ import {
   Globe,
 } from 'lucide-react';
 
-const DEFAULT_VIDEOS: VideoItem[] = [
-  {
-    id: 'vid-1',
-    title: 'Midnight Drift in Tokyo - 4K Street Run',
-    description: 'Night city drive through Shibuya and Shinjuku in 4K.',
-    category: 'Trending',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
-    duration: '0:15',
-    views: 18420,
-    createdAt: Date.now() - 3600000 * 5,
-    author: 'Bd Collection',
-  },
-  {
-    id: 'vid-2',
-    title: 'Iceland Black Sand Coast - Aerial Film',
-    description: 'Cinematic drone flight over volcanic coastline and ocean waves.',
-    category: 'Trending',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerEscapes.jpg',
-    duration: '0:15',
-    views: 12390,
-    createdAt: Date.now() - 3600000 * 18,
-    author: 'Bd Collection',
-  },
-  {
-    id: 'vid-3',
-    title: 'GT Endurance Track Day - Wet Circuit Highlights',
-    description: 'Full onboard and trackside highlights from the evening endurance session.',
-    category: 'Trending',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerFun.jpg',
-    duration: '1:00',
-    views: 29150,
-    createdAt: Date.now() - 3600000 * 30,
-    author: 'Bd Collection',
-  },
-];
-
 type ViewMode = 'home' | 'watch';
 
 export default function App() {
@@ -87,7 +48,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     return params.get('v') ? 'watch' : 'home';
   });
-  const [videos, setVideos] = useState<VideoItem[]>(DEFAULT_VIDEOS);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
@@ -170,7 +131,7 @@ export default function App() {
 
   // Increment view count atomically in Firebase RTDB (`videos/$videoId/views`)
   const incrementVideoViews = (videoId: string) => {
-    if (!videoId || videoId.startsWith('vid-')) return;
+    if (!videoId) return;
     const viewsRef = ref(db, `videos/${videoId}/views`);
     runTransaction(viewsRef, (currentViews) => {
       return (Number(currentViews) || 0) + 1;
@@ -186,7 +147,7 @@ export default function App() {
       videosRef,
       (snapshot) => {
         const data = snapshot.val();
-        let finalVideos = DEFAULT_VIDEOS;
+        let finalVideos: VideoItem[] = [];
 
         if (data && typeof data === 'object') {
           const parsed: VideoItem[] = Object.entries(data).map(([key, val]: [string, any]) => {
@@ -214,9 +175,7 @@ export default function App() {
             };
           });
           parsed.sort((a, b) => b.createdAt - a.createdAt);
-          if (parsed.length > 0) {
-            finalVideos = parsed;
-          }
+          finalVideos = parsed;
         }
 
         setVideos(finalVideos);
@@ -247,18 +206,8 @@ export default function App() {
         setLoadingVideos(false);
       },
       () => {
-        setVideos(DEFAULT_VIDEOS);
-        const params = new URLSearchParams(window.location.search);
-        const urlVidId = params.get('v');
-        if (urlVidId) {
-          const targetVideo = DEFAULT_VIDEOS.find((item) => item.id === urlVidId);
-          if (targetVideo) {
-            setActiveVideo(targetVideo);
-            setViewMode('watch');
-          } else {
-            setViewMode('home');
-          }
-        }
+        setVideos([]);
+        setViewMode('home');
         setLoadingVideos(false);
       }
     );

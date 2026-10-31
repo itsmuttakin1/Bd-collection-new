@@ -321,17 +321,17 @@
           <form id="add-server-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label class="block text-[11px] text-zinc-400 mb-1">Server Name</label>
-              <input id="srv-name" type="text" required placeholder="Server 2 (R2 Backup)"
+              <input id="srv-name" type="text" required placeholder="Server 1 (Cloudflare R2)"
                 class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
             </div>
             <div>
               <label class="block text-[11px] text-zinc-400 mb-1">Worker API URL</label>
-              <input id="srv-url" type="url" required placeholder="https://mrghost-storage.djsungroup.workers.dev"
+              <input id="srv-url" type="url" required placeholder="https://your-worker.workers.dev"
                 class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
             </div>
             <div>
               <label class="block text-[11px] text-zinc-400 mb-1">Public R2 Stream URL</label>
-              <input id="srv-public" type="url" required placeholder="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev"
+              <input id="srv-public" type="url" required placeholder="https://pub-xxxx.r2.dev"
                 class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
             </div>
             <div>
@@ -378,7 +378,7 @@
               </div>
               <div>
                 <label class="block text-xs font-medium text-zinc-300 mb-1.5">Public R2 Stream Domain *</label>
-                <input id="upload-public-domain" type="url" placeholder="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev"
+                <input id="upload-public-domain" type="url" placeholder="https://pub-xxxx.r2.dev"
                   class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
               </div>
               <div>
@@ -448,7 +448,7 @@
                   </div>
                   <div>
                     <label class="block text-[11px] font-medium text-zinc-300 mb-1">Or Direct Video Stream URL (`url` - Optional)</label>
-                    <input id="video-custom-url" type="url" placeholder="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/..."
+                    <input id="video-custom-url" type="url" placeholder="https://pub-xxxx.r2.dev/video.mp4"
                       class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
                   </div>
                 </div>
@@ -505,7 +505,7 @@
             </div>
 
             <div id="r2-files-list" class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              <p class="text-xs text-zinc-500 py-8 text-center">Enter your X-Admin-Key and click Reload Files to view server objects.</p>
+              <p class="text-xs text-zinc-500 py-8 text-center">Add a storage server to view and manage files.</p>
             </div>
           </div>
 
@@ -779,49 +779,34 @@ service cloud.firestore {
       document.getElementById('setup-guide-panel').classList.add('hidden');
     });
 
-    const DEFAULT_SERVERS = [
-      {
-        id: 'srv-primary-1',
-        name: 'Server 1 (mrghost-storage)',
-        workerUrl: 'https://mrghost-storage.djsungroup.workers.dev',
-        publicUrl: 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
-        adminKey: localStorage.getItem('r2_admin_key') || '',
-        quotaGB: 10
-      }
-    ];
+    // Clear any legacy localStorage hardcoded server cache
+    localStorage.removeItem('streamtube_servers');
+    localStorage.removeItem('r2_admin_key');
 
     const sanitizeServerList = (list) => {
-      if (!Array.isArray(list) || list.length === 0) return null;
-      return list.map((s, idx) => ({
-        id: s.id || `srv-${idx + 1}`,
-        name: s.name || `Storage Server ${idx + 1}`,
-        workerUrl: normalizeBaseUrl(s.workerUrl || 'https://mrghost-storage.djsungroup.workers.dev'),
-        publicUrl:
-          s.publicUrl && s.publicUrl !== 'https://mrghost-storage.djsungroup.workers.dev'
-            ? normalizeBaseUrl(s.publicUrl)
-            : 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
-        adminKey: s.adminKey || localStorage.getItem('r2_admin_key') || '',
-        quotaGB: Number(s.quotaGB) || 10
-      }));
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter((s) => s && s.workerUrl && s.id !== 'srv-primary-1')
+        .map((s, idx) => ({
+          id: s.id || `srv-${Date.now()}-${idx}`,
+          name: s.name || `Storage Server ${idx + 1}`,
+          workerUrl: normalizeBaseUrl(s.workerUrl),
+          publicUrl: normalizeBaseUrl(s.publicUrl || s.workerUrl),
+          adminKey: s.adminKey || '',
+          quotaGB: Number(s.quotaGB) || 10
+        }));
     };
 
+    // No hardcoded servers in code — strictly loaded from & saved to Firebase Database
     let servers = [];
-    try {
-      const saved = JSON.parse(localStorage.getItem('streamtube_servers') || 'null');
-      servers = sanitizeServerList(saved) || DEFAULT_SERVERS;
-    } catch {
-      servers = DEFAULT_SERVERS;
-    }
-
-    let activeServerId = servers[0].id;
+    let activeServerId = '';
     let serverStats = {};
     let isRegisterMode = false;
     let currentUser = null;
     let rawVideosMap = {};
 
-    // Save storage servers strictly for Admin in Cloud Firestore + Firebase RTDB + localStorage
+    // Save storage servers strictly for Admin in Cloud Firestore + Firebase RTDB
     const saveServers = async () => {
-      localStorage.setItem('streamtube_servers', JSON.stringify(servers));
       if (!currentUser || currentUser.uid !== ADMIN_UID) return;
 
       const payload = servers.map((s) => ({
@@ -860,7 +845,7 @@ service cloud.firestore {
         // 1. Try Cloud Firestore (`admin_storage/servers`)
         try {
           const snap = await getDoc(doc(firestoreDb, 'admin_storage', 'servers'));
-          if (snap.exists() && Array.isArray(snap.data()?.servers) && snap.data().servers.length > 0) {
+          if (snap.exists() && Array.isArray(snap.data()?.servers)) {
             remoteList = snap.data().servers;
           }
         } catch {}
@@ -869,31 +854,23 @@ service cloud.firestore {
         if (!remoteList) {
           try {
             const rtdbSnap = await get(ref(db, 'settings/servers'));
-            if (rtdbSnap.exists() && Array.isArray(rtdbSnap.val()) && rtdbSnap.val().length > 0) {
+            if (rtdbSnap.exists() && Array.isArray(rtdbSnap.val())) {
               remoteList = rtdbSnap.val();
             }
           } catch {}
         }
 
-        const parsedRemote = sanitizeServerList(remoteList);
-        if (parsedRemote && parsedRemote.length > 0) {
-          // Preserve any local adminKey if remote had an empty key
-          const localKeyMap = new Map(servers.map((s) => [s.id, s.adminKey]));
-          servers = parsedRemote.map((s) => ({
-            ...s,
-            adminKey: s.adminKey || localKeyMap.get(s.id) || localStorage.getItem('r2_admin_key') || ''
-          }));
-          if (!servers.some((s) => s.id === activeServerId)) {
-            activeServerId = servers[0].id;
-          }
-          localStorage.setItem('streamtube_servers', JSON.stringify(servers));
-          renderServerSelect();
-          await refreshAllServers();
-        } else {
-          // Seed initial servers into Firestore & RTDB for Admin
-          await saveServers();
-        }
-      } catch {}
+        servers = sanitizeServerList(remoteList);
+        activeServerId = servers[0]?.id || '';
+        renderServerSelect();
+        await refreshAllServers();
+      } catch {
+        servers = [];
+        activeServerId = '';
+        renderServerSelect();
+        renderStorageCards();
+        renderActiveServerFiles();
+      }
     };
 
     const showStatus = (text, type = 'info') => {
@@ -958,6 +935,7 @@ service cloud.firestore {
     };
 
     async function fetchServerFileList(server) {
+      if (!server || !server.workerUrl) return;
       const baseUrl = normalizeBaseUrl(server.workerUrl);
       const key = (server.adminKey || '').trim();
       if (!key) {
@@ -1021,6 +999,19 @@ service cloud.firestore {
     function renderServerSelect() {
       const select = document.getElementById('upload-server-select');
       select.innerHTML = '';
+
+      if (servers.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No Storage Server Saved — Click "+ Add Storage Server" above';
+        select.appendChild(opt);
+        document.getElementById('upload-admin-key').value = '';
+        document.getElementById('upload-public-domain').value = '';
+        document.getElementById('active-server-badge').textContent = 'No Server Selected';
+        document.getElementById('explorer-server-title').textContent = 'Add a storage server to browse files';
+        return;
+      }
+
       servers.forEach((s) => {
         const opt = document.createElement('option');
         opt.value = s.id;
@@ -1031,9 +1022,9 @@ service cloud.firestore {
 
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
       if (activeSrv) {
+        activeServerId = activeSrv.id;
         document.getElementById('upload-admin-key').value = activeSrv.adminKey || '';
-        document.getElementById('upload-public-domain').value =
-          activeSrv.publicUrl || 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev';
+        document.getElementById('upload-public-domain').value = activeSrv.publicUrl || '';
         document.getElementById('active-server-badge').textContent = activeSrv.name;
         document.getElementById('explorer-server-title').textContent = `${activeSrv.name} · ${normalizeBaseUrl(activeSrv.publicUrl)}`;
       }
@@ -1042,6 +1033,17 @@ service cloud.firestore {
     function renderStorageCards() {
       const grid = document.getElementById('storage-cards-grid');
       grid.innerHTML = '';
+
+      if (servers.length === 0) {
+        const emptyCard = document.createElement('div');
+        emptyCard.className = 'col-span-full p-8 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 text-center space-y-3';
+        emptyCard.innerHTML = `
+          <p class="text-sm font-semibold text-zinc-200">কোনো Storage Server এখনো Database-এ সেভ করা হয়নি</p>
+          <p class="text-xs text-zinc-400">উপরে ডান পাশে <strong>+ Add Storage Server</strong> বাটনে ক্লিক করে আপনার Cloudflare R2 Server যুক্ত করুন। সেভ করলেই তা সরাসরি Firebase Database ও Firestore-এ সংরক্ষিত হবে।</p>
+        `;
+        grid.appendChild(emptyCard);
+        return;
+      }
 
       servers.forEach((srv) => {
         const st = serverStats[srv.id] || { usedBytes: 0, fileCount: 0, files: [], status: 'idle' };
@@ -1082,11 +1084,7 @@ service cloud.firestore {
               }">
                 ${st.status === 'online' ? 'LIVE' : st.status === 'loading' ? 'SYNCING...' : 'KEY NEEDED'}
               </span>
-              ${
-                servers.length > 1
-                  ? `<button data-remove-srv="${srv.id}" class="text-zinc-500 hover:text-red-400 text-xs ml-1" title="Remove server">✕</button>`
-                  : ''
-              }
+              <button data-remove-srv="${srv.id}" class="text-zinc-500 hover:text-red-400 text-xs ml-1" title="Remove server from Firebase">✕</button>
             </div>
           </div>
 
@@ -1127,7 +1125,7 @@ service cloud.firestore {
             e.stopPropagation();
             const rmId = removeBtn.getAttribute('data-remove-srv');
             servers = servers.filter((s) => s.id !== rmId);
-            if (activeServerId === rmId) activeServerId = servers[0].id;
+            if (activeServerId === rmId) activeServerId = servers[0]?.id || '';
             saveServers();
             renderServerSelect();
             renderStorageCards();
@@ -1147,6 +1145,13 @@ service cloud.firestore {
     function renderActiveServerFiles() {
       const container = document.getElementById('r2-files-list');
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+      if (!activeSrv) {
+        document.getElementById('explorer-file-count').textContent = '0 files';
+        document.getElementById('explorer-total-size').textContent = '0 B used';
+        container.innerHTML = '<p class="text-xs text-zinc-500 py-8 text-center">No storage server saved yet. Click "+ Add Storage Server" above.</p>';
+        return;
+      }
+
       const st = serverStats[activeSrv.id] || { files: [], usedBytes: 0 };
 
       document.getElementById('explorer-file-count').textContent = `${(st.files || []).length} files`;
@@ -1180,7 +1185,7 @@ service cloud.firestore {
 
         row.querySelector('[data-pub-key]').addEventListener('click', async () => {
           try {
-            const cleanDomain = normalizeBaseUrl(activeSrv.publicUrl || 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev');
+            const cleanDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
             const streamUrl = `${cleanDomain}/${file.key}`;
             const title = file.key.split('/').pop().replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
             const now = Date.now();
@@ -1290,7 +1295,6 @@ service cloud.firestore {
       const activeSrv = servers.find((s) => s.id === activeServerId);
       if (activeSrv) {
         activeSrv.adminKey = e.target.value.trim();
-        localStorage.setItem('r2_admin_key', activeSrv.adminKey);
         saveServers();
       }
     });
@@ -1605,8 +1609,7 @@ service cloud.firestore {
       const adminKey = document.getElementById('upload-admin-key').value.trim();
       const publicDomainInput = normalizeBaseUrl(
         document.getElementById('upload-public-domain').value ||
-          activeSrv.publicUrl ||
-          'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev'
+          (activeSrv ? activeSrv.publicUrl : '')
       );
       const title = document.getElementById('video-title').value.trim();
       const keywords = document.getElementById('video-keywords').value.trim() || 'Virallink bdgirl';
@@ -1646,6 +1649,9 @@ service cloud.firestore {
         }
 
         if (selectedVideoFile) {
+          if (!activeSrv) {
+            throw new Error('Please add and select a Storage Server first using "+ Add Storage Server".');
+          }
           if (!adminKey) {
             throw new Error('Please enter the X-Admin-Key for the selected server.');
           }

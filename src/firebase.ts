@@ -34,9 +34,6 @@ export interface VideoItem {
   author: string;
 }
 
-export const WORKER_BASE_URL = "https://mrghost-storage.djsungroup.workers.dev";
-export const R2_PUBLIC_BUCKET_URL = "https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev";
-
 export const SMARTLINK_URL = "https://asiaso.org/4/83d7ffcba5e9ff163422eb60b234e632";
 export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/eab46957ba8ada08fe799687dd63716f";
 export const NATIVE_BANNER_SCRIPT_SRC = "https://brijmohan.org/21/9e05788a1e91471d1f2353aad323fd56";
