@@ -102,10 +102,24 @@
           </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-medium text-zinc-300 mb-1">Thumbnail Image URL (`thumbnail`)</label>
+        <div class="space-y-2 p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="block text-xs font-medium text-zinc-200">Thumbnail Image (`thumbnail` · ImgBB Auto-Upload)</label>
+            <label class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer transition-colors">
+              📤 Upload Custom Thumbnail
+              <input id="edit-thumb-file-input" type="file" accept="image/*" class="hidden" />
+            </label>
+          </div>
           <input id="edit-vid-thumb" type="url" placeholder="https://i.ibb.co/..."
-            class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+          <div class="flex items-center gap-3 pt-1">
+            <div id="edit-thumb-preview-wrap" class="relative w-28 aspect-video rounded-lg bg-zinc-950 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+              <span id="edit-thumb-placeholder" class="text-[10px] text-zinc-500">No Preview</span>
+              <img id="edit-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-md scale-125 opacity-70" />
+              <img id="edit-thumb-preview-img" src="" alt="Preview" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
+            </div>
+            <p id="edit-thumb-status" class="text-[11px] text-zinc-400">Upload an image file (auto-uploads to ImgBB) or paste a direct image URL.</p>
+          </div>
         </div>
 
         <div>
@@ -226,7 +240,7 @@
                   <br/>• <strong>Value</strong> বক্সে আপনার নিজের পছন্দমতো একটি গোপন পাসওয়ার্ড দিন (যেমন: <code class="text-amber-300 font-mono">mysecret123</code>) এবং <strong>Deploy</strong> দিন।
                 </li>
                 <li>
-                  সবশেষে এই Admin Panel-এর নিচে <strong>+ Add Storage Server</strong> বাটনে ক্লিক করে আপনার <strong>Server Name</strong>, <strong>Worker API URL</strong>, <strong>Public R2 Stream URL</strong>, এবং আপনার দেওয়া <strong>ADMIN_KEY</strong> বসিয়ে <strong>Save</strong> করলেই নতুন সার্ভার চালু হয়ে যাবে!
+                  সবশেষে এই Admin Panel-এর নিচে <strong>+ Add Storage Server</strong> বাটনে ক্লিক করে আপনার <strong>Server Name</strong>, <strong>Worker API URL</strong>, <strong>Public R2 Stream URL</strong>, এবং আপনার দেওয়া <strong>ADMIN_KEY</strong> বসিয়ে <strong>Save</strong> করলেই নতুন সার্ভার <strong>Firebase Firestore ও Realtime Database</strong>-এ সেভ হয়ে যাবে (শুধুমাত্র আপনি Admin প্যানেলে দেখতে পারবেন)!
                 </li>
               </ol>
             </div>
@@ -243,32 +257,38 @@
             </div>
           </div>
 
-          <!-- Right: Easy Bengali Explanation for Firebase Realtime Database Rules -->
+          <!-- Right: Easy Bengali Explanation for Firebase Realtime Database & Firestore Rules -->
           <div class="space-y-4">
             <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2.5 text-xs text-zinc-300 leading-relaxed">
-              <h3 class="text-sm font-bold text-amber-400">Firebase Realtime Database Rules সেটআপ করার নিয়ম:</h3>
+              <h3 class="text-sm font-bold text-amber-400">Firebase Realtime Database ও Firestore Rules সেটআপ করার নিয়ম:</h3>
               <p>
-                আপনার বর্তমান লগইন করা Admin Account-এর <strong>UID</strong> (<code id="guide-uid-inline" class="text-emerald-400 font-mono">...</code>) নিচের <strong>Firebase Rules</strong>-এর ভেতরে অটোমেটিক যুক্ত করে দেওয়া হয়েছে।
+                আপনার বর্তমান লগইন করা Admin Account-এর <strong>UID</strong> (<code id="guide-uid-inline" class="text-emerald-400 font-mono">...</code>) নিচের <strong>Realtime Database Rules</strong> ও <strong>Firestore Rules</strong>-এ যুক্ত করা হয়েছে।
               </p>
               <p>
-                এই Rules ব্যবহার করলে যেকোনো ভিজিটর ভিডিও দেখলে অটোমেটিক <code class="text-amber-300 font-mono">views</code> <code class="text-amber-300 font-mono">+1</code> করে বাড়বে, কিন্তু আপনি (Admin) ছাড়া অন্য কেউ ভিডিও Upload, Edit বা Delete করতে পারবে না।
+                আপনার সব Storage Server-এর তথ্য <strong>Cloud Firestore (`admin_storage/servers`)</strong> এবং <strong>Realtime Database (`settings/servers`)</strong>-এ সুরক্ষিতভাবে সেভ থাকবে—যাতে শুধুমাত্র আপনি (Admin) Read/Write করতে পারেন এবং শুধু Admin Panel-এই তা শো করবে।
               </p>
-              <ol class="list-decimal list-inside space-y-1.5 text-zinc-300">
-                <li>নিচের <strong>Copy Firebase Rules</strong> বাটনে ক্লিক করে কোডটি কপি করুন।</li>
-                <li>আপনার <strong>Firebase Console</strong> → <strong>Realtime Database</strong> → <strong>Rules</strong> ট্যাবে যান।</li>
-                <li>পুরাতন কোড মুছে এই নতুন কোডটি পেস্ট করে উপরে <strong>Publish</strong> বাটনে ক্লিক করুন।</li>
-              </ol>
             </div>
 
             <div class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-zinc-200">২. Fixed Firebase Realtime Database Rules (`database.rules.json`)</span>
+                <span class="text-xs font-semibold text-zinc-200">২. Firebase Realtime Database Rules (`database.rules.json`)</span>
                 <button id="copy-fb-rules-btn" type="button"
                   class="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer">
-                  Copy Firebase Rules
+                  Copy RTDB Rules
                 </button>
               </div>
-              <pre id="fb-rules-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-60"></pre>
+              <pre id="fb-rules-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-40"></pre>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-zinc-200">৩. Cloud Firestore Rules (`firestore.rules` · Admin-Only Storage Servers)</span>
+                <button id="copy-firestore-rules-btn" type="button"
+                  class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer">
+                  Copy Firestore Rules
+                </button>
+              </div>
+              <pre id="firestore-rules-block" class="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-40"></pre>
             </div>
           </div>
         </div>
@@ -278,8 +298,13 @@
       <section class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 class="text-lg font-bold text-white">Live Server Storage Usage & Capacity</h2>
-            <p class="text-xs text-zinc-400">কোন সার্ভারে কত পার্সেন্ট (% Used) ব্যবহার হয়েছে এবং কতটুকু জায়গা খালি (% Free / GB Free) আছে তার লাইভ স্ট্যাটাস</p>
+            <div class="flex items-center gap-2.5">
+              <h2 class="text-lg font-bold text-white">Live Server Storage Usage & Capacity</h2>
+              <span id="firebase-storage-sync-badge" class="px-2.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/70 text-[11px] font-mono text-emerald-300">
+                🔒 Saved in Firestore &amp; Firebase (Admin Only)
+              </span>
+            </div>
+            <p class="text-xs text-zinc-400">কোন সার্ভারে কত পার্সেন্ট (% Used) ব্যবহার হয়েছে এবং কতটুকু জায়গা খালি (% Free / GB Free) আছে তার লাইভ স্ট্যাটাস (শুধুমাত্র Admin প্যানেলে দৃশ্যমান)</p>
           </div>
           <button id="open-add-server-btn" type="button"
             class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
@@ -290,7 +315,7 @@
         <!-- Add Server Modal/Drawer -->
         <div id="add-server-card" class="hidden p-5 rounded-xl border border-zinc-800 bg-zinc-900/70 space-y-4">
           <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Add New Cloudflare R2 Storage Server</h3>
+            <h3 class="text-sm font-semibold text-white">Add New Cloudflare R2 Storage Server (Saves to Firestore &amp; Firebase)</h3>
             <button id="close-add-server-btn" type="button" class="text-xs text-zinc-400 hover:text-white">✕ Close</button>
           </div>
           <form id="add-server-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -339,7 +364,7 @@
           <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
             <div>
               <h2 class="text-base font-bold text-white">Upload New Video</h2>
-              <p class="text-xs text-zinc-400">সার্ভার সিলেক্ট করে নতুন ভিডিও ফাইল আপলোড করুন</p>
+              <p class="text-xs text-zinc-400">সার্ভার সিলেক্ট করে নতুন ভিডিও ফাইল ও কাস্টম থাম্বনেইল আপলোড করুন</p>
             </div>
             <span class="text-xs font-mono text-red-400 font-semibold" id="active-server-badge"></span>
           </div>
@@ -366,8 +391,8 @@
             <!-- Drag & Drop / File Picker -->
             <div>
               <label class="block text-xs font-medium text-zinc-300 mb-1.5">Video File</label>
-              <label class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-zinc-800 hover:border-red-500/80 rounded-xl bg-zinc-950/70 cursor-pointer transition-colors p-4 text-center">
-                <div class="w-10 h-10 rounded-full bg-red-600/15 text-red-500 flex items-center justify-center mb-2 font-bold">↑</div>
+              <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-zinc-800 hover:border-red-500/80 rounded-xl bg-zinc-950/70 cursor-pointer transition-colors p-4 text-center">
+                <div class="w-9 h-9 rounded-full bg-red-600/15 text-red-500 flex items-center justify-center mb-1.5 font-bold">↑</div>
                 <span id="file-chosen-name" class="text-xs font-semibold text-zinc-200">Click to select a video file from your device</span>
                 <span id="file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-1">MP4, WEBM, MKV, MOV supported</span>
                 <input id="upload-file-input" type="file" accept="video/*" class="hidden" />
@@ -382,6 +407,51 @@
               </div>
               <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
                 <div id="upload-progress-bar" class="h-full bg-red-600 transition-all duration-150" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Custom Thumbnail Upload (ImgBB API) + Smart Non-Black Auto-Frame Preview -->
+            <div class="p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <label class="block text-xs font-semibold text-white">Video Thumbnail (Custom Upload or Auto Frame via ImgBB)</label>
+                  <p id="thumb-upload-status" class="text-[11px] text-zinc-400">কাস্টম ছবি সিলেক্ট করলে অথবা ভিডিও দিলে অটোমেটিক ImgBB-তে আপলোড হয়ে নিখুঁত 16:9 সাইজে অ্যাডজাস্ট হবে</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button id="regenerate-frame-btn" type="button"
+                    class="hidden px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium cursor-pointer transition-colors">
+                    ↻ অন্য ফ্রেম নিন (Change Frame)
+                  </button>
+                  <label class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer transition-colors">
+                    🖼️ Upload Custom Thumbnail
+                    <input id="custom-thumb-file-input" type="file" accept="image/*" class="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                <!-- 16:9 Adjusted Preview Box -->
+                <div class="sm:col-span-5">
+                  <div id="upload-thumb-preview-box" class="relative w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                    <span id="upload-thumb-placeholder" class="text-[11px] text-zinc-500 text-center px-2">No Thumbnail Selected Yet</span>
+                    <img id="upload-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-lg scale-125 opacity-75" />
+                    <img id="upload-thumb-preview-img" src="" alt="Thumbnail Preview" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
+                  </div>
+                </div>
+
+                <!-- Thumbnail URL & Stream URL Inputs -->
+                <div class="sm:col-span-7 space-y-3">
+                  <div>
+                    <label class="block text-[11px] font-medium text-zinc-300 mb-1">Thumbnail Image URL (`thumbnail` - Auto-filled by ImgBB)</label>
+                    <input id="video-thumb" type="url" placeholder="https://i.ibb.co/..."
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-zinc-300 mb-1">Or Direct Video Stream URL (`url` - Optional)</label>
+                    <input id="video-custom-url" type="url" placeholder="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/..."
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -407,19 +477,6 @@
               <div>
                 <label class="block text-xs font-medium text-zinc-300 mb-1.5">Duration</label>
                 <input id="video-duration" type="text" value="04:20" placeholder="04:20"
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Thumbnail URL (`thumbnail` - e.g. ibb.co link)</label>
-                <input id="video-thumb" type="url" placeholder="https://i.ibb.co/..."
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Or Direct Video URL (`url` - Optional)</label>
-                <input id="video-custom-url" type="url" placeholder="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/..."
                   class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
               </div>
             </div>
@@ -464,7 +521,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-base font-bold text-white">Published Website Videos & Old Video Editor (`/videos`)</h2>
-            <p class="text-xs text-zinc-400">যেকোনো পুরাতন ভিডিওর Title, Thumbnail, Stream URL বা Views পরিবর্তন করতে <strong>Edit</strong> বাটনে ক্লিক করুন</p>
+            <p class="text-xs text-zinc-400">যেকোনো পুরাতন ভিডিওর Title, Custom Thumbnail, Stream URL বা Views পরিবর্তন করতে <strong>Edit</strong> বাটনে ক্লিক করুন</p>
           </div>
           <span id="catalog-count" class="text-xs font-mono text-zinc-400">0 videos</span>
         </div>
@@ -503,8 +560,16 @@
       push,
       set,
       update,
-      remove
+      remove,
+      get
     } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js';
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      onSnapshot
+    } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyBPrgfeMTuy3GI1nb2jgw-qqQn6wPvH-0w",
@@ -519,6 +584,11 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
+    const firestoreDb = getFirestore(app);
+
+    // ImgBB Configuration for Custom & Auto-Generated Thumbnails
+    const IMGBB_UPLOAD_URL = 'https://api.imgbb.com/1/upload';
+    const IMGBB_API_KEY = 'a45021e6b9decbd9eca430fb0cf4b440';
 
     const normalizeBaseUrl = (url) => (url || '').trim().replace(/\/+$/, '');
 
@@ -656,8 +726,31 @@ export default {
       );
     };
 
+    const buildFirestoreRulesText = () => `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == '${ADMIN_UID}';
+    }
+
+    // Storage servers & admin configuration: strictly Admin-only read/write
+    match /admin_storage/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /storage_servers/{serverId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}`;
+
     document.getElementById('worker-code-block').textContent = WORKER_TEMPLATE_CODE;
     document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson();
+    document.getElementById('firestore-rules-block').textContent = buildFirestoreRulesText();
 
     document.getElementById('copy-worker-code-btn').addEventListener('click', (e) => {
       navigator.clipboard.writeText(WORKER_TEMPLATE_CODE);
@@ -668,8 +761,15 @@ export default {
     document.getElementById('copy-fb-rules-btn').addEventListener('click', (e) => {
       const text = document.getElementById('fb-rules-block').textContent;
       navigator.clipboard.writeText(text);
-      e.target.textContent = 'Copied Firebase Rules ✓';
-      setTimeout(() => (e.target.textContent = 'Copy Firebase Rules'), 2000);
+      e.target.textContent = 'Copied RTDB Rules ✓';
+      setTimeout(() => (e.target.textContent = 'Copy RTDB Rules'), 2000);
+    });
+
+    document.getElementById('copy-firestore-rules-btn').addEventListener('click', (e) => {
+      const text = document.getElementById('firestore-rules-block').textContent;
+      navigator.clipboard.writeText(text);
+      e.target.textContent = 'Copied Firestore Rules ✓';
+      setTimeout(() => (e.target.textContent = 'Copy Firestore Rules'), 2000);
     });
 
     document.getElementById('toggle-guide-btn').addEventListener('click', () => {
@@ -690,20 +790,25 @@ export default {
       }
     ];
 
+    const sanitizeServerList = (list) => {
+      if (!Array.isArray(list) || list.length === 0) return null;
+      return list.map((s, idx) => ({
+        id: s.id || `srv-${idx + 1}`,
+        name: s.name || `Storage Server ${idx + 1}`,
+        workerUrl: normalizeBaseUrl(s.workerUrl || 'https://mrghost-storage.djsungroup.workers.dev'),
+        publicUrl:
+          s.publicUrl && s.publicUrl !== 'https://mrghost-storage.djsungroup.workers.dev'
+            ? normalizeBaseUrl(s.publicUrl)
+            : 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
+        adminKey: s.adminKey || localStorage.getItem('r2_admin_key') || '',
+        quotaGB: Number(s.quotaGB) || 10
+      }));
+    };
+
     let servers = [];
     try {
       const saved = JSON.parse(localStorage.getItem('streamtube_servers') || 'null');
-      if (Array.isArray(saved) && saved.length > 0) {
-        servers = saved.map((s) => ({
-          ...s,
-          publicUrl:
-            s.publicUrl && s.publicUrl !== 'https://mrghost-storage.djsungroup.workers.dev'
-              ? s.publicUrl
-              : 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev'
-        }));
-      } else {
-        servers = DEFAULT_SERVERS;
-      }
+      servers = sanitizeServerList(saved) || DEFAULT_SERVERS;
     } catch {
       servers = DEFAULT_SERVERS;
     }
@@ -714,20 +819,81 @@ export default {
     let currentUser = null;
     let rawVideosMap = {};
 
-    const saveServers = () => {
+    // Save storage servers strictly for Admin in Cloud Firestore + Firebase RTDB + localStorage
+    const saveServers = async () => {
       localStorage.setItem('streamtube_servers', JSON.stringify(servers));
-      if (currentUser) {
-        set(
-          ref(db, 'settings/servers'),
-          servers.map((s) => ({
-            id: s.id,
-            name: s.name,
-            workerUrl: s.workerUrl,
-            publicUrl: s.publicUrl,
-            quotaGB: s.quotaGB
-          }))
-        ).catch(() => {});
+      if (!currentUser || currentUser.uid !== ADMIN_UID) return;
+
+      const payload = servers.map((s) => ({
+        id: s.id,
+        name: s.name,
+        workerUrl: normalizeBaseUrl(s.workerUrl),
+        publicUrl: normalizeBaseUrl(s.publicUrl),
+        adminKey: s.adminKey || '',
+        quotaGB: Number(s.quotaGB) || 10
+      }));
+
+      const badge = document.getElementById('firebase-storage-sync-badge');
+      if (badge) badge.textContent = '↻ Saving to Firestore & Firebase...';
+
+      try {
+        await Promise.allSettled([
+          setDoc(doc(firestoreDb, 'admin_storage', 'servers'), {
+            servers: payload,
+            updatedAt: Date.now(),
+            adminUid: ADMIN_UID
+          }),
+          set(ref(db, 'settings/servers'), payload)
+        ]);
+        if (badge) badge.textContent = '🔒 Saved in Firestore & Firebase (Admin Only)';
+      } catch {
+        if (badge) badge.textContent = '🔒 Saved in Firebase (Admin Only)';
       }
+    };
+
+    // Load Admin-only Storage Servers from Firestore & Firebase RTDB on login
+    const loadAdminServersFromFirebase = async () => {
+      if (!currentUser || currentUser.uid !== ADMIN_UID) return;
+      try {
+        let remoteList = null;
+
+        // 1. Try Cloud Firestore (`admin_storage/servers`)
+        try {
+          const snap = await getDoc(doc(firestoreDb, 'admin_storage', 'servers'));
+          if (snap.exists() && Array.isArray(snap.data()?.servers) && snap.data().servers.length > 0) {
+            remoteList = snap.data().servers;
+          }
+        } catch {}
+
+        // 2. Fallback to Firebase RTDB (`settings/servers`)
+        if (!remoteList) {
+          try {
+            const rtdbSnap = await get(ref(db, 'settings/servers'));
+            if (rtdbSnap.exists() && Array.isArray(rtdbSnap.val()) && rtdbSnap.val().length > 0) {
+              remoteList = rtdbSnap.val();
+            }
+          } catch {}
+        }
+
+        const parsedRemote = sanitizeServerList(remoteList);
+        if (parsedRemote && parsedRemote.length > 0) {
+          // Preserve any local adminKey if remote had an empty key
+          const localKeyMap = new Map(servers.map((s) => [s.id, s.adminKey]));
+          servers = parsedRemote.map((s) => ({
+            ...s,
+            adminKey: s.adminKey || localKeyMap.get(s.id) || localStorage.getItem('r2_admin_key') || ''
+          }));
+          if (!servers.some((s) => s.id === activeServerId)) {
+            activeServerId = servers[0].id;
+          }
+          localStorage.setItem('streamtube_servers', JSON.stringify(servers));
+          renderServerSelect();
+          await refreshAllServers();
+        } else {
+          // Seed initial servers into Firestore & RTDB for Admin
+          await saveServers();
+        }
+      } catch {}
     };
 
     const showStatus = (text, type = 'info') => {
@@ -747,6 +913,49 @@ export default {
     document.getElementById('status-close').addEventListener('click', () => {
       document.getElementById('status-banner').classList.add('hidden');
     });
+
+    // Helper to update 16:9 Thumbnail Preview Boxes
+    const updateThumbPreviewUI = (prefix, url) => {
+      const placeholder = document.getElementById(`${prefix}-thumb-placeholder`);
+      const bgImg = document.getElementById(`${prefix}-thumb-preview-bg`);
+      const fgImg = document.getElementById(`${prefix}-thumb-preview-img`);
+      if (!placeholder || !bgImg || !fgImg) return;
+
+      if (url && url.trim()) {
+        placeholder.classList.add('hidden');
+        bgImg.src = url;
+        fgImg.src = url;
+        bgImg.classList.remove('hidden');
+        fgImg.classList.remove('hidden');
+      } else {
+        placeholder.classList.remove('hidden');
+        bgImg.src = '';
+        fgImg.src = '';
+        bgImg.classList.add('hidden');
+        fgImg.classList.add('hidden');
+      }
+    };
+
+    // Upload an image File or Base64 DataURL to ImgBB (`https://api.imgbb.com/1/upload`)
+    const uploadToImgBB = async (fileOrDataUrl) => {
+      const formData = new FormData();
+      if (typeof fileOrDataUrl === 'string') {
+        const base64Clean = fileOrDataUrl.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+        formData.append('image', base64Clean);
+      } else {
+        formData.append('image', fileOrDataUrl);
+      }
+
+      const res = await fetch(`${IMGBB_UPLOAD_URL}?key=${IMGBB_API_KEY}`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error?.message || 'ImgBB upload failed');
+      }
+      return data.data.display_url || data.data.url;
+    };
 
     async function fetchServerFileList(server) {
       const baseUrl = normalizeBaseUrl(server.workerUrl);
@@ -1059,7 +1268,7 @@ export default {
 
       servers.push(newSrv);
       activeServerId = newSrv.id;
-      saveServers();
+      await saveServers();
       document.getElementById('add-server-form').reset();
       document.getElementById('add-server-card').classList.add('hidden');
 
@@ -1067,7 +1276,7 @@ export default {
       await fetchServerFileList(newSrv);
       renderStorageCards();
       renderActiveServerFiles();
-      showStatus(`Added server "${name}" and synced live storage!`, 'success');
+      showStatus(`Added server "${name}" and saved to Firebase Firestore & RTDB!`, 'success');
     });
 
     document.getElementById('upload-server-select').addEventListener('change', (e) => {
@@ -1107,19 +1316,101 @@ export default {
       refreshAllServers();
     });
 
-    // File input preview + Automatic Thumbnail & Duration Extraction
+    // Smart Non-Black Video Frame Extractor + Aspect Ratio Adjustment (16:9 640x360) + ImgBB Auto-Upload
     let selectedVideoFile = null;
     let autoGeneratedThumbDataUrl = '';
+    let frameAttemptIndex = 0;
 
-    const extractVideoThumbnailAndDuration = (file) => {
+    // Draw video frame onto 640x360 16:9 canvas with blurred background + aspect-preserved foreground
+    const drawAdjustedFrameToCanvas = (videoEl) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 360;
+      const ctx = canvas.getContext('2d');
+
+      const vw = videoEl.videoWidth || 640;
+      const vh = videoEl.videoHeight || 360;
+      const canvasRatio = canvas.width / canvas.height;
+      const videoRatio = vw / vh;
+
+      // 1. Draw blurred cover background so vertical (9:16) or square videos never have black bars
+      ctx.save();
+      let bgW = canvas.width;
+      let bgH = canvas.height;
+      if (videoRatio > canvasRatio) {
+        bgW = canvas.height * videoRatio * 1.15;
+        bgH = canvas.height * 1.15;
+      } else {
+        bgW = canvas.width * 1.15;
+        bgH = (canvas.width / videoRatio) * 1.15;
+      }
+      const bgX = (canvas.width - bgW) / 2;
+      const bgY = (canvas.height - bgH) / 2;
+      ctx.filter = 'blur(16px) brightness(0.65)';
+      ctx.drawImage(videoEl, bgX, bgY, bgW, bgH);
+      ctx.restore();
+
+      // 2. Draw sharp aspect-adjusted frame centered
+      let drawW = canvas.width;
+      let drawH = canvas.height;
+      if (Math.abs(videoRatio - canvasRatio) < 0.25) {
+        // Close to 16:9 -> fill cleanly with cover crop
+        if (videoRatio > canvasRatio) {
+          drawH = canvas.height;
+          drawW = canvas.height * videoRatio;
+        } else {
+          drawW = canvas.width;
+          drawH = canvas.width / videoRatio;
+        }
+      } else {
+        // Portrait (9:16) or ultra-wide -> fit height/width cleanly over blurred backdrop
+        if (videoRatio < canvasRatio) {
+          drawH = canvas.height;
+          drawW = canvas.height * videoRatio;
+        } else {
+          drawW = canvas.width;
+          drawH = canvas.width / videoRatio;
+        }
+      }
+      const drawX = (canvas.width - drawW) / 2;
+      const drawY = (canvas.height - drawH) / 2;
+      ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
+
+      // 3. Measure average pixel brightness of center area to detect black/dark frames
+      let avgBrightness = 50;
+      try {
+        const sample = ctx.getImageData(160, 90, 320, 180).data;
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < sample.length; i += 16) {
+          sum += 0.299 * sample[i] + 0.587 * sample[i + 1] + 0.114 * sample[i + 2];
+          count++;
+        }
+        avgBrightness = count > 0 ? sum / count : 50;
+      } catch {}
+
+      return {
+        dataUrl: canvas.toDataURL('image/jpeg', 0.86),
+        brightness: avgBrightness
+      };
+    };
+
+    const extractVideoThumbnailAndDuration = (file, forceRandom = false) => {
       return new Promise((resolve) => {
         try {
           const url = URL.createObjectURL(file);
           const tempVideo = document.createElement('video');
-          tempVideo.preload = 'metadata';
+          tempVideo.preload = 'auto';
           tempVideo.muted = true;
           tempVideo.playsInline = true;
           tempVideo.src = url;
+
+          // Candidate ratios into the video to avoid black fade-in at 0.0s–1.5s
+          const candidateRatios = forceRandom
+            ? [0.15 + Math.random() * 0.7, 0.35, 0.55, 0.25]
+            : [0.25, 0.42, 0.58, 0.18, 0.72];
+          let attemptIdx = 0;
+          let bestDataUrl = '';
 
           const cleanup = () => {
             try {
@@ -1129,46 +1420,101 @@ export default {
 
           const timeout = setTimeout(() => {
             cleanup();
-            resolve({ thumb: '', duration: '' });
-          }, 5000);
+            resolve({ thumb: bestDataUrl });
+          }, 8000);
+
+          const seekToCandidate = () => {
+            const dur = Number(tempVideo.duration) || 0;
+            const ratio = candidateRatios[attemptIdx] || 0.3;
+            let target = dur > 1 ? dur * ratio : 1.0;
+            if (dur > 3) {
+              target = Math.min(Math.max(target, 2.0), dur - 0.4);
+            }
+            try {
+              tempVideo.currentTime = target;
+            } catch {
+              clearTimeout(timeout);
+              cleanup();
+              resolve({ thumb: bestDataUrl });
+            }
+          };
 
           tempVideo.addEventListener('loadedmetadata', () => {
             const dur = tempVideo.duration || 0;
             const mins = Math.floor(dur / 60);
             const secs = Math.floor(dur % 60);
-            const formattedDuration = dur > 0 ? `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}` : '';
+            const formattedDuration =
+              dur > 0 ? `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}` : '';
             if (formattedDuration) {
               document.getElementById('video-duration').value = formattedDuration;
             }
-            tempVideo.currentTime = dur > 2 ? 1.5 : 0.1;
+            seekToCandidate();
           });
 
           tempVideo.addEventListener('seeked', () => {
-            clearTimeout(timeout);
             try {
-              const canvas = document.createElement('canvas');
-              canvas.width = 480;
-              canvas.height = 270;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+              const { dataUrl, brightness } = drawAdjustedFrameToCanvas(tempVideo);
+              if (dataUrl) bestDataUrl = dataUrl;
+
+              // If frame is too dark/black (< 24 luminance) and we have more candidate timestamps, try next!
+              if (brightness < 24 && attemptIdx < candidateRatios.length - 1) {
+                attemptIdx++;
+                seekToCandidate();
+                return;
+              }
+
+              clearTimeout(timeout);
               cleanup();
-              resolve({ thumb: dataUrl });
+              resolve({ thumb: bestDataUrl });
             } catch {
+              clearTimeout(timeout);
               cleanup();
-              resolve({ thumb: '' });
+              resolve({ thumb: bestDataUrl });
             }
           });
 
           tempVideo.addEventListener('error', () => {
             clearTimeout(timeout);
             cleanup();
-            resolve({ thumb: '' });
+            resolve({ thumb: bestDataUrl });
           });
         } catch {
           resolve({ thumb: '' });
         }
       });
+    };
+
+    // Handle Video File Selection + Smart Auto-Thumbnail + Auto Upload to ImgBB
+    const processVideoFrameThumbnail = async (file, forceRandom = false) => {
+      const sizeEl = document.getElementById('file-chosen-size');
+      const thumbStatus = document.getElementById('thumb-upload-status');
+      const regenBtn = document.getElementById('regenerate-frame-btn');
+
+      thumbStatus.textContent = 'Generating bright 16:9 adjusted frame from video...';
+      const extracted = await extractVideoThumbnailAndDuration(file, forceRandom);
+
+      if (extracted.thumb) {
+        autoGeneratedThumbDataUrl = extracted.thumb;
+        updateThumbPreviewUI('upload', extracted.thumb);
+        regenBtn.classList.remove('hidden');
+
+        // Upload the extracted frame to ImgBB automatically so Firebase gets a clean https://i.ibb.co/... URL
+        try {
+          thumbStatus.textContent = 'Uploading generated thumbnail to ImgBB...';
+          const hostedUrl = await uploadToImgBB(extracted.thumb);
+          document.getElementById('video-thumb').value = hostedUrl;
+          updateThumbPreviewUI('upload', hostedUrl);
+          thumbStatus.textContent = `Auto-Thumbnail uploaded to ImgBB ✓ (${hostedUrl})`;
+          sizeEl.textContent = `${formatBytes(file.size)} · ImgBB Thumbnail Ready ✓`;
+        } catch {
+          document.getElementById('video-thumb').value = extracted.thumb;
+          thumbStatus.textContent = 'Auto-Thumbnail generated and adjusted ✓';
+          sizeEl.textContent = `${formatBytes(file.size)} · Auto-Thumbnail Ready ✓`;
+        }
+      } else {
+        sizeEl.textContent = `${formatBytes(file.size)} · Ready to upload`;
+        thumbStatus.textContent = 'Could not auto-extract frame. Please upload a custom thumbnail image.';
+      }
     };
 
     document.getElementById('upload-file-input').addEventListener('change', async (e) => {
@@ -1177,24 +1523,79 @@ export default {
       const nameEl = document.getElementById('file-chosen-name');
       const sizeEl = document.getElementById('file-chosen-size');
       const titleInput = document.getElementById('video-title');
+      const regenBtn = document.getElementById('regenerate-frame-btn');
 
       if (selectedVideoFile) {
         nameEl.textContent = selectedVideoFile.name;
-        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Generating thumbnail...`;
+        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Extracting bright frame...`;
         if (!titleInput.value.trim()) {
           titleInput.value = selectedVideoFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
         }
-        const extracted = await extractVideoThumbnailAndDuration(selectedVideoFile);
-        if (extracted.thumb) {
-          autoGeneratedThumbDataUrl = extracted.thumb;
-          sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Auto-Thumbnail Ready ✓`;
-        } else {
-          sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Ready to upload`;
-        }
+        await processVideoFrameThumbnail(selectedVideoFile, false);
       } else {
         nameEl.textContent = 'Click to select a video file from your device';
         sizeEl.textContent = 'MP4, WEBM, MKV, MOV supported';
+        regenBtn.classList.add('hidden');
       }
+    });
+
+    // "Pick Another Frame" button to grab a different non-black timestamp from the selected video
+    document.getElementById('regenerate-frame-btn').addEventListener('click', async () => {
+      if (!selectedVideoFile) return;
+      frameAttemptIndex++;
+      await processVideoFrameThumbnail(selectedVideoFile, true);
+    });
+
+    // Custom Thumbnail File Upload in New Video Form (Uploads directly to ImgBB)
+    document.getElementById('custom-thumb-file-input').addEventListener('change', async (e) => {
+      const imgFile = e.target.files[0];
+      if (!imgFile) return;
+
+      const thumbStatus = document.getElementById('thumb-upload-status');
+      const localPreview = URL.createObjectURL(imgFile);
+      updateThumbPreviewUI('upload', localPreview);
+      thumbStatus.textContent = `Uploading "${imgFile.name}" to ImgBB...`;
+
+      try {
+        const hostedUrl = await uploadToImgBB(imgFile);
+        document.getElementById('video-thumb').value = hostedUrl;
+        autoGeneratedThumbDataUrl = hostedUrl;
+        updateThumbPreviewUI('upload', hostedUrl);
+        thumbStatus.textContent = `Custom Thumbnail uploaded to ImgBB ✓ (${hostedUrl})`;
+        showStatus('Custom thumbnail uploaded to ImgBB successfully!', 'success');
+      } catch (err) {
+        thumbStatus.textContent = `ImgBB Upload Error: ${err.message}`;
+        showStatus(`Thumbnail upload failed: ${err.message}`, 'error');
+      }
+    });
+
+    // Live preview when pasting a URL into #video-thumb
+    document.getElementById('video-thumb').addEventListener('input', (e) => {
+      updateThumbPreviewUI('upload', e.target.value.trim());
+    });
+
+    // Custom Thumbnail File Upload in Old Video Edit Modal (Uploads directly to ImgBB)
+    document.getElementById('edit-thumb-file-input').addEventListener('change', async (e) => {
+      const imgFile = e.target.files[0];
+      if (!imgFile) return;
+
+      const statusEl = document.getElementById('edit-thumb-status');
+      const localPreview = URL.createObjectURL(imgFile);
+      updateThumbPreviewUI('edit', localPreview);
+      statusEl.textContent = `Uploading "${imgFile.name}" to ImgBB...`;
+
+      try {
+        const hostedUrl = await uploadToImgBB(imgFile);
+        document.getElementById('edit-vid-thumb').value = hostedUrl;
+        updateThumbPreviewUI('edit', hostedUrl);
+        statusEl.textContent = `Uploaded to ImgBB ✓ (${hostedUrl})`;
+      } catch (err) {
+        statusEl.textContent = `ImgBB Error: ${err.message}`;
+      }
+    });
+
+    document.getElementById('edit-vid-thumb').addEventListener('input', (e) => {
+      updateThumbPreviewUI('edit', e.target.value.trim());
     });
 
     // Upload Form Submit
@@ -1211,7 +1612,7 @@ export default {
       const keywords = document.getElementById('video-keywords').value.trim() || 'Virallink bdgirl';
       const folder = document.getElementById('video-folder').value.trim().replace(/^\/+|\/+$/g, '');
       const duration = document.getElementById('video-duration').value.trim() || '04:00';
-      const finalThumb = document.getElementById('video-thumb').value.trim() || autoGeneratedThumbDataUrl || '';
+      let finalThumb = document.getElementById('video-thumb').value.trim() || autoGeneratedThumbDataUrl || '';
       const customUrl = document.getElementById('video-custom-url').value.trim();
 
       if (!title) {
@@ -1237,6 +1638,13 @@ export default {
       let uploadedKey = '';
 
       try {
+        // If finalThumb is still a base64 data URL, upload it to ImgBB first
+        if (finalThumb.startsWith('data:image/')) {
+          try {
+            finalThumb = await uploadToImgBB(finalThumb);
+          } catch {}
+        }
+
         if (selectedVideoFile) {
           if (!adminKey) {
             throw new Error('Please enter the X-Admin-Key for the selected server.');
@@ -1314,11 +1722,14 @@ export default {
         selectedVideoFile = null;
         autoGeneratedThumbDataUrl = '';
         document.getElementById('upload-file-input').value = '';
+        document.getElementById('custom-thumb-file-input').value = '';
+        document.getElementById('regenerate-frame-btn').classList.add('hidden');
         document.getElementById('file-chosen-name').textContent = 'Click to select a video file from your device';
         document.getElementById('file-chosen-size').textContent = 'MP4, WEBM, MKV, MOV supported';
         document.getElementById('video-title').value = '';
         document.getElementById('video-thumb').value = '';
         document.getElementById('video-custom-url').value = '';
+        updateThumbPreviewUI('upload', '');
 
         await fetchServerFileList(activeSrv);
         renderStorageCards();
@@ -1345,16 +1756,21 @@ export default {
       const item = rawVideosMap[id];
       if (!item) return;
 
+      const currentThumb = item.thumbnail || item.thumbnailUrl || '';
       document.getElementById('edit-vid-id').value = id;
       document.getElementById('edit-video-id-label').textContent = `Video ID: ${id}`;
       document.getElementById('edit-vid-title').value = item.title || '';
       document.getElementById('edit-vid-keywords').value = item.keywords || '';
       document.getElementById('edit-vid-author').value = item.author || 'Bd Collection';
-      document.getElementById('edit-vid-thumb').value = item.thumbnail || item.thumbnailUrl || '';
+      document.getElementById('edit-vid-thumb').value = currentThumb;
       document.getElementById('edit-vid-url').value = item.url || item.videoUrl || '';
       document.getElementById('edit-vid-views').value = Number(item.views) || 0;
       document.getElementById('edit-vid-duration').value = item.duration || '';
       document.getElementById('edit-vid-desc').value = item.description || '';
+      document.getElementById('edit-thumb-file-input').value = '';
+      document.getElementById('edit-thumb-status').textContent =
+        'Upload an image file (auto-uploads to ImgBB) or paste a direct image URL.';
+      updateThumbPreviewUI('edit', currentThumb);
 
       editModal.classList.remove('hidden');
     }
@@ -1449,7 +1865,9 @@ export default {
         document.getElementById('admin-user-uid').textContent = user.uid;
         document.getElementById('guide-uid-inline').textContent = ADMIN_UID;
         document.getElementById('fb-rules-block').textContent = buildFirebaseRulesJson();
+        document.getElementById('firestore-rules-block').textContent = buildFirestoreRulesText();
         renderServerSelect();
+        await loadAdminServersFromFirebase();
         refreshAllServers();
       } else {
         currentUser = null;

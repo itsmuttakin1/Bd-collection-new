@@ -31,12 +31,16 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [duration, setDuration] = useState<number>(0);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
 
+  const [posterFailed, setPosterFailed] = useState<boolean>(false);
+  const [isPortraitPoster, setIsPortraitPoster] = useState<boolean>(false);
+
   useEffect(() => {
     setPopunderClicks(0);
     setIsUnlocked(false);
     setIsPlaying(false);
     setProgress(0);
     setCurrentTime(0);
+    setPosterFailed(false);
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -65,6 +69,11 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const startVideoPlayback = () => {
     const vid = videoRef.current;
     if (!vid) return;
+    if (vid.currentTime > 0 && !isPlaying && currentTime === 0) {
+      try {
+        vid.currentTime = 0;
+      } catch {}
+    }
     vid
       .play()
       .then(() => {
@@ -120,6 +129,8 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
+  const hasValidPoster = Boolean(poster && poster.trim() && !posterFailed);
+
   return (
     <div
       ref={containerRef}
@@ -129,7 +140,6 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       <video
         ref={videoRef}
         src={videoUrl}
-        poster={poster}
         playsInline
         preload="metadata"
         controlsList="nodownload noplaybackrate"
@@ -138,15 +148,21 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         onDragStart={(e) => e.preventDefault()}
         onTimeUpdate={() => {
           const vid = videoRef.current;
-          if (!vid) return;
+          if (!vid || !isUnlocked) return;
           setCurrentTime(vid.currentTime);
           if (vid.duration) {
             setProgress((vid.currentTime / vid.duration) * 100);
           }
         }}
         onLoadedMetadata={() => {
-          if (videoRef.current) {
-            setDuration(videoRef.current.duration);
+          const vid = videoRef.current;
+          if (!vid) return;
+          setDuration(vid.duration);
+          // If there is no poster image and video hasn't started yet, seek to 3s so player isn't black
+          if (!hasValidPoster && !isUnlocked && vid.duration > 1.5) {
+            try {
+              vid.currentTime = Math.min(3.0, vid.duration * 0.25);
+            } catch {}
           }
         }}
         onWaiting={() => setIsBuffering(true)}
@@ -159,11 +175,39 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         className="w-full h-full object-contain pointer-events-none"
       />
 
+      {/* Smart Adjusted Thumbnail Overlay before video is unlocked */}
+      {!isUnlocked && hasValidPoster && (
+        <div className="absolute inset-0 z-10 overflow-hidden bg-zinc-950 pointer-events-none">
+          <img
+            src={poster}
+            alt=""
+            aria-hidden="true"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 w-full h-full object-cover object-center blur-xl scale-125 opacity-70"
+          />
+          <img
+            src={poster}
+            alt=""
+            referrerPolicy="no-referrer"
+            onLoad={(e) => {
+              const el = e.currentTarget;
+              if (el.naturalWidth && el.naturalHeight) {
+                setIsPortraitPoster(el.naturalHeight > el.naturalWidth * 1.05);
+              }
+            }}
+            onError={() => setPosterFailed(true)}
+            className={`relative z-10 w-full h-full ${
+              isPortraitPoster ? 'object-contain' : 'object-cover object-center'
+            }`}
+          />
+        </div>
+      )}
+
       {/* Play Button Overlay */}
       {(!isUnlocked || !isPlaying) && (
         <div
           onClick={handleOverlayPlayClick}
-          className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 cursor-pointer transition-opacity"
+          className="absolute inset-0 z-20 flex items-center justify-center bg-black/35 cursor-pointer transition-opacity"
         >
           <button
             type="button"

@@ -53,22 +53,38 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
   const authorInitial = (video.author || 'B').charAt(0).toUpperCase();
 
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [isPortraitThumb, setIsPortraitThumb] = useState(false);
+
   const handleLoadedMetadata = () => {
     const v = videoRef.current;
     if (!v) return;
     try {
-      const targetTime = v.duration && v.duration > 2 ? 1.5 : 0.1;
+      const dur = Number(v.duration) || 0;
+      // Avoid 0.0s–1.5s where many videos fade in from black; seek to 25% or 3.5s
+      const targetTime =
+        dur > 6
+          ? Math.min(Math.max(dur * 0.25, 3.0), dur - 1)
+          : dur > 1.5
+          ? Math.min(dur * 0.5, dur - 0.2)
+          : 0.5;
       v.currentTime = targetTime;
     } catch {
       setVideoReady(true);
     }
   };
 
-  const thumbSrc = video.thumbnail || video.thumbnailUrl || '';
-  const streamSrc = video.url || video.videoUrl || '';
+  const thumbSrc = (video.thumbnail || video.thumbnailUrl || '').trim();
+  const streamSrc = (video.url || video.videoUrl || '').trim();
+  const streamWithFragment = streamSrc
+    ? streamSrc.includes('#t=')
+      ? streamSrc
+      : `${streamSrc}#t=3.5`
+    : '';
 
   const renderThumbnailMedia = () => (
     <>
+      {/* Rich Fallback Card Base (Always visible behind media so card is never a black box) */}
       <div
         className={`absolute inset-0 bg-gradient-to-br ${gradientBg} flex flex-col items-center justify-center p-4 text-center select-none`}
       >
@@ -80,33 +96,75 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         </p>
       </div>
 
+      {/* Custom / ImgBB Thumbnail with Smart Aspect Ratio Adjustment */}
       {thumbSrc && !imgFailed && (
-        <img
-          src={thumbSrc}
-          alt={video.title}
-          referrerPolicy="no-referrer"
-          onError={() => setImgFailed(true)}
-          className="absolute inset-0 w-full h-full object-cover z-10 group-hover:scale-105 transition-transform duration-200"
-        />
+        <div
+          className={`absolute inset-0 z-10 overflow-hidden bg-zinc-950 transition-opacity duration-200 ${
+            imgLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {/* Blurred ambient backdrop fills any aspect ratio gap so portrait/square images never have black bars */}
+          <img
+            src={thumbSrc}
+            alt=""
+            aria-hidden="true"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 w-full h-full object-cover object-center blur-xl scale-125 opacity-75 pointer-events-none"
+          />
+          {/* Foreground crisp thumbnail properly fitted */}
+          <img
+            src={thumbSrc}
+            alt={video.title}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onLoad={(e) => {
+              const el = e.currentTarget;
+              if (el.naturalWidth && el.naturalHeight) {
+                setIsPortraitThumb(el.naturalHeight > el.naturalWidth * 1.05);
+              }
+              setImgLoaded(true);
+            }}
+            onError={() => {
+              setImgFailed(true);
+              setImgLoaded(false);
+            }}
+            className={`relative z-10 w-full h-full transition-transform duration-200 group-hover:scale-105 ${
+              isPortraitThumb ? 'object-contain' : 'object-cover object-center'
+            }`}
+          />
+        </div>
       )}
 
-      {(!thumbSrc || imgFailed) && streamSrc && (
+      {/* Live Video Frame Preview if no Thumbnail image is set */}
+      {(!thumbSrc || imgFailed) && streamWithFragment && (
         <video
           ref={videoRef}
-          src={streamSrc}
-          preload="auto"
+          src={streamWithFragment}
+          preload="metadata"
           muted
           playsInline
           onLoadedMetadata={handleLoadedMetadata}
-          onLoadedData={() => setVideoReady(true)}
+          onLoadedData={() => {
+            const v = videoRef.current;
+            if (v && v.currentTime < 0.2 && v.duration > 1) {
+              try {
+                v.currentTime = Math.min(3.0, v.duration * 0.3);
+              } catch {
+                setVideoReady(true);
+              }
+            } else {
+              setVideoReady(true);
+            }
+          }}
           onSeeked={() => setVideoReady(true)}
           onContextMenu={(e) => e.preventDefault()}
-          className={`absolute inset-0 w-full h-full object-cover z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
+          className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
             videoReady ? 'opacity-100' : 'opacity-0'
           }`}
         />
       )}
 
+      {/* Hover Play Overlay */}
       <div className="absolute inset-0 z-20 bg-black/10 group-hover:bg-black/25 transition-colors flex items-center justify-center">
         <div className="w-11 h-11 rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all">
           <Play className="w-5 h-5 fill-white ml-0.5" />

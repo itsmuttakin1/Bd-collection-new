@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == '5JSYDqYRizMUZoLrOqQcCV0Cr603';
+    }
+
+    // Storage servers & admin configuration: strictly Admin-only read and write
+    match /admin_storage/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /storage_servers/{serverId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
