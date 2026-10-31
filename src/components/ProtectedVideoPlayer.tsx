@@ -23,6 +23,9 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [popunderClicks, setPopunderClicks] = useState<number>(0);
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
 
+  // 0 = direct R2 URL, 1 = /api/stream range proxy, 2 = /api/stream?transcode=1 FFmpeg H.264 live stream
+  const [streamStage, setStreamStage] = useState<number>(0);
+
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -30,17 +33,33 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
+  const [showControlsMobile, setShowControlsMobile] = useState<boolean>(true);
 
   const [posterFailed, setPosterFailed] = useState<boolean>(false);
   const [isPortraitPoster, setIsPortraitPoster] = useState<boolean>(false);
 
+  const cleanVideoUrl = (videoUrl || '').trim();
+
+  const resolvedVideoSrc = (() => {
+    if (!cleanVideoUrl) return '';
+    if (streamStage === 1) {
+      return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}`;
+    }
+    if (streamStage === 2) {
+      return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}&transcode=1`;
+    }
+    return cleanVideoUrl;
+  })();
+
   useEffect(() => {
     setPopunderClicks(0);
     setIsUnlocked(false);
+    setStreamStage(0);
     setIsPlaying(false);
     setProgress(0);
     setCurrentTime(0);
     setPosterFailed(false);
+    setShowControlsMobile(true);
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -54,7 +73,9 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     if (!isUnlocked) {
       const nextCount = popunderClicks + 1;
       triggerPopunderAd();
-      triggerSmartlinkAd();
+      if (nextCount < 3) {
+        triggerSmartlinkAd();
+      }
       setPopunderClicks(nextCount);
 
       if (nextCount >= 3) {
@@ -80,14 +101,51 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         setIsPlaying(true);
         if (onPlaySuccess) onPlaySuccess();
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback: if browser blocks unmuted play, start muted so video always plays
+        try {
+          vid.muted = true;
+          setIsMuted(true);
+          vid
+            .play()
+            .then(() => {
+              setIsPlaying(true);
+              if (onPlaySuccess) onPlaySuccess();
+            })
+            .catch(() => {});
+        } catch {}
+      });
+  };
+
+  const handleVideoError = () => {
+    // Automatically escalate through 3-stage stream pipeline if direct R2 URL or codec fails
+    if (streamStage < 2) {
+      const nextStage = streamStage + 1;
+      setStreamStage(nextStage);
+      setTimeout(() => {
+        const vid = videoRef.current;
+        if (!vid) return;
+        vid.load();
+        if (isUnlocked) {
+          startVideoPlayback();
+        }
+      }, 80);
+    }
   };
 
   const togglePlayPause = () => {
     const vid = videoRef.current;
     if (!vid || !isUnlocked) return;
+    setShowControlsMobile(true);
     if (vid.paused) {
-      vid.play().then(() => setIsPlaying(true)).catch(() => {});
+      vid
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          if (streamStage < 2) {
+            handleVideoError();
+          }
+        });
     } else {
       vid.pause();
       setIsPlaying(false);
@@ -114,16 +172,21 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const toggleFullscreen = (e: React.MouseEvent) => {
     e.stopPropagation();
     const container = containerRef.current;
+    const vid = videoRef.current as any;
     if (!container) return;
     if (!document.fullscreenElement) {
-      container.requestFullscreen?.().catch(() => {});
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(() => {});
+      } else if (vid?.webkitEnterFullscreen) {
+        vid.webkitEnterFullscreen();
+      }
     } else {
       document.exitFullscreen?.().catch(() => {});
     }
   };
 
   const formatTime = (sec: number) => {
-    if (!sec || isNaN(sec)) return '0:00';
+    if (!sec || isNaN(sec) || !isFinite(sec)) return '0:00';
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}:${String(s).padStart(2, '0')}`;
@@ -135,34 +198,43 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     <div
       ref={containerRef}
       onContextMenu={(e) => e.preventDefault()}
+      onClick={() => {
+        if (isUnlocked) setShowControlsMobile((prev) => !prev);
+      }}
       className="relative w-full aspect-video bg-black rounded-xl overflow-hidden select-none group shadow-lg"
     >
       <video
         ref={videoRef}
-        src={videoUrl}
+        src={resolvedVideoSrc}
         playsInline
         preload="metadata"
         controlsList="nodownload noplaybackrate"
         disablePictureInPicture
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
+        onError={handleVideoError}
         onTimeUpdate={() => {
           const vid = videoRef.current;
           if (!vid || !isUnlocked) return;
           setCurrentTime(vid.currentTime);
-          if (vid.duration) {
+          if (vid.duration && isFinite(vid.duration)) {
             setProgress((vid.currentTime / vid.duration) * 100);
           }
         }}
         onLoadedMetadata={() => {
           const vid = videoRef.current;
           if (!vid) return;
-          setDuration(vid.duration);
+          if (vid.duration && isFinite(vid.duration)) {
+            setDuration(vid.duration);
+          }
           // If there is no poster image and video hasn't started yet, seek to 3s so player isn't black
           if (!hasValidPoster && !isUnlocked && vid.duration > 1.5) {
             try {
               vid.currentTime = Math.min(3.0, vid.duration * 0.25);
             } catch {}
+          }
+          if (isUnlocked && vid.paused) {
+            startVideoPlayback();
           }
         }}
         onWaiting={() => setIsBuffering(true)}
@@ -223,8 +295,13 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       {/* Clean YouTube-Style Bottom Player Controls (No Download Option) */}
       {isUnlocked && (
         <div
-          onClick={togglePlayPause}
-          className="absolute inset-0 z-10 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-150 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePlayPause();
+          }}
+          className={`absolute inset-0 z-10 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-150 cursor-pointer ${
+            !isPlaying || showControlsMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
         >
           <div onClick={(e) => e.stopPropagation()} className="px-4 pb-3 pt-2 space-y-2 cursor-default">
             <input

@@ -1299,8 +1299,55 @@ service cloud.firestore {
       }
     }
 
-    function playServerFileInExplorer(activeSrv, file) {
-      currentlyPlayingServerFile = { serverId: activeSrv.id, key: file.key, file };
+    // Resolve best public R2 URL for a server file by checking activeSrv.publicUrl AND published videos in Firebase
+    function resolveBestPublicUrlForFile(activeSrv, fileKey) {
+      const encodedKey = fileKey.split('/').map(encodeURIComponent).join('/');
+      const candidates = [];
+
+      // 1. Check if activeSrv has a dedicated publicUrl (e.g. https://pub-xxxx.r2.dev) distinct from workers.dev
+      const srvPub = normalizeBaseUrl(activeSrv?.publicUrl || '');
+      const srvWorker = normalizeBaseUrl(activeSrv?.workerUrl || '');
+      if (srvPub && !srvPub.includes('.workers.dev')) {
+        candidates.push(`${srvPub}/${encodedKey}`);
+      }
+
+      // 2. Check published videos in Firebase (`rawVideosMap`) for exact file match or known pub-*.r2.dev domain
+      const allVids = Object.values(rawVideosMap || {});
+      for (const item of allVids) {
+        const u = (item?.url || item?.videoUrl || '').trim();
+        if (!u) continue;
+        if (
+          item?.r2Key === fileKey ||
+          u.endsWith(`/${fileKey}`) ||
+          u.endsWith(`/${encodedKey}`)
+        ) {
+          if (!candidates.includes(u)) candidates.unshift(u);
+        }
+      }
+
+      // 3. Also check if any published video uses a pub-*.r2.dev domain as a fallback domain
+      for (const item of allVids) {
+        const u = (item?.url || item?.videoUrl || '').trim();
+        try {
+          const parsed = new URL(u);
+          if (parsed.hostname.endsWith('.r2.dev')) {
+            const guessed = `${parsed.origin}/${encodedKey}`;
+            if (!candidates.includes(guessed)) candidates.push(guessed);
+          }
+        } catch {}
+      }
+
+      if (srvPub && !candidates.includes(`${srvPub}/${encodedKey}`)) {
+        candidates.push(`${srvPub}/${encodedKey}`);
+      }
+      if (srvWorker && !candidates.includes(`${srvWorker}/${encodedKey}`)) {
+        candidates.push(`${srvWorker}/${encodedKey}`);
+      }
+
+      return candidates;
+    }
+
+    function playStreamWithFallbacks(rawDirectUrls, displayTitle, displayMeta, onPublish, onDelete) {
       const box = document.getElementById('explorer-player-box');
       const vid = document.getElementById('explorer-preview-video');
       const titleEl = document.getElementById('explorer-player-title');
@@ -1308,30 +1355,71 @@ service cloud.firestore {
       const pubBtn = document.getElementById('explorer-player-pub-btn');
       const delBtn = document.getElementById('explorer-player-del-btn');
 
-      const encodedKey = file.key.split('/').map(encodeURIComponent).join('/');
-      const publicDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
-      const workerDomain = normalizeBaseUrl(activeSrv.workerUrl);
-      const primaryStreamUrl = `${publicDomain}/${encodedKey}`;
-      const fallbackStreamUrl = `${workerDomain}/${encodedKey}`;
+      // Build complete multi-stage queue: Direct -> /api/stream (Range Proxy) -> /api/stream?transcode=1 (FFmpeg H.264)
+      const queue = [];
+      rawDirectUrls.filter(Boolean).forEach((u) => {
+        if (!queue.includes(u)) queue.push(u);
+        const rangeProxy = `/api/stream?url=${encodeURIComponent(u)}`;
+        if (!queue.includes(rangeProxy)) queue.push(rangeProxy);
+      });
+      rawDirectUrls.filter(Boolean).forEach((u) => {
+        const transcodeProxy = `/api/stream?url=${encodeURIComponent(u)}&transcode=1`;
+        if (!queue.includes(transcodeProxy)) queue.push(transcodeProxy);
+      });
 
-      titleEl.textContent = `▶ ${file.key}`;
-      metaEl.textContent = `${activeSrv.name} · ${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}`;
+      titleEl.textContent = `▶ ${displayTitle}`;
+      metaEl.textContent = displayMeta;
       box.classList.remove('hidden');
 
-      let triedFallback = false;
-      vid.onerror = () => {
-        if (!triedFallback && fallbackStreamUrl !== primaryStreamUrl) {
-          triedFallback = true;
-          vid.src = fallbackStreamUrl;
+      if (onPublish) {
+        pubBtn.classList.remove('hidden');
+        pubBtn.onclick = onPublish;
+      } else {
+        pubBtn.classList.add('hidden');
+      }
+
+      if (onDelete) {
+        delBtn.classList.remove('hidden');
+        delBtn.onclick = onDelete;
+      } else {
+        delBtn.classList.add('hidden');
+      }
+
+      let stageIdx = 0;
+      const tryCurrentStage = () => {
+        if (stageIdx >= queue.length) return;
+        const nextSrc = queue[stageIdx];
+        vid.src = nextSrc;
+        vid.load();
+        vid.play().catch(() => {
+          // If unmuted autoplay is blocked, try muted
+          vid.muted = true;
           vid.play().catch(() => {});
+        });
+      };
+
+      vid.onerror = () => {
+        stageIdx++;
+        if (stageIdx < queue.length) {
+          tryCurrentStage();
         }
       };
 
-      vid.src = primaryStreamUrl;
-      vid.play().catch(() => {});
+      tryCurrentStage();
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
-      pubBtn.onclick = () => publishServerFileToWebsite(activeSrv, file);
-      delBtn.onclick = () => deleteServerFileFromR2(activeSrv, file);
+    function playServerFileInExplorer(activeSrv, file) {
+      currentlyPlayingServerFile = { serverId: activeSrv.id, key: file.key, file };
+      const directCandidates = resolveBestPublicUrlForFile(activeSrv, file.key);
+
+      playStreamWithFallbacks(
+        directCandidates,
+        file.key,
+        `${activeSrv.name} · ${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}`,
+        () => publishServerFileToWebsite(activeSrv, file),
+        () => deleteServerFileFromR2(activeSrv, file)
+      );
 
       renderActiveServerFiles();
     }
@@ -1954,7 +2042,16 @@ service cloud.firestore {
         return;
       }
       statusEl.textContent = 'ভিডিও থেকে ৩টি অটো থাম্বনেইল তৈরি করা হচ্ছে...';
-      const extracted = await extractThreeVideoThumbnails(streamUrl, true, false);
+      // Use /api/stream so canvas extraction works with CORS on any pub-*.r2.dev video
+      const proxiedStreamUrl = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+      let extracted = await extractThreeVideoThumbnails(proxiedStreamUrl, true, false);
+      if (!extracted.frames || extracted.frames.length === 0) {
+        extracted = await extractThreeVideoThumbnails(
+          `/api/stream?url=${encodeURIComponent(streamUrl)}&transcode=1`,
+          true,
+          false
+        );
+      }
       if (extracted.frames && extracted.frames.length > 0) {
         editGeneratedThreeThumbs = extracted.frames;
         selectedEditThumbIdx = 0;
@@ -1963,7 +2060,7 @@ service cloud.firestore {
         const firstBtn = document.querySelector('#edit-auto-thumbs-grid button');
         if (firstBtn) firstBtn.click();
       } else {
-        statusEl.textContent = 'CORS বা ভিডিও ফরম্যাটের কারণে ফ্রেম নেওয়া যায়নি—Custom Thumbnail আপলোড করুন।';
+        statusEl.textContent = 'ভিডিও ফরম্যাটের কারণে ফ্রেম নেওয়া যায়নি—Custom Thumbnail আপলোড করুন।';
       }
     });
 
@@ -2323,18 +2420,47 @@ service cloud.firestore {
             <p class="text-[11px] text-zinc-500">${v.keywords}</p>
           </td>
           <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
-            <a href="${v.streamUrl}" target="_blank" class="hover:text-red-400">${v.streamUrl}</a>
+            <button type="button" data-play-pub="${v.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to play video">
+              ${v.streamUrl}
+            </button>
           </td>
           <td class="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">${v.views.toLocaleString()}</td>
           <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
-            <button data-edit-vid="${v.id}" class="px-3 py-1 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-800/60 text-amber-300 text-[11px] font-medium cursor-pointer">
+            <button data-play-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
+              ▶ Play
+            </button>
+            <button data-edit-vid="${v.id}" type="button" class="px-3 py-1 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-800/60 text-amber-300 text-[11px] font-medium cursor-pointer">
               ✎ Edit
             </button>
-            <button data-rm-vid="${v.id}" class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
+            <button data-rm-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
               Delete
             </button>
           </td>
         `;
+
+        const handlePlayPublished = () => {
+          if (!v.streamUrl) return;
+          currentlyPlayingServerFile = null;
+          renderActiveServerFiles();
+          playStreamWithFallbacks(
+            [v.streamUrl],
+            v.title,
+            `Published Video · ${v.views.toLocaleString()} views · ${v.streamUrl}`,
+            null,
+            async () => {
+              try {
+                await remove(ref(db, `videos/${v.id}`));
+                closeExplorerVideoPlayer();
+                showStatus(`Removed "${v.title}" from website.`, 'success');
+              } catch (err) {
+                showStatus(`Delete Error: ${err.message}`, 'error');
+              }
+            }
+          );
+        };
+
+        tr.querySelector('[data-play-vid]').addEventListener('click', handlePlayPublished);
+        tr.querySelector('[data-play-pub]').addEventListener('click', handlePlayPublished);
 
         tr.querySelector('[data-edit-vid]').addEventListener('click', () => {
           openEditVideoModal(v.id);

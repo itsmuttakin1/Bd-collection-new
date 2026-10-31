@@ -6,15 +6,152 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { spawn } from 'child_process';
+import { Readable } from 'stream';
+
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+  'Access-Control-Allow-Methods': 'GET, HEAD, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, X-Worker-Url, Range',
+  'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges, Content-Type',
 };
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // High-speed Video Stream Proxy & Codec Transcoder (/api/stream)
+  // Fixes playback for pub-*.r2.dev/*.mp4 across all ISPs, browsers, Range requests, and HEVC/AV1 codecs
+  app.options('/api/stream', (_req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    res.status(204).end();
+  });
+
+  app.get('/api/stream', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+
+    const rawUrl = String(req.query.url || '').trim();
+    const transcode = req.query.transcode === '1';
+
+    if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
+      res.status(400).json({ error: 'Invalid or missing video URL' });
+      return;
+    }
+
+    // Ensure proper URL encoding for Bengali/spaces in filenames while preserving existing %XX sequences
+    let targetUrl = rawUrl;
+    try {
+      const parsed = new URL(rawUrl);
+      targetUrl = parsed.toString();
+    } catch {
+      targetUrl = encodeURI(rawUrl);
+    }
+
+    // Optional FFmpeg live transcode mode for HEVC (H.265) / AV1 / incompatible MP4 containers
+    if (transcode) {
+      res.status(200);
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Cache-Control', 'no-cache');
+
+      const ffArgs = [
+        '-loglevel', 'error',
+        '-i', targetUrl,
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '28',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ac', '2',
+        '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+        '-f', 'mp4',
+        'pipe:1',
+      ];
+
+      const ffProc = spawn('ffmpeg', ffArgs, { stdio: ['ignore', 'pipe', 'ignore'] });
+      ffProc.stdout.pipe(res);
+
+      const cleanup = () => {
+        try {
+          ffProc.kill('SIGKILL');
+        } catch {}
+      };
+      req.on('close', cleanup);
+      res.on('close', cleanup);
+      ffProc.on('error', () => {
+        if (!res.headersSent) res.status(502).end();
+      });
+      return;
+    }
+
+    // Standard HTTP Byte-Range Streaming Proxy (206 Partial Content)
+    const abortController = new AbortController();
+    req.on('close', () => {
+      try {
+        abortController.abort();
+      } catch {}
+    });
+
+    try {
+      const upstreamHeaders: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      };
+      if (req.headers.range) {
+        upstreamHeaders['Range'] = req.headers.range;
+      } else {
+        // Request from byte 0 so Cloudflare R2 always includes Content-Range and Accept-Ranges
+        upstreamHeaders['Range'] = 'bytes=0-';
+      }
+
+      const upstreamRes = await fetch(targetUrl, {
+        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+        headers: upstreamHeaders,
+        redirect: 'follow',
+        signal: abortController.signal,
+      });
+
+      if (!upstreamRes.ok && upstreamRes.status !== 206) {
+        res.status(upstreamRes.status).end();
+        return;
+      }
+
+      const status = req.headers.range ? upstreamRes.status : (upstreamRes.status === 206 ? 206 : 200);
+      res.status(status);
+
+      const contentType = upstreamRes.headers.get('content-type');
+      res.setHeader(
+        'Content-Type',
+        contentType && contentType.includes('video') ? contentType : 'video/mp4'
+      );
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      const contentLength = upstreamRes.headers.get('content-length');
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+
+      const contentRange = upstreamRes.headers.get('content-range');
+      if (contentRange) res.setHeader('Content-Range', contentRange);
+
+      const etag = upstreamRes.headers.get('etag');
+      if (etag) res.setHeader('ETag', etag);
+
+      if (req.method === 'HEAD' || !upstreamRes.body) {
+        res.end();
+        return;
+      }
+
+      const nodeStream = Readable.fromWeb(upstreamRes.body as any);
+      nodeStream.on('error', () => {
+        try {
+          res.end();
+        } catch {}
+      });
+      nodeStream.pipe(res);
+    } catch (err: any) {
+      if (!res.headersSent) {
+        res.status(502).json({ error: err?.message || 'Stream proxy error' });
+      }
+    }
+  });
 
   // Apply CORS headers to all /api/r2-proxy routes and handle OPTIONS preflight
   app.use('/api/r2-proxy', (req, res, next) => {
