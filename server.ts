@@ -255,6 +255,36 @@ async function startServer() {
       targetUrl = encodeURI(rawUrl);
     }
 
+    const KNOWN_R2_PUBLIC_DOMAINS = [
+      'https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev',
+      'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
+      'https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev',
+      'https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev',
+    ];
+
+    const buildR2FallbackCandidates = (initialUrl: string): string[] => {
+      const list = [initialUrl];
+      try {
+        const u = new URL(initialUrl);
+        if (u.hostname.endsWith('.r2.dev')) {
+          const pathWithQuery = u.pathname + u.search;
+          for (const dom of KNOWN_R2_PUBLIC_DOMAINS) {
+            const candidate = `${dom}${pathWithQuery}`;
+            if (!list.includes(candidate)) list.push(candidate);
+          }
+          // If path starts with /shorts/, also try root key on each domain as fallback
+          if (u.pathname.startsWith('/shorts/')) {
+            const rootPath = u.pathname.replace(/^\/shorts\//, '/');
+            for (const dom of KNOWN_R2_PUBLIC_DOMAINS) {
+              const candidate = `${dom}${rootPath}${u.search}`;
+              if (!list.includes(candidate)) list.push(candidate);
+            }
+          }
+        }
+      } catch {}
+      return list;
+    };
+
     // Optional FFmpeg live transcode mode for HEVC (H.265) / AV1 / incompatible MP4 containers
     if (transcode) {
       res.status(200);
@@ -292,7 +322,7 @@ async function startServer() {
       return;
     }
 
-    // Standard HTTP Byte-Range Streaming Proxy (206 Partial Content)
+    // Standard HTTP Byte-Range Streaming Proxy (206 Partial Content) with automatic multi-bucket R2 failover
     const abortController = new AbortController();
     req.on('close', () => {
       try {
@@ -311,15 +341,27 @@ async function startServer() {
         upstreamHeaders['Range'] = 'bytes=0-';
       }
 
-      const upstreamRes = await fetch(targetUrl, {
-        method: req.method === 'HEAD' ? 'HEAD' : 'GET',
-        headers: upstreamHeaders,
-        redirect: 'follow',
-        signal: abortController.signal,
-      });
+      const candidateUrls = buildR2FallbackCandidates(targetUrl);
+      let upstreamRes: Response | null = null;
 
-      if (!upstreamRes.ok && upstreamRes.status !== 206) {
-        res.status(upstreamRes.status).end();
+      for (const candidateUrl of candidateUrls) {
+        const attemptRes = await fetch(candidateUrl, {
+          method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+          headers: upstreamHeaders,
+          redirect: 'follow',
+          signal: abortController.signal,
+        });
+        if (attemptRes.ok || attemptRes.status === 206) {
+          upstreamRes = attemptRes;
+          break;
+        }
+        if (!upstreamRes) {
+          upstreamRes = attemptRes;
+        }
+      }
+
+      if (!upstreamRes || (!upstreamRes.ok && upstreamRes.status !== 206)) {
+        res.status(upstreamRes ? upstreamRes.status : 404).end();
         return;
       }
 

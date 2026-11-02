@@ -41,6 +41,60 @@ type FeedSlide =
   | { type: 'short'; item: ShortItem }
   | { type: 'ad'; id: string };
 
+const KNOWN_R2_PUBLIC_DOMAINS = [
+  'https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev',
+  'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
+  'https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev',
+  'https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev',
+];
+
+const buildShortCandidateUrls = (short: ShortItem): string[] => {
+  let raw = String(short.url || short.videoUrl || '').trim();
+  if (!raw && short.r2Key) {
+    raw = `https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev/${short.r2Key.replace(/^\/+/, '')}`;
+  }
+  if (!raw) return [];
+  if (!/^https?:\/\//i.test(raw) && !raw.startsWith('/')) {
+    raw = `https://${raw}`;
+  }
+
+  // Prioritize the Shorts R2 bucket if saved with Server 1 domain on /shorts/ path
+  if (raw.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
+    raw = raw.replace(
+      'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
+      'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
+    );
+  }
+
+  const candidates: string[] = [raw];
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname.endsWith('.r2.dev')) {
+      const pathPart = parsed.pathname + parsed.search;
+      for (const dom of KNOWN_R2_PUBLIC_DOMAINS) {
+        const alt = `${dom}${pathPart}`;
+        if (!candidates.includes(alt)) candidates.push(alt);
+      }
+      if (parsed.pathname.startsWith('/shorts/')) {
+        const rootPath = parsed.pathname.replace(/^\/shorts\//, '/');
+        for (const dom of KNOWN_R2_PUBLIC_DOMAINS) {
+          const rootAlt = `${dom}${rootPath}${parsed.search}`;
+          if (!candidates.includes(rootAlt)) candidates.push(rootAlt);
+        }
+      }
+    }
+  } catch {}
+
+  const streamProxy = `/api/stream?url=${encodeURIComponent(raw)}`;
+  if (!candidates.includes(streamProxy)) candidates.push(streamProxy);
+
+  const transcodeProxy = `/api/stream?url=${encodeURIComponent(raw)}&transcode=1`;
+  if (!candidates.includes(transcodeProxy)) candidates.push(transcodeProxy);
+
+  return candidates;
+};
+
 export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   shorts,
   initialShortId,
@@ -113,37 +167,39 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
       if (idx === activeIndex && isItemUnlocked) {
         vid.muted = isMuted;
-        vid
-          .play()
-          .then(() => {
-            setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
-            if (!viewedIdsRef.current.has(sl.item.id)) {
-              viewedIdsRef.current.add(sl.item.id);
-              onIncrementShortViews(sl.item.id);
-              onShortWatched?.(sl.item);
-            }
-          })
-          .catch(() => {
-            vid.muted = true;
-            setIsMuted(true);
-            vid
-              .play()
-              .then(() => {
-                setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
-                if (!viewedIdsRef.current.has(sl.item.id)) {
-                  viewedIdsRef.current.add(sl.item.id);
-                  onIncrementShortViews(sl.item.id);
-                  onShortWatched?.(sl.item);
-                }
-              })
-              .catch(() => {});
-          });
+        const playPromise = vid.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
+              if (!viewedIdsRef.current.has(sl.item.id)) {
+                viewedIdsRef.current.add(sl.item.id);
+                onIncrementShortViews(sl.item.id);
+                onShortWatched?.(sl.item);
+              }
+            })
+            .catch(() => {
+              vid.muted = true;
+              setIsMuted(true);
+              vid
+                .play()
+                .then(() => {
+                  setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
+                  if (!viewedIdsRef.current.has(sl.item.id)) {
+                    viewedIdsRef.current.add(sl.item.id);
+                    onIncrementShortViews(sl.item.id);
+                    onShortWatched?.(sl.item);
+                  }
+                })
+                .catch(() => {});
+            });
+        }
       } else {
         vid.pause();
         setPlayingMap((prev) => ({ ...prev, [sl.item.id]: false }));
       }
     });
-  }, [activeIndex, unlockedMap, slides]);
+  }, [activeIndex, unlockedMap, slides, streamStages]);
 
   const handleScroll = () => {
     const container = feedContainerRef.current;
@@ -186,7 +242,8 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         setUnlockedMap((prev) => ({ ...prev, [short.id]: true }));
         const vid = videoRefs.current[short.id];
         if (vid) {
-          vid.muted = isMuted;
+          vid.muted = false;
+          setIsMuted(false);
           vid
             .play()
             .then(() => {
@@ -207,14 +264,24 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
       return;
     }
 
-    // Already unlocked (or uploaded Short): toggle play/pause (or unmute if muted)
+    // Already unlocked (or uploaded Short): toggle play/pause (and unmute if it was auto-muted by browser policy)
     const vid = videoRefs.current[short.id];
     if (!vid) return;
     if (vid.paused) {
+      vid.muted = false;
+      setIsMuted(false);
       vid
         .play()
         .then(() => setPlayingMap((prev) => ({ ...prev, [short.id]: true })))
-        .catch(() => {});
+        .catch(() => {
+          vid.muted = true;
+          setIsMuted(true);
+          vid.play().catch(() => {});
+        });
+    } else if (isMuted) {
+      // First tap on a playing muted Short unmutes sound without pausing
+      vid.muted = false;
+      setIsMuted(false);
     } else {
       vid.pause();
       setPlayingMap((prev) => ({ ...prev, [short.id]: false }));
@@ -222,32 +289,19 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   };
 
   const handleVideoStreamError = (short: ShortItem) => {
+    const candidates = buildShortCandidateUrls(short);
     const currentStage = streamStages[short.id] || 0;
-    if (currentStage < 3) {
+    if (currentStage + 1 < candidates.length) {
       const nextStage = currentStage + 1;
       setStreamStages((prev) => ({ ...prev, [short.id]: nextStage }));
-      setTimeout(() => {
-        const vid = videoRefs.current[short.id];
-        if (!vid) return;
-        vid.load();
-        if (!short.isLongVideo || unlockedMap[short.id]) {
-          vid.play().catch(() => {});
-        }
-      }, 100);
     }
   };
 
   const getResolvedShortStreamUrl = (short: ShortItem): string => {
-    const clean = (short.url || short.videoUrl || '').trim();
-    if (!clean) return '';
+    const candidates = buildShortCandidateUrls(short);
+    if (candidates.length === 0) return '';
     const stage = streamStages[short.id] || 0;
-    if (stage === 1) return `/api/stream?url=${encodeURIComponent(clean)}`;
-    if (stage === 2) return `/api/stream?url=${encodeURIComponent(clean)}&transcode=1`;
-    if (stage === 3) {
-      const sep = clean.includes('?') ? '&' : '?';
-      return `${clean}${sep}sid=${encodeURIComponent(short.id)}`;
-    }
-    return clean;
+    return candidates[Math.min(stage, candidates.length - 1)] || candidates[0];
   };
 
   const toggleMute = (e: React.MouseEvent) => {
@@ -423,49 +477,65 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                   />
                 )}
 
-                {/* Video Element */}
-                <video
-                  key={`${short.id}-${streamStages[short.id] || 0}`}
-                  ref={(el) => {
-                    videoRefs.current[short.id] = el;
-                  }}
-                  src={streamUrl}
-                  poster={thumbUrl || 'https://bdcollection.pages.dev/favicon.png'}
-                  playsInline
-                  autoPlay={idx === activeIndex && !short.isLongVideo}
-                  loop
-                  muted={isMuted}
-                  preload="auto"
-                  controlsList="nodownload noplaybackrate"
-                  disablePictureInPicture
-                  onContextMenu={(e) => e.preventDefault()}
-                  onCanPlay={(e) => {
-                    if (idx === activeIndex && (!short.isLongVideo || unlockedMap[short.id])) {
-                      const vid = e.currentTarget;
-                      if (vid.paused) {
-                        vid
-                          .play()
-                          .then(() => {
-                            setPlayingMap((prev) => ({ ...prev, [short.id]: true }));
-                            if (!viewedIdsRef.current.has(short.id)) {
-                              viewedIdsRef.current.add(short.id);
-                              onIncrementShortViews(short.id);
-                              onShortWatched?.(short);
-                            }
-                          })
-                          .catch(() => {
-                            vid.muted = true;
-                            setIsMuted(true);
-                            vid.play().catch(() => {});
-                          });
+                {/* Video Element (Mounted for active & adjacent slides so mobile/Telegram decoders never stall) */}
+                {Math.abs(idx - activeIndex) <= 1 ? (
+                  <video
+                    key={`${short.id}-${streamStages[short.id] || 0}`}
+                    ref={(el) => {
+                      videoRefs.current[short.id] = el;
+                    }}
+                    src={streamUrl}
+                    poster={thumbUrl || 'https://bdcollection.pages.dev/favicon.png'}
+                    playsInline
+                    autoPlay={idx === activeIndex && !short.isLongVideo}
+                    loop
+                    muted={isMuted}
+                    preload={idx === activeIndex ? 'auto' : 'metadata'}
+                    controlsList="nodownload noplaybackrate"
+                    disablePictureInPicture
+                    onContextMenu={(e) => e.preventDefault()}
+                    onPlay={() => setPlayingMap((prev) => ({ ...prev, [short.id]: true }))}
+                    onPlaying={() => setPlayingMap((prev) => ({ ...prev, [short.id]: true }))}
+                    onPause={() => setPlayingMap((prev) => ({ ...prev, [short.id]: false }))}
+                    onCanPlay={(e) => {
+                      if (idx === activeIndex && (!short.isLongVideo || unlockedMap[short.id])) {
+                        const vid = e.currentTarget;
+                        if (vid.paused) {
+                          vid
+                            .play()
+                            .then(() => {
+                              setPlayingMap((prev) => ({ ...prev, [short.id]: true }));
+                              if (!viewedIdsRef.current.has(short.id)) {
+                                viewedIdsRef.current.add(short.id);
+                                onIncrementShortViews(short.id);
+                                onShortWatched?.(short);
+                              }
+                            })
+                            .catch(() => {
+                              vid.muted = true;
+                              setIsMuted(true);
+                              vid.play().catch(() => {});
+                            });
+                        }
                       }
-                    }
-                  }}
-                  onError={() => handleVideoStreamError(short)}
-                  className={`absolute inset-0 w-full h-full ${
-                    short.isLongVideo ? 'object-contain' : 'object-cover'
-                  } pointer-events-none`}
-                />
+                    }}
+                    onError={() => handleVideoStreamError(short)}
+                    className={`absolute inset-0 w-full h-full ${
+                      short.isLongVideo ? 'object-contain' : 'object-cover'
+                    } pointer-events-none`}
+                  />
+                ) : (
+                  thumbUrl && (
+                    <img
+                      src={thumbUrl}
+                      alt={short.title}
+                      referrerPolicy="no-referrer"
+                      className={`absolute inset-0 w-full h-full ${
+                        short.isLongVideo ? 'object-contain' : 'object-cover'
+                      } pointer-events-none`}
+                    />
+                  )
+                )}
 
                 {/* Thumbnail Poster Overlay before Unlock (ONLY for interleaved Full/Long videos) */}
                 {short.isLongVideo && !isUnlocked && thumbUrl && (

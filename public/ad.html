@@ -765,31 +765,56 @@
             </p>
           </div>
           <div class="flex items-center gap-2">
+            <span class="text-xs font-mono text-emerald-400 font-semibold" id="short-active-server-badge"></span>
             <span id="shorts-catalog-count" class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-400">0 shorts</span>
           </div>
         </div>
 
         <form id="short-upload-form" class="space-y-4">
+          <!-- Server Selector Row for Shorts (Identical to Full Video Upload) -->
+          <div class="p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Target Storage Server *</label>
+              <select id="short-server-select"
+                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-medium text-white focus:outline-none focus:border-red-500"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Public R2 Stream Domain *</label>
+              <input id="short-public-domain" type="url" placeholder="https://pub-xxxx.r2.dev"
+                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1.5">X-Admin-Key Secret *</label>
+              <input id="short-admin-key" type="password" placeholder="Enter Worker X-Admin-Key"
+                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Folder on R2 (Leave empty for root)</label>
+              <input id="short-folder" type="text" value="" placeholder="Optional folder (empty = root)"
+                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
             <!-- Left 6 Cols: Video File Picker + Auto Viral Adult Title & Hashtags -->
             <div class="lg:col-span-6 space-y-4">
               <div>
                 <label class="block text-xs font-medium text-zinc-300 mb-1.5">১. Select Short Video File (আপলোডের জন্য শর্ট ভিডিও সিলেক্ট করুন) *</label>
                 <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-red-800/70 hover:border-red-500 rounded-xl bg-zinc-950/80 cursor-pointer transition-colors p-4 text-center">
-                  <div class="w-8 h-8 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-1 font-bold">📱</div>
+                  <div class="w-8 h-8 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-1 font-bold">↑</div>
                   <span id="short-file-chosen-name" class="text-xs font-semibold text-zinc-200">Click to select a Short video file from your device</span>
-                  <span id="short-file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-0.5">Auto-generates 3 thumbnails + Auto Viral Adult Hashtags</span>
+                  <span id="short-file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-0.5">MP4, WEBM, MKV, MOV supported · Auto-generates 3 thumbnails</span>
                   <input id="short-file-input" type="file" accept="video/*" class="hidden" />
                 </label>
               </div>
 
               <!-- Progress Bar for Short Upload -->
-              <div id="short-progress-wrap" class="hidden space-y-1.5">
+              <div id="short-progress-wrap" class="hidden p-3 rounded-xl bg-zinc-950 border border-red-500/40 space-y-1.5">
                 <div class="flex justify-between text-xs font-mono">
-                  <span class="text-zinc-300">Uploading Short to Storage Server...</span>
-                  <span id="short-progress-pct" class="text-red-400">0%</span>
+                  <span id="short-progress-status" class="text-zinc-200 font-semibold">Uploading Short video file to Storage Server...</span>
+                  <span id="short-progress-pct" class="text-red-400 font-bold">0%</span>
                 </div>
-                <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+                <div class="w-full h-2.5 rounded-full bg-zinc-800 overflow-hidden">
                   <div id="short-progress-bar" class="h-full bg-red-600 transition-all duration-150" style="width: 0%"></div>
                 </div>
               </div>
@@ -931,6 +956,17 @@
                   class="w-full px-3 py-1 rounded bg-zinc-950 border border-emerald-800/70 text-xs font-mono text-emerald-300 focus:outline-none select-all" />
               </div>
             </div>
+          </div>
+
+          <!-- Bottom Submit Bar (Identical to Full Video Upload) -->
+          <div class="pt-3 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
+            <p id="short-upload-ready-hint" class="text-xs text-zinc-400">
+              সার্ভার সিলেক্ট করে শর্ট ভিডিও ফাইল দিন, তারপর ডান পাশের <strong>🚀 Upload &amp; Publish Short to Server</strong> বাটনে ক্লিক করুন।
+            </p>
+            <button id="short-bottom-submit-btn" type="submit"
+              class="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-lg shadow-red-600/25">
+              🚀 Upload &amp; Publish Short to Server
+            </button>
           </div>
         </form>
 
@@ -1516,26 +1552,53 @@ service cloud.firestore {
 
     function renderServerSelect() {
       const select = document.getElementById('upload-server-select');
-      select.innerHTML = '';
+      const shortSelect = document.getElementById('short-server-select');
+      if (select) select.innerHTML = '';
+      if (shortSelect) shortSelect.innerHTML = '';
 
       if (servers.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'No Storage Server Saved — Click "+ Add Storage Server" above';
-        select.appendChild(opt);
+        const emptyText = 'No Storage Server Saved — Click "+ Add Storage Server" above';
+        if (select) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = emptyText;
+          select.appendChild(opt);
+        }
+        if (shortSelect) {
+          const opt2 = document.createElement('option');
+          opt2.value = '';
+          opt2.textContent = emptyText;
+          shortSelect.appendChild(opt2);
+        }
         document.getElementById('upload-admin-key').value = '';
         document.getElementById('upload-public-domain').value = '';
         document.getElementById('active-server-badge').textContent = 'No Server Selected';
+        const shortKeyEl = document.getElementById('short-admin-key');
+        const shortPubEl = document.getElementById('short-public-domain');
+        const shortBadgeEl = document.getElementById('short-active-server-badge');
+        if (shortKeyEl) shortKeyEl.value = '';
+        if (shortPubEl) shortPubEl.value = '';
+        if (shortBadgeEl) shortBadgeEl.textContent = 'No Server Selected';
         document.getElementById('explorer-server-title').textContent = 'Add a storage server to browse files';
         return;
       }
 
       servers.forEach((s) => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = `${s.name} (${normalizeBaseUrl(s.workerUrl).replace('https://', '')})`;
-        if (s.id === activeServerId) opt.selected = true;
-        select.appendChild(opt);
+        const labelText = `${s.name} (${normalizeBaseUrl(s.workerUrl).replace('https://', '')})`;
+        if (select) {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = labelText;
+          if (s.id === activeServerId) opt.selected = true;
+          select.appendChild(opt);
+        }
+        if (shortSelect) {
+          const opt2 = document.createElement('option');
+          opt2.value = s.id;
+          opt2.textContent = labelText;
+          if (s.id === activeServerId) opt2.selected = true;
+          shortSelect.appendChild(opt2);
+        }
       });
 
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
@@ -1544,6 +1607,12 @@ service cloud.firestore {
         document.getElementById('upload-admin-key').value = activeSrv.adminKey || '';
         document.getElementById('upload-public-domain').value = activeSrv.publicUrl || '';
         document.getElementById('active-server-badge').textContent = activeSrv.name;
+        const shortKeyEl = document.getElementById('short-admin-key');
+        const shortPubEl = document.getElementById('short-public-domain');
+        const shortBadgeEl = document.getElementById('short-active-server-badge');
+        if (shortKeyEl) shortKeyEl.value = activeSrv.adminKey || '';
+        if (shortPubEl) shortPubEl.value = activeSrv.publicUrl || '';
+        if (shortBadgeEl) shortBadgeEl.textContent = `Active Server: ${activeSrv.name}`;
         document.getElementById('explorer-server-title').textContent = `${activeSrv.name} · ${normalizeBaseUrl(activeSrv.publicUrl)}`;
       }
     }
@@ -2065,18 +2134,53 @@ service cloud.firestore {
       renderActiveServerFiles();
     });
 
+    document.getElementById('short-server-select').addEventListener('change', (e) => {
+      activeServerId = e.target.value;
+      renderServerSelect();
+      renderStorageCards();
+      renderActiveServerFiles();
+    });
+
     document.getElementById('upload-admin-key').addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      const shortKeyEl = document.getElementById('short-admin-key');
+      if (shortKeyEl) shortKeyEl.value = val;
       const activeSrv = servers.find((s) => s.id === activeServerId);
       if (activeSrv) {
-        activeSrv.adminKey = e.target.value.trim();
+        activeSrv.adminKey = val;
+        saveServers();
+      }
+    });
+
+    document.getElementById('short-admin-key').addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      const uploadKeyEl = document.getElementById('upload-admin-key');
+      if (uploadKeyEl) uploadKeyEl.value = val;
+      const activeSrv = servers.find((s) => s.id === activeServerId);
+      if (activeSrv) {
+        activeSrv.adminKey = val;
         saveServers();
       }
     });
 
     document.getElementById('upload-public-domain').addEventListener('input', (e) => {
+      const val = normalizeBaseUrl(e.target.value);
+      const shortPubEl = document.getElementById('short-public-domain');
+      if (shortPubEl) shortPubEl.value = val;
       const activeSrv = servers.find((s) => s.id === activeServerId);
       if (activeSrv) {
-        activeSrv.publicUrl = normalizeBaseUrl(e.target.value);
+        activeSrv.publicUrl = val;
+        saveServers();
+      }
+    });
+
+    document.getElementById('short-public-domain').addEventListener('input', (e) => {
+      const val = normalizeBaseUrl(e.target.value);
+      const uploadPubEl = document.getElementById('upload-public-domain');
+      if (uploadPubEl) uploadPubEl.value = val;
+      const activeSrv = servers.find((s) => s.id === activeServerId);
+      if (activeSrv) {
+        activeSrv.publicUrl = val;
         saveServers();
       }
     });
@@ -3839,10 +3943,26 @@ service cloud.firestore {
       const durInput = document.getElementById('short-duration');
 
       statusEl.textContent = 'শর্ট ভিডিও থেকে ৩টি উজ্জ্বল থাম্বনেইল তৈরি হচ্ছে...';
-      const extracted = await extractThreeVideoThumbnails(fileOrUrl, forceRandom, isFile);
+      // Pass false for updateDurationInput so it does not overwrite #video-duration in the other form
+      const extracted = await extractThreeVideoThumbnails(fileOrUrl, forceRandom, false);
 
-      if (extracted.duration && durInput) {
-        durInput.value = extracted.duration;
+      // Compute duration for the Short video separately
+      if (isFile && fileOrUrl) {
+        try {
+          const tempUrl = URL.createObjectURL(fileOrUrl);
+          const tempVid = document.createElement('video');
+          tempVid.preload = 'metadata';
+          tempVid.src = tempUrl;
+          tempVid.onloadedmetadata = () => {
+            const d = Number(tempVid.duration) || 0;
+            if (d > 0 && durInput) {
+              const m = Math.floor(d / 60);
+              const s = Math.floor(d % 60);
+              durInput.value = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+            URL.revokeObjectURL(tempUrl);
+          };
+        } catch {}
       }
 
       if (extracted.frames && extracted.frames.length > 0) {
@@ -3860,7 +3980,7 @@ service cloud.firestore {
         shortGeneratedThreeThumbs = [];
         renderShortThreeThumbsPicker();
         if (isFile && fileOrUrl && sizeEl) {
-          sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Ready to upload`;
+          sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Ready to upload to server`;
         }
         statusEl.textContent = '৩টি ফ্রেম নেওয়া যায়নি—Custom Thumb বাটনে ক্লিক করে ইমেজ দিন।';
       }
@@ -3877,10 +3997,14 @@ service cloud.firestore {
       const sizeEl = document.getElementById('short-file-chosen-size');
       const titleInput = document.getElementById('short-title');
       const hashtagsInput = document.getElementById('short-hashtags');
+      const hintEl = document.getElementById('short-upload-ready-hint');
 
       if (selectedShortFile) {
-        nameEl.textContent = selectedShortFile.name;
+        nameEl.textContent = `📁 ${selectedShortFile.name}`;
         sizeEl.textContent = `${formatBytes(selectedShortFile.size)} · Generating 3 Short thumbnails...`;
+        if (hintEl) {
+          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✓ "${selectedShortFile.name}" (${formatBytes(selectedShortFile.size)}) সিলেক্ট হয়েছে! এবার ডান পাশের <strong>🚀 Upload &amp; Publish Short to Server</strong> বাটনে ক্লিক করলে নির্বাচিত সার্ভারে ভিডিওটি আপলোড হবে।</span>`;
+        }
         if (!titleInput.value.trim()) {
           const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
           titleInput.value = preset.title;
@@ -3892,7 +4016,7 @@ service cloud.firestore {
         await processShortVideoThreeThumbnails(selectedShortFile, false, true);
       } else {
         nameEl.textContent = 'Click to select a Short video file from your device';
-        sizeEl.textContent = 'Auto-generates 3 thumbnails + Auto Viral Adult Hashtags';
+        sizeEl.textContent = 'MP4, WEBM, MKV, MOV supported · Auto-generates 3 thumbnails';
       }
     });
 
@@ -3992,99 +4116,187 @@ service cloud.firestore {
       updateShortThumbPreviewUI(e.target.value.trim());
     });
 
-    // Submit Short Upload Form -> Upload to R2 & Save to Firebase `shorts` node
+    // Upload helper with real XHR progress + automatic /api/r2-proxy/upload fallback
+    const uploadVideoBlobToR2WithProgress = (endpointUrl, headersObj, formData, onProgress) => {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', endpointUrl, true);
+        Object.entries(headersObj || {}).forEach(([k, v]) => {
+          if (v) xhr.setRequestHeader(k, v);
+        });
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable && typeof onProgress === 'function') {
+            const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100));
+            onProgress(pct, ev.loaded, ev.total);
+          }
+        };
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText || '{}');
+            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+              resolve(json);
+            } else {
+              reject(new Error(json.error || `HTTP ${xhr.status}`));
+            }
+          } catch {
+            reject(new Error(`Invalid server response (${xhr.status})`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network/CORS error'));
+        xhr.send(formData);
+      });
+    };
+
+    // Submit Short Upload Form -> Upload Short Video File to Selected Storage Server & Save to Firebase `shorts` node
     document.getElementById('short-upload-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+
+      const selectedSrvId =
+        document.getElementById('short-server-select')?.value || activeServerId;
+      const activeSrv =
+        servers.find((s) => s.id === selectedSrvId) ||
+        servers.find((s) => s.id === activeServerId) ||
+        servers[0];
+
       const adminKey =
-        document.getElementById('upload-admin-key').value.trim() ||
+        document.getElementById('short-admin-key')?.value.trim() ||
+        document.getElementById('upload-admin-key')?.value.trim() ||
         (activeSrv ? activeSrv.adminKey : '');
+
       const publicDomainInput = normalizeBaseUrl(
-        document.getElementById('upload-public-domain').value ||
+        document.getElementById('short-public-domain')?.value ||
+          document.getElementById('upload-public-domain')?.value ||
           (activeSrv ? activeSrv.publicUrl : '')
       );
+
+      const folder = (document.getElementById('short-folder')?.value || '')
+        .trim()
+        .replace(/^\/+|\/+$/g, '');
 
       const rawTitle = document.getElementById('short-title').value.trim();
       const hashtags =
         document.getElementById('short-hashtags').value.trim() ||
         '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl';
-      const title =
-        rawTitle ||
-        `🔥 দেশি ভাইরাল হট শর্টস 🥵💋 ${hashtags}`;
+      const title = rawTitle || `🔥 দেশি ভাইরাল হট শর্টস 🥵💋 ${hashtags}`;
       const duration = document.getElementById('short-duration').value.trim() || '00:35';
       let finalThumb =
         document.getElementById('short-thumb-url').value.trim() || shortAutoThumbUrl || '';
       const customUrl = document.getElementById('short-custom-url').value.trim();
 
+      if (activeSrv) {
+        activeServerId = activeSrv.id;
+        if (adminKey) activeSrv.adminKey = adminKey;
+        if (publicDomainInput) activeSrv.publicUrl = publicDomainInput;
+        saveServers();
+      }
+
       const submitBtn = document.getElementById('short-submit-btn');
+      const bottomSubmitBtn = document.getElementById('short-bottom-submit-btn');
       const progWrap = document.getElementById('short-progress-wrap');
+      const progStatus = document.getElementById('short-progress-status');
       const progBar = document.getElementById('short-progress-bar');
       const progPct = document.getElementById('short-progress-pct');
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Uploading Short...';
+      submitBtn.textContent = 'Uploading Short Video...';
+      if (bottomSubmitBtn) {
+        bottomSubmitBtn.disabled = true;
+        bottomSubmitBtn.textContent = '⏳ Uploading Short Video to Server...';
+      }
 
       let finalVideoUrl = customUrl;
       let uploadedKey = '';
 
       try {
+        // 1. Ensure thumbnail is hosted on ImgBB if it is still a base64 data URL
         if (finalThumb.startsWith('data:image/')) {
           try {
             finalThumb = await uploadToImgBB(finalThumb);
           } catch {}
         }
 
+        // 2. Upload the selected Short video file (`selectedShortFile`) to the selected Cloudflare R2 Storage Server
         if (selectedShortFile) {
           if (!activeSrv) {
-            throw new Error('Please add and select a Storage Server first using "+ Add Storage Server".');
+            throw new Error(
+              'প্রথমে "+ Add Storage Server" বাটনে ক্লিক করে আপনার R2 Storage Server যোগ ও সিলেক্ট করুন!'
+            );
           }
           if (!adminKey) {
-            throw new Error('Please enter the X-Admin-Key for the selected server.');
+            throw new Error(
+              `নির্বাচিত সার্ভার "${activeSrv.name}"-এর জন্য X-Admin-Key Secret দিন!`
+            );
           }
 
           progWrap.classList.remove('hidden');
-          progBar.style.width = '40%';
-          progPct.textContent = 'Uploading...';
+          progBar.style.width = '5%';
+          progPct.textContent = '0%';
+          if (progStatus) {
+            progStatus.textContent = `Uploading "${selectedShortFile.name}" (${formatBytes(selectedShortFile.size)}) to ${activeSrv.name}...`;
+          }
 
           const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
           const formData = new FormData();
           formData.append('file', selectedShortFile);
-          formData.append('folder', 'shorts');
+          formData.append('folder', folder);
 
-          let res;
+          const onProgressUpdate = (pct, loadedBytes, totalBytes) => {
+            progBar.style.width = `${Math.max(5, pct)}%`;
+            progPct.textContent = `${pct}%`;
+            if (progStatus) {
+              progStatus.textContent = `Uploading to ${activeSrv.name}: ${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)} (${pct}%)`;
+            }
+          };
+
+          let data;
           try {
-            res = await fetch(`${baseUrl}/api/upload`, {
-              method: 'POST',
-              headers: {
-                'X-Admin-Key': adminKey
-              },
-              body: formData
-            });
+            data = await uploadVideoBlobToR2WithProgress(
+              `${baseUrl}/api/upload`,
+              { 'X-Admin-Key': adminKey },
+              formData,
+              onProgressUpdate
+            );
           } catch {
-            res = await fetch('/api/r2-proxy/upload', {
-              method: 'POST',
-              headers: {
+            // Fallback to server-side R2 proxy if browser CORS blocks direct Worker upload
+            const proxyFormData = new FormData();
+            proxyFormData.append('file', selectedShortFile);
+            proxyFormData.append('folder', folder);
+            data = await uploadVideoBlobToR2WithProgress(
+              '/api/r2-proxy/upload',
+              {
                 'X-Admin-Key': adminKey,
                 'X-Worker-Url': baseUrl
               },
-              body: formData
-            });
+              proxyFormData,
+              onProgressUpdate
+            );
           }
 
-          const data = await res.json();
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || `Short upload failed (${res.status})`);
+          if (!data || !data.success || !data.key) {
+            throw new Error(data?.error || 'Short video upload to R2 failed');
           }
 
           progBar.style.width = '100%';
           progPct.textContent = '100%';
+          if (progStatus) {
+            progStatus.textContent = `✓ Uploaded "${data.key}" to ${activeSrv.name}! Saving to Firebase...`;
+          }
 
           uploadedKey = data.key;
-          finalVideoUrl = `${publicDomainInput}/${uploadedKey}`;
+          const bestUrls = resolveBestPublicUrlForFile(activeSrv, uploadedKey);
+          const encodedKey = uploadedKey.split('/').map(encodeURIComponent).join('/');
+          finalVideoUrl =
+            (publicDomainInput && !publicDomainInput.includes('.workers.dev')
+              ? `${publicDomainInput}/${encodedKey}`
+              : bestUrls[0]) || `${publicDomainInput}/${encodedKey}`;
+
+          document.getElementById('short-custom-url').value = finalVideoUrl;
         }
 
         if (!finalVideoUrl) {
-          throw new Error('Please select a Short video file from your device or enter a direct video stream URL.');
+          throw new Error(
+            'অনুগ্রহ করে একটি শর্ট ভিডিও ফাইল সিলেক্ট করুন অথবা Direct Short Video Stream URL দিন!'
+          );
         }
 
         const now = Date.now();
@@ -4126,7 +4338,9 @@ service cloud.firestore {
         }
 
         showStatus(
-          `Published Short "${title}"! Share Link: ${shortShareLink}`,
+          uploadedKey
+            ? `Uploaded Short "${uploadedKey}" to ${activeSrv.name} & Published! Share Link: ${shortShareLink}`
+            : `Published Short "${title}"! Share Link: ${shortShareLink}`,
           'success'
         );
 
@@ -4136,10 +4350,16 @@ service cloud.firestore {
         renderShortThreeThumbsPicker();
         document.getElementById('short-file-input').value = '';
         document.getElementById('short-custom-thumb-input').value = '';
-        document.getElementById('short-file-chosen-name').textContent = 'Click to select a Short video file from your device';
-        document.getElementById('short-file-chosen-size').textContent = 'Auto-generates 3 thumbnails + Auto Viral Adult Hashtags';
+        document.getElementById('short-file-chosen-name').textContent =
+          'Click to select a Short video file from your device';
+        document.getElementById('short-file-chosen-size').textContent =
+          'MP4, WEBM, MKV, MOV supported · Auto-generates 3 thumbnails';
         document.getElementById('short-thumb-url').value = '';
         document.getElementById('short-custom-url').value = '';
+        const hintEl = document.getElementById('short-upload-ready-hint');
+        if (hintEl) {
+          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✅ শর্ট ভিডিও সফলভাবে সার্ভারে আপলোড ও পাবলিশ হয়েছে!</span>`;
+        }
         updateShortThumbPreviewUI('');
 
         // Advance to next Auto Viral Adult Title & Hashtag preset ready for next upload
@@ -4161,7 +4381,11 @@ service cloud.firestore {
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = '🚀 Upload & Publish Short';
-        setTimeout(() => progWrap.classList.add('hidden'), 1500);
+        if (bottomSubmitBtn) {
+          bottomSubmitBtn.disabled = false;
+          bottomSubmitBtn.textContent = '🚀 Upload & Publish Short to Server';
+        }
+        setTimeout(() => progWrap.classList.add('hidden'), 2000);
       }
     });
 

@@ -39,22 +39,44 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [posterFailed, setPosterFailed] = useState<boolean>(false);
   const [isPortraitPoster, setIsPortraitPoster] = useState<boolean>(false);
 
-  const cleanVideoUrl = (videoUrl || '').trim();
-
-  const resolvedVideoSrc = (() => {
-    if (!cleanVideoUrl) return '';
-    if (streamStage === 1) {
-      return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}`;
+  const cleanVideoUrl = (() => {
+    let u = (videoUrl || '').trim();
+    if (u && !/^https?:\/\//i.test(u) && !u.startsWith('/')) {
+      u = `https://${u}`;
     }
-    if (streamStage === 2) {
-      return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}&transcode=1`;
-    }
-    if (streamStage === 3) {
-      const sep = cleanVideoUrl.includes('?') ? '&' : '?';
-      return `${cleanVideoUrl}${sep}t=${encodeURIComponent(videoId)}`;
-    }
-    return cleanVideoUrl;
+    return u;
   })();
+
+  const candidateVideoUrls = React.useMemo(() => {
+    if (!cleanVideoUrl) return [];
+    const list: string[] = [cleanVideoUrl];
+    const knownR2Domains = [
+      'https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev',
+      'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
+      'https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev',
+      'https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev',
+    ];
+    try {
+      const parsed = new URL(cleanVideoUrl);
+      if (parsed.hostname.endsWith('.r2.dev')) {
+        const pathPart = parsed.pathname + parsed.search;
+        for (const dom of knownR2Domains) {
+          const alt = `${dom}${pathPart}`;
+          if (!list.includes(alt)) list.push(alt);
+        }
+      }
+    } catch {}
+    const streamProxy = `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}`;
+    if (!list.includes(streamProxy)) list.push(streamProxy);
+    const transcodeProxy = `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}&transcode=1`;
+    if (!list.includes(transcodeProxy)) list.push(transcodeProxy);
+    return list;
+  }, [cleanVideoUrl]);
+
+  const resolvedVideoSrc =
+    candidateVideoUrls.length > 0
+      ? candidateVideoUrls[Math.min(streamStage, candidateVideoUrls.length - 1)]
+      : '';
 
   useEffect(() => {
     setPopunderClicks(0);
@@ -125,7 +147,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
 
   const handleVideoError = () => {
     // Automatically escalate through stream pipeline for THIS exact video if direct R2 URL or codec fails
-    if (streamStage < 3) {
+    if (streamStage + 1 < candidateVideoUrls.length) {
       const nextStage = streamStage + 1;
       setStreamStage(nextStage);
       setTimeout(() => {
@@ -148,7 +170,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         .play()
         .then(() => setIsPlaying(true))
         .catch(() => {
-          if (streamStage < 3) {
+          if (streamStage + 1 < candidateVideoUrls.length) {
             handleVideoError();
           }
         });

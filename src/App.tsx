@@ -861,12 +861,31 @@ export default function App() {
   useEffect(() => {
     const shortsRef = ref(db, 'shorts');
 
+    const normalizeShortStreamUrl = (rawUrl: string, r2Key?: string): string => {
+      let clean = String(rawUrl || '').trim();
+      if (!clean && r2Key) {
+        clean = `https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev/${r2Key.replace(/^\/+/, '')}`;
+      }
+      if (!clean) return '';
+      if (!/^https?:\/\//i.test(clean) && !clean.startsWith('/')) {
+        clean = `https://${clean}`;
+      }
+      // Fix Shorts uploaded to the R2 `shorts/` folder that had the Server 1 public domain saved instead of the Shorts R2 bucket domain
+      if (clean.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
+        clean = clean.replace(
+          'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
+          'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
+        );
+      }
+      return clean;
+    };
+
     const parseShortsData = (data: any): ShortItem[] => {
       if (!data || typeof data !== 'object') return [];
       const parsed: ShortItem[] = Object.entries(data)
         .map(([key, val]: [string, any]) => {
           if (!val || typeof val !== 'object') return null;
-          const resolvedUrl = (val.url || val.videoUrl || '').trim();
+          const resolvedUrl = normalizeShortStreamUrl(val.url || val.videoUrl || '', val.r2Key);
           if (!resolvedUrl) return null;
           const resolvedThumb = (val.thumbnail || val.thumbnailUrl || '').trim();
           const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
