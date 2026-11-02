@@ -301,12 +301,34 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
         <style>
-          html, body { margin: 0; padding: 0; width: 100%; max-width: 100%; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          html, body { margin: 0; padding: 0; width: 100%; max-width: 100%; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; touch-action: pan-y; }
           iframe, img, div { max-width: 100% !important; }
         </style>
       </head>
       <body>
         <script>
+          (function() {
+            var startY = null;
+            var startX = null;
+            window.addEventListener('touchstart', function(e) {
+              if (e.touches && e.touches.length === 1) {
+                startY = e.touches[0].clientY;
+                startX = e.touches[0].clientX;
+              }
+            }, { passive: true });
+            window.addEventListener('touchend', function(e) {
+              if (startY === null || !e.changedTouches || !e.changedTouches.length) return;
+              var dy = startY - e.changedTouches[0].clientY;
+              var dx = startX - e.changedTouches[0].clientX;
+              startY = null;
+              startX = null;
+              if (Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx)) {
+                try {
+                  window.parent.postMessage({ type: 'XTUBE_SHORT_SWIPE', dir: dy > 0 ? 1 : -1 }, '*');
+                } catch (err) {}
+              }
+            }, { passive: true });
+          })();
           atOptions = {
             'key' : '${BANNER_320x50_KEY}',
             'format' : 'iframe',

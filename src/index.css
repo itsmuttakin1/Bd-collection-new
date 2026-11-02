@@ -34,6 +34,8 @@
 }
 
 /* Prevent third-party ad scripts (Native Banner, 320x50 Banner, Social Bar) from overflowing Telegram WebView or mobile screens */
+#container-a7d1393a2e85dd67ac13b3e060394934,
+#container-a7d1393a2e85dd67ac13b3e060394934 *,
 #container-9e05788a1e91471d1f2353aad323fd56,
 #container-9e05788a1e91471d1f2353aad323fd56 *,
 .ad-safe-container,
@@ -42,11 +44,14 @@
   box-sizing: border-box !important;
 }
 
+#container-a7d1393a2e85dd67ac13b3e060394934,
 #container-9e05788a1e91471d1f2353aad323fd56 {
   width: 100% !important;
   overflow: hidden !important;
 }
 
+#container-a7d1393a2e85dd67ac13b3e060394934 img,
+#container-a7d1393a2e85dd67ac13b3e060394934 iframe,
 #container-9e05788a1e91471d1f2353aad323fd56 img,
 #container-9e05788a1e91471d1f2353aad323fd56 iframe,
 .ad-safe-container iframe,

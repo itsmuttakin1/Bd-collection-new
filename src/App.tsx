@@ -278,19 +278,31 @@ const computeYouTubeRecommendationScore = (
   );
   score += Math.max(0, 40 - Math.log2(ageHours) * 4);
 
-  // 5. Watch History Novelty Adjustment (boost unwatched matching videos; slightly cool down just-watched video)
+  // 5. Watch History Novelty Adjustment (boost unwatched matching videos; cool down recently watched items so fresh ones appear)
   const watched = profile.watchedHistory[candidate.id];
   if (!watched) {
-    score += 22; // Unwatched discovery boost
+    score += 45; // Unwatched discovery boost
   } else {
     const minsSinceWatched = (Date.now() - watched.lastAt) / (1000 * 60);
-    if (minsSinceWatched < 10) {
-      score -= 35; // Recently watched cooldown so new suggestions rise to the top
+    if (minsSinceWatched < 20) {
+      score -= 65; // Recently watched cooldown so new/random suggestions rise to the top
+    } else if (minsSinceWatched < 120) {
+      score -= 25;
     }
   }
 
   return score;
 };
+
+// Fisher-Yates random shuffle helper for breaking ties and mixing random discovery
+function shuffleItemsRandomly<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Computes YouTube Trending Velocity Score (Views + Likes velocity + Recency + Personal Affinity)
 const computeYouTubeTrendingScore = (
@@ -334,14 +346,40 @@ export default function App() {
     count: 0,
     ids: [],
   });
-  const homeOrderRef = useRef<{ count: number; profileRev: number; ids: string[] }>({
+  const homeOrderRef = useRef<{ count: number; refreshSeed: number; ids: string[] }>({
     count: 0,
-    profileRev: -1,
+    refreshSeed: -1,
+    ids: [],
+  });
+  const homeShortsOrderRef = useRef<{
+    shortCount: number;
+    videoCount: number;
+    refreshSeed: number;
+    forVideoId: string;
+    ids: string[];
+  }>({
+    shortCount: 0,
+    videoCount: 0,
+    refreshSeed: -1,
+    forVideoId: '',
+    ids: [],
+  });
+  const shortsFeedOrderRef = useRef<{
+    shortCount: number;
+    videoCount: number;
+    sessionSeed: number;
+    ids: string[];
+  }>({
+    shortCount: 0,
+    videoCount: 0,
+    sessionSeed: -1,
     ids: [],
   });
 
   const [tasteProfile, setTasteProfile] = useState<UserTasteProfile>(() => loadUserTasteProfile());
   const [profileRevision, setProfileRevision] = useState<number>(0);
+  const [homeRefreshSeed, setHomeRefreshSeed] = useState<number>(1);
+  const [shortsSessionSeed, setShortsSessionSeed] = useState<number>(1);
 
   const [, setSharedVideoId] = useState<string | null>(initialUrlVidId);
   const [activeShortId, setActiveShortId] = useState<string | null>(initialShortId);
@@ -764,6 +802,7 @@ export default function App() {
     setSharedVideoId(null);
     setActiveShortId(null);
     setActiveVideo(null);
+    setHomeRefreshSeed((s) => s + 1);
     setViewMode('home');
     syncUrlWithVideo(null);
   };
@@ -775,7 +814,13 @@ export default function App() {
     pendingSharedIdRef.current = null;
     activeVideoIdRef.current = null;
     setSharedVideoId(null);
-    const targetId = shortId || shorts[0]?.id || videos[0]?.id || null;
+    setShortsSessionSeed((s) => s + 1);
+    const randomPool = shorts.length > 0 ? shorts : videos;
+    const randomFallbackId =
+      randomPool.length > 0
+        ? randomPool[Math.floor(Math.random() * randomPool.length)]?.id || null
+        : null;
+    const targetId = shortId || randomFallbackId;
     setActiveShortId(targetId);
     setViewMode('shorts');
     syncUrlWithShort(targetId);
@@ -1362,20 +1407,23 @@ export default function App() {
         );
       }
     } else if (videos.length > 0) {
-      // Stabilized YouTube Home Feed order (updates when video count or user watch profile changes, never jumps during 3-click ad gate)
+      // Stabilized YouTube Home Feed order (updates when video count or Home refresh seed changes, never jumps during 3-click ad gate)
       if (
         homeOrderRef.current.count !== videos.length ||
-        homeOrderRef.current.profileRev !== profileRevision ||
+        homeOrderRef.current.refreshSeed !== homeRefreshSeed ||
         homeOrderRef.current.ids.length === 0
       ) {
-        const rankedHome = [...videos].sort(
+        const preShuffled = shuffleItemsRandomly(videos);
+        const rankedHome = preShuffled.sort(
           (a, b) =>
-            computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
-            computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+            computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) +
+            Math.random() * 48 -
+            (computeYouTubeRecommendationScore(a, tasteProfile, activeVideo) +
+              Math.random() * 48)
         );
         homeOrderRef.current = {
           count: videos.length,
-          profileRev: profileRevision,
+          refreshSeed: homeRefreshSeed,
           ids: rankedHome.map((v) => v.id),
         };
       }
@@ -1398,10 +1446,10 @@ export default function App() {
         v.author.toLowerCase().includes(q)
       );
     });
-  }, [videos, searchQuery, sortByTrending, trendingVideos, trendingSeed, profileRevision]);
+  }, [videos, searchQuery, sortByTrending, trendingVideos, trendingSeed, homeRefreshSeed]);
 
   // YouTube-Style Suggested Videos ("Up Next" & "More Videos"):
-  // Recommends videos similar to the currently playing `activeVideo` + the user's watched/liked history
+  // Recommends videos similar to the currently playing `activeVideo` + the user's watched/liked history + random discovery
   const suggestedVideos = useMemo(() => {
     const currentVidId = activeVideo?.id || '__none__';
     const others = activeVideo ? videos.filter((v) => v.id !== activeVideo.id) : videos;
@@ -1411,10 +1459,13 @@ export default function App() {
       suggestedOrderRef.current.count !== others.length ||
       suggestedOrderRef.current.ids.length === 0
     ) {
-      const rankedSuggestions = [...others].sort(
+      const preShuffled = shuffleItemsRandomly(others);
+      const rankedSuggestions = preShuffled.sort(
         (a, b) =>
-          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
-          computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) +
+          Math.random() * 38 -
+          (computeYouTubeRecommendationScore(a, tasteProfile, activeVideo) +
+            Math.random() * 38)
       );
       suggestedOrderRef.current = {
         forVideoId: currentVidId,
@@ -1433,98 +1484,175 @@ export default function App() {
     return [...ordered, ...remaining];
   }, [videos, activeVideo?.id, profileRevision]);
 
-  // Algorithm-Ranked Uploaded Shorts for the Home Page YouTube Shorts Shelf
+  // Algorithm + Random Discovery Shorts for the Home Page & Watch Page YouTube Shorts Shelf
   const recommendedHomeShorts = useMemo<ShortItem[]>(() => {
-    const baseShorts: ShortItem[] =
-      shorts.length > 0
-        ? shorts
-        : videos.slice(0, 8).map((v) => ({
-            id: v.id,
-            title: v.title,
-            hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
-            keywords: v.keywords,
-            videoUrl: v.videoUrl || v.url || '',
-            url: v.url || v.videoUrl || '',
-            r2Key: v.r2Key,
-            thumbnail: v.thumbnail || v.thumbnailUrl || '',
-            thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
-            duration: v.duration || '00:35',
-            views: v.views || 0,
-            likes: v.likes || 0,
-            createdAt: v.createdAt,
-            addedAt: v.addedAt || v.createdAt,
-            author: v.author || 'X Tube',
-            isLongVideo: shorts.length === 0,
-          }));
+    const uploadedPool: ShortItem[] = shorts;
+    const usedIds = new Set(uploadedPool.map((s) => s.id));
+    const fallbackVideoShorts: ShortItem[] =
+      uploadedPool.length < 10
+        ? videos
+            .filter((v) => !usedIds.has(v.id))
+            .slice(0, Math.max(0, 12 - uploadedPool.length))
+            .map((v) => ({
+              id: v.id,
+              title: v.title,
+              hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
+              keywords: v.keywords,
+              videoUrl: v.videoUrl || v.url || '',
+              url: v.url || v.videoUrl || '',
+              r2Key: v.r2Key,
+              thumbnail: v.thumbnail || v.thumbnailUrl || '',
+              thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
+              duration: v.duration || '00:35',
+              views: v.views || 0,
+              likes: v.likes || 0,
+              createdAt: v.createdAt,
+              addedAt: v.addedAt || v.createdAt,
+              author: v.author || 'X Tube',
+              isLongVideo: true,
+            }))
+        : [];
 
-    return [...baseShorts].sort(
-      (a, b) =>
-        computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
-        computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
-    );
-  }, [shorts, videos, profileRevision, activeVideo?.id]);
+    const combinedPool: ShortItem[] = [...uploadedPool, ...fallbackVideoShorts];
+    if (combinedPool.length === 0) return [];
 
-  // Effective Shorts Feed list: Algorithm-ranked uploaded `shorts` + occasionally ("maje maje") interleaved algorithm-matched long `videos`
-  const displayShorts = useMemo<ShortItem[]>(() => {
-    const rankedLongAsShorts: ShortItem[] = [...videos]
-      .sort(
-        (a, b) =>
-          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
-          computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
-      )
-      .map((v) => ({
-        id: v.id,
-        title: v.title,
-        hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
-        keywords: v.keywords,
-        videoUrl: v.videoUrl || v.url || '',
-        url: v.url || v.videoUrl || '',
-        r2Key: v.r2Key,
-        thumbnail: v.thumbnail || v.thumbnailUrl || '',
-        thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
-        duration: v.duration || '02:30',
-        views: v.views || 0,
-        likes: v.likes || 0,
-        createdAt: v.createdAt,
-        addedAt: v.addedAt || v.createdAt,
-        author: v.author || 'X Tube',
-        isLongVideo: true,
-      }));
-
-    if (shorts.length === 0) {
-      return rankedLongAsShorts;
-    }
-
-    const rankedUploadedShorts = [...shorts].sort(
-      (a, b) =>
-        computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
-        computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
-    );
-
-    const usedIds = new Set(rankedUploadedShorts.map((s) => s.id));
-    const availableLong = rankedLongAsShorts.filter((lv) => !usedIds.has(lv.id));
-    const mixed: ShortItem[] = [];
-    let longIdx = 0;
-
-    rankedUploadedShorts.forEach((s, idx) => {
-      mixed.push(s);
-      // Occasionally ("maje maje"): insert 1 algorithm-matched long video after every 2 uploaded Shorts
-      if ((idx + 1) % 2 === 0 && longIdx < availableLong.length) {
-        mixed.push(availableLong[longIdx]);
-        longIdx++;
-      }
-    });
-
-    while (
-      longIdx < availableLong.length &&
-      longIdx < Math.max(3, Math.ceil(rankedUploadedShorts.length / 2) + 2)
+    const currentVidKey = activeVideo?.id || '__home__';
+    if (
+      homeShortsOrderRef.current.shortCount !== shorts.length ||
+      homeShortsOrderRef.current.videoCount !== videos.length ||
+      homeShortsOrderRef.current.refreshSeed !== homeRefreshSeed ||
+      homeShortsOrderRef.current.forVideoId !== currentVidKey ||
+      homeShortsOrderRef.current.ids.length === 0
     ) {
-      mixed.push(availableLong[longIdx]);
-      longIdx++;
+      // Pre-shuffle with Fisher-Yates, then blend user taste score with strong random exploration
+      const preShuffled = shuffleItemsRandomly(combinedPool);
+      const ranked = preShuffled.sort((a, b) => {
+        const scoreB =
+          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) +
+          Math.random() * 125;
+        const scoreA =
+          computeYouTubeRecommendationScore(a, tasteProfile, activeVideo) +
+          Math.random() * 125;
+        return scoreB - scoreA;
+      });
+
+      homeShortsOrderRef.current = {
+        shortCount: shorts.length,
+        videoCount: videos.length,
+        refreshSeed: homeRefreshSeed,
+        forVideoId: currentVidKey,
+        ids: ranked.map((s) => s.id),
+      };
     }
 
-    return mixed;
-  }, [shorts, videos, profileRevision, activeVideo?.id]);
+    const poolMap = new Map<string, ShortItem>(combinedPool.map((s) => [s.id, s]));
+    const ordered = homeShortsOrderRef.current.ids
+      .map((id) => poolMap.get(id))
+      .filter((s): s is ShortItem => Boolean(s));
+    const inOrder = new Set(ordered.map((s) => s.id));
+    const remaining = combinedPool.filter((s) => !inOrder.has(s.id));
+    return [...ordered, ...remaining];
+  }, [shorts, videos, homeRefreshSeed, activeVideo?.id]);
+
+  // Effective Shorts Feed list: Algorithm + Random ordered uploaded `shorts` + occasionally ("maje maje") interleaved long `videos`
+  // Stabilized per Shorts session so view/like updates never reorder the feed while the user is scrolling
+  const displayShorts = useMemo<ShortItem[]>(() => {
+    const longAsShorts: ShortItem[] = videos.map((v) => ({
+      id: v.id,
+      title: v.title,
+      hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
+      keywords: v.keywords,
+      videoUrl: v.videoUrl || v.url || '',
+      url: v.url || v.videoUrl || '',
+      r2Key: v.r2Key,
+      thumbnail: v.thumbnail || v.thumbnailUrl || '',
+      thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
+      duration: v.duration || '02:30',
+      views: v.views || 0,
+      likes: v.likes || 0,
+      createdAt: v.createdAt,
+      addedAt: v.addedAt || v.createdAt,
+      author: v.author || 'X Tube',
+      isLongVideo: true,
+    }));
+
+    const allMap = new Map<string, ShortItem>();
+    for (const s of shorts) {
+      allMap.set(s.id, s);
+    }
+    for (const lv of longAsShorts) {
+      if (!allMap.has(lv.id)) {
+        allMap.set(lv.id, lv);
+      }
+    }
+
+    if (allMap.size === 0) return [];
+
+    if (
+      shortsFeedOrderRef.current.shortCount !== shorts.length ||
+      shortsFeedOrderRef.current.videoCount !== videos.length ||
+      shortsFeedOrderRef.current.sessionSeed !== shortsSessionSeed ||
+      shortsFeedOrderRef.current.ids.length === 0
+    ) {
+      const rankedUploadedShorts = shuffleItemsRandomly(shorts).sort(
+        (a, b) =>
+          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) +
+          Math.random() * 95 -
+          (computeYouTubeRecommendationScore(a, tasteProfile, activeVideo) +
+            Math.random() * 95)
+      );
+
+      const usedIds = new Set(rankedUploadedShorts.map((s) => s.id));
+      const availableLong = shuffleItemsRandomly(
+        longAsShorts.filter((lv) => !usedIds.has(lv.id))
+      ).sort(
+        (a, b) =>
+          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) +
+          Math.random() * 85 -
+          (computeYouTubeRecommendationScore(a, tasteProfile, activeVideo) +
+            Math.random() * 85)
+      );
+
+      const mixedIds: string[] = [];
+      let longIdx = 0;
+
+      if (rankedUploadedShorts.length === 0) {
+        availableLong.forEach((lv) => mixedIds.push(lv.id));
+      } else {
+        rankedUploadedShorts.forEach((s, idx) => {
+          mixedIds.push(s.id);
+          // Occasionally ("maje maje"): insert 1 algorithm-matched long video after every 2 uploaded Shorts
+          if ((idx + 1) % 2 === 0 && longIdx < availableLong.length) {
+            mixedIds.push(availableLong[longIdx].id);
+            longIdx++;
+          }
+        });
+
+        while (longIdx < availableLong.length) {
+          mixedIds.push(availableLong[longIdx].id);
+          longIdx++;
+        }
+      }
+
+      shortsFeedOrderRef.current = {
+        shortCount: shorts.length,
+        videoCount: videos.length,
+        sessionSeed: shortsSessionSeed,
+        ids: mixedIds,
+      };
+    }
+
+    const ordered = shortsFeedOrderRef.current.ids
+      .map((id) => allMap.get(id))
+      .filter((item): item is ShortItem => Boolean(item));
+    const inOrder = new Set(ordered.map((i) => i.id));
+    for (const [id, item] of allMap.entries()) {
+      if (!inOrder.has(id)) {
+        ordered.push(item);
+      }
+    }
+    return ordered;
+  }, [shorts, videos, shortsSessionSeed]);
 
   return (
     <div

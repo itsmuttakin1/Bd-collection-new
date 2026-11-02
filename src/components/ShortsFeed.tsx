@@ -38,8 +38,8 @@ interface ShortsFeedProps {
 }
 
 type FeedSlide =
-  | { type: 'short'; item: ShortItem }
-  | { type: 'ad'; id: string };
+  | { type: 'short'; instanceKey: string; item: ShortItem }
+  | { type: 'ad'; instanceKey: string; id: string };
 
 const KNOWN_R2_PUBLIC_DOMAINS = [
   'https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev',
@@ -47,6 +47,20 @@ const KNOWN_R2_PUBLIC_DOMAINS = [
   'https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev',
   'https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev',
 ];
+
+// Fisher-Yates random shuffle that avoids repeating the very last video at the boundary between cycles
+const shuffleIdsNoImmediateRepeat = (ids: string[], avoidFirstId?: string): string[] => {
+  const arr = [...ids];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  if (arr.length > 1 && avoidFirstId && arr[0] === avoidFirstId) {
+    const swapIdx = 1 + Math.floor(Math.random() * (arr.length - 1));
+    [arr[0], arr[swapIdx]] = [arr[swapIdx], arr[0]];
+  }
+  return arr;
+};
 
 const buildShortCandidateUrls = (short: ShortItem): string[] => {
   let raw = String(short.url || short.videoUrl || '').trim();
@@ -105,19 +119,104 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   onShortWatched,
   onShortLiked,
 }) => {
-  // Build slides with a Sponsored Ad slide after every 2 Shorts
-  const slides: FeedSlide[] = React.useMemo(() => {
-    const result: FeedSlide[] = [];
-    shorts.forEach((s, idx) => {
-      result.push({ type: 'short', item: s });
-      if ((idx + 1) % 2 === 0 && idx < shorts.length - 1) {
-        result.push({ type: 'ad', id: `short-ad-${idx}` });
+  // Fast lookup map so view/like updates never reorder the active feed
+  const shortsById = React.useMemo(() => {
+    const map = new Map<string, ShortItem>();
+    for (const s of shorts) {
+      if (s && s.id && !map.has(s.id)) {
+        map.set(s.id, s);
       }
-    });
-    return result;
+    }
+    return map;
   }, [shorts]);
 
+  const allUniqueIds = React.useMemo(() => Array.from(shortsById.keys()), [shortsById]);
+
+  // cycleQueues[0] = initial pass of ALL unique videos (no duplicates).
+  // Subsequent cycles (cycleQueues[1], cycleQueues[2], ...) are added ONLY when all videos in the current pass have been watched!
+  const [cycleQueues, setCycleQueues] = useState<string[][]>([]);
+  const appliedInitialIdRef = useRef<string | null | undefined>(undefined);
+
+  // Initialize Cycle 0 (and append any newly loaded unique IDs from Firebase into Cycle 0 so all videos play before looping)
+  useEffect(() => {
+    if (allUniqueIds.length === 0) return;
+
+    setCycleQueues((prev) => {
+      // If initialShortId changed or queue is empty, build fresh Cycle 0 with initialShortId at index 0
+      if (prev.length === 0 || appliedInitialIdRef.current !== initialShortId) {
+        appliedInitialIdRef.current = initialShortId;
+        let firstPass = [...allUniqueIds];
+        if (initialShortId && firstPass.includes(initialShortId)) {
+          firstPass = [
+            initialShortId,
+            ...firstPass.filter((id) => id !== initialShortId),
+          ];
+        }
+        return [firstPass];
+      }
+
+      // Check if Firebase finished loading additional unique IDs that weren't in Cycle 0 yet
+      const seenInCycle0 = new Set(prev[0]);
+      const newlyLoadedIds = allUniqueIds.filter((id) => !seenInCycle0.has(id));
+      if (newlyLoadedIds.length === 0) {
+        return prev;
+      }
+
+      const updatedCycle0 = [...prev[0], ...newlyLoadedIds];
+      return [updatedCycle0, ...prev.slice(1)];
+    });
+  }, [allUniqueIds, initialShortId]);
+
+  // Build slides from cycleQueues with a Sponsored Ad slide after every 2 Shorts
+  const slides: FeedSlide[] = React.useMemo(() => {
+    const result: FeedSlide[] = [];
+    let shortCounter = 0;
+
+    cycleQueues.forEach((cycleIds, cycleIdx) => {
+      cycleIds.forEach((id, posIdx) => {
+        const item = shortsById.get(id);
+        if (!item) return;
+        const instanceKey = `c${cycleIdx}-p${posIdx}-${id}`;
+        result.push({ type: 'short', instanceKey, item });
+        shortCounter++;
+        if (shortCounter % 2 === 0) {
+          result.push({
+            type: 'ad',
+            instanceKey: `ad-c${cycleIdx}-s${shortCounter}`,
+            id: `short-ad-${cycleIdx}-${shortCounter}`,
+          });
+        }
+      });
+    });
+
+    return result;
+  }, [cycleQueues, shortsById]);
+
   const [activeIndex, setActiveIndex] = useState<number>(0);
+  const activeIndexRef = useRef<number>(0);
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
+  // Append a newly shuffled random cycle of ALL videos ONLY when the user has reached the end of all current videos
+  const appendNextRandomCycleIfNeeded = React.useCallback(() => {
+    if (allUniqueIds.length === 0) return;
+    setCycleQueues((prev) => {
+      if (prev.length === 0) return prev;
+      const lastCycle = prev[prev.length - 1];
+      const lastId = lastCycle[lastCycle.length - 1];
+      const nextRandomPass = shuffleIdsNoImmediateRepeat(allUniqueIds, lastId);
+      return [...prev, nextRandomPass];
+    });
+  }, [allUniqueIds]);
+
+  // Automatically append the next random loop cycle when the user reaches the last video of the current pass
+  useEffect(() => {
+    if (slides.length > 0 && activeIndex >= slides.length - 2) {
+      appendNextRandomCycleIfNeeded();
+    }
+  }, [activeIndex, slides.length, appendNextRandomCycleIfNeeded]);
+
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>(() => {
     try {
@@ -135,32 +234,32 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
-  const viewedIdsRef = useRef<Set<string>>(new Set());
+  const viewedInstancesRef = useRef<Set<string>>(new Set());
   const likedCountedRef = useRef<Set<string>>(new Set());
+  const touchGestureRef = useRef<{
+    startY: number;
+    startX: number;
+    startScrollTop: number;
+    startIndex: number;
+  } | null>(null);
+  const lastWheelTimeRef = useRef<number>(0);
 
-  // Jump to initialShortId if opened via ?short=<id> link
+  // Reset scroll to top when initialShortId changes (since initialShortId is placed at index 0)
   useEffect(() => {
-    if (!initialShortId || slides.length === 0) return;
-    const foundIdx = slides.findIndex(
-      (sl) => sl.type === 'short' && sl.item.id === initialShortId
-    );
-    if (foundIdx >= 0) {
-      setActiveIndex(foundIdx);
-      const container = feedContainerRef.current;
-      if (container) {
-        setTimeout(() => {
-          const slideEl = container.children[foundIdx] as HTMLElement | undefined;
-          slideEl?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
-        }, 50);
-      }
+    if (!initialShortId) return;
+    setActiveIndex(0);
+    activeIndexRef.current = 0;
+    const container = feedContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     }
-  }, [initialShortId, slides.length]);
+  }, [initialShortId]);
 
   // Pause non-active videos and auto-play active Short (uploaded Shorts auto-play like YouTube; full videos play once unlocked)
   useEffect(() => {
     slides.forEach((sl, idx) => {
       if (sl.type !== 'short') return;
-      const vid = videoRefs.current[sl.item.id];
+      const vid = videoRefs.current[sl.instanceKey];
       if (!vid) return;
 
       const isItemUnlocked = !sl.item.isLongVideo || Boolean(unlockedMap[sl.item.id]);
@@ -171,9 +270,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
-              if (!viewedIdsRef.current.has(sl.item.id)) {
-                viewedIdsRef.current.add(sl.item.id);
+              setPlayingMap((prev) => ({ ...prev, [sl.instanceKey]: true }));
+              if (!viewedInstancesRef.current.has(sl.instanceKey)) {
+                viewedInstancesRef.current.add(sl.instanceKey);
                 onIncrementShortViews(sl.item.id);
                 onShortWatched?.(sl.item);
               }
@@ -184,9 +283,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
               vid
                 .play()
                 .then(() => {
-                  setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
-                  if (!viewedIdsRef.current.has(sl.item.id)) {
-                    viewedIdsRef.current.add(sl.item.id);
+                  setPlayingMap((prev) => ({ ...prev, [sl.instanceKey]: true }));
+                  if (!viewedInstancesRef.current.has(sl.instanceKey)) {
+                    viewedInstancesRef.current.add(sl.instanceKey);
                     onIncrementShortViews(sl.item.id);
                     onShortWatched?.(sl.item);
                   }
@@ -196,7 +295,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         }
       } else {
         vid.pause();
-        setPlayingMap((prev) => ({ ...prev, [sl.item.id]: false }));
+        setPlayingMap((prev) =>
+          prev[sl.instanceKey] ? { ...prev, [sl.instanceKey]: false } : prev
+        );
       }
     });
   }, [activeIndex, unlockedMap, slides, streamStages]);
@@ -207,23 +308,116 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     const scrollTop = container.scrollTop;
     const height = container.clientHeight || 1;
     const newIdx = Math.round(scrollTop / height);
-    if (newIdx !== activeIndex && newIdx >= 0 && newIdx < slides.length) {
+    if (newIdx >= 0 && newIdx < slides.length && newIdx !== activeIndexRef.current) {
+      activeIndexRef.current = newIdx;
       setActiveIndex(newIdx);
     }
   };
 
-  const scrollToSlide = (targetIdx: number) => {
+  const scrollToSlide = React.useCallback(
+    (targetIdx: number) => {
+      const container = feedContainerRef.current;
+      if (!container) return;
+      if (targetIdx >= slides.length - 1) {
+        appendNextRandomCycleIfNeeded();
+      }
+      const clampedIdx = Math.max(0, Math.min(slides.length - 1, targetIdx));
+      const height = container.clientHeight || 1;
+      activeIndexRef.current = clampedIdx;
+      setActiveIndex(clampedIdx);
+      container.scrollTo({
+        top: clampedIdx * height,
+        behavior: 'smooth',
+      });
+    },
+    [slides.length, appendNextRandomCycleIfNeeded]
+  );
+
+  // Listen for vertical touch swipes forwarded from inside the Banner320x50Ad iframe
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'XTUBE_SHORT_SWIPE') {
+        const dir = Number(e.data.dir) || 0;
+        if (dir !== 0) {
+          scrollToSlide(activeIndexRef.current + (dir > 0 ? 1 : -1));
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [scrollToSlide]);
+
+  // Keyboard ArrowUp / ArrowDown navigation for desktop
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        scrollToSlide(activeIndexRef.current + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        scrollToSlide(activeIndexRef.current - 1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [scrollToSlide]);
+
+  // Fallback touch-swipe handler in case native scroll-snap is intercepted by an overlay or button
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
     const container = feedContainerRef.current;
-    if (!container || targetIdx < 0 || targetIdx >= slides.length) return;
-    const child = container.children[targetIdx] as HTMLElement | undefined;
-    if (child) {
-      child.scrollIntoView({ behavior: 'smooth' });
-      setActiveIndex(targetIdx);
+    touchGestureRef.current = {
+      startY: e.touches[0].clientY,
+      startX: e.touches[0].clientX,
+      startScrollTop: container ? container.scrollTop : 0,
+      startIndex: activeIndexRef.current,
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const gesture = touchGestureRef.current;
+    touchGestureRef.current = null;
+    if (!gesture || e.changedTouches.length === 0) return;
+
+    const dy = gesture.startY - e.changedTouches[0].clientY;
+    const dx = gesture.startX - e.changedTouches[0].clientX;
+
+    // Only act on intentional vertical swipes
+    if (Math.abs(dy) < 38 || Math.abs(dy) < Math.abs(dx) * 1.2) return;
+
+    const direction = dy > 0 ? 1 : -1;
+    const targetIdx = gesture.startIndex + direction;
+
+    window.setTimeout(() => {
+      const container = feedContainerRef.current;
+      if (!container) return;
+      const movedPx = Math.abs(container.scrollTop - gesture.startScrollTop);
+      // If native scroll was blocked or moved less than 28px on a clear swipe, programmatically snap to next/prev slide
+      if (movedPx < 28 && activeIndexRef.current === gesture.startIndex) {
+        scrollToSlide(targetIdx);
+      }
+    }, 55);
+  };
+
+  // Smooth debounced mouse-wheel scrolling for desktop & trackpads
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(e.deltaY) < 22) return;
+    const now = Date.now();
+    if (now - lastWheelTimeRef.current < 420) return;
+    lastWheelTimeRef.current = now;
+    if (e.deltaY > 0) {
+      scrollToSlide(activeIndexRef.current + 1);
+    } else if (e.deltaY < 0) {
+      scrollToSlide(activeIndexRef.current - 1);
     }
   };
 
   // Uploaded Shorts auto-play like YouTube (no 3-click gate); interleaved Full/Long videos keep the 3-Click Ad Gate
-  const handleShortTapOrUnlock = (short: ShortItem, e: React.MouseEvent) => {
+  const handleShortTapOrUnlock = (
+    short: ShortItem,
+    instanceKey: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
 
     const isUnlocked = !short.isLongVideo || Boolean(unlockedMap[short.id]);
@@ -240,16 +434,16 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
       if (nextClicks >= 3) {
         setUnlockedMap((prev) => ({ ...prev, [short.id]: true }));
-        const vid = videoRefs.current[short.id];
+        const vid = videoRefs.current[instanceKey];
         if (vid) {
           vid.muted = false;
           setIsMuted(false);
           vid
             .play()
             .then(() => {
-              setPlayingMap((prev) => ({ ...prev, [short.id]: true }));
-              if (!viewedIdsRef.current.has(short.id)) {
-                viewedIdsRef.current.add(short.id);
+              setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }));
+              if (!viewedInstancesRef.current.has(instanceKey)) {
+                viewedInstancesRef.current.add(instanceKey);
                 onIncrementShortViews(short.id);
                 onShortWatched?.(short);
               }
@@ -265,14 +459,14 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     }
 
     // Already unlocked (or uploaded Short): toggle play/pause (and unmute if it was auto-muted by browser policy)
-    const vid = videoRefs.current[short.id];
+    const vid = videoRefs.current[instanceKey];
     if (!vid) return;
     if (vid.paused) {
       vid.muted = false;
       setIsMuted(false);
       vid
         .play()
-        .then(() => setPlayingMap((prev) => ({ ...prev, [short.id]: true })))
+        .then(() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: true })))
         .catch(() => {
           vid.muted = true;
           setIsMuted(true);
@@ -284,7 +478,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
       setIsMuted(false);
     } else {
       vid.pause();
-      setPlayingMap((prev) => ({ ...prev, [short.id]: false }));
+      setPlayingMap((prev) => ({ ...prev, [instanceKey]: false }));
     }
   };
 
@@ -362,9 +556,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   }
 
   return (
-    <div className="relative w-full max-w-full h-[calc(100dvh-3.5rem)] bg-black overflow-hidden flex flex-col items-center justify-center select-none">
-      {/* Top Floating Back Button + Compact 320x50 Banner Ad */}
-      <div className="w-full max-w-[440px] px-2 pt-1.5 pb-1 flex items-center justify-between gap-2 z-30 bg-black/90 border-b border-zinc-900">
+    <div className="relative w-full max-w-full h-[calc(100vh-3.5rem)] supports-[height:100dvh]:h-[calc(100dvh-3.5rem)] bg-black overflow-hidden flex flex-col items-center justify-center select-none">
+      {/* Top Floating Back Button + Viral Shorts Header (without slide counter) */}
+      <div className="w-full max-w-[440px] px-2 pt-1.5 pb-1 flex items-center justify-between gap-2 z-30 bg-black/90 border-b border-zinc-900 shrink-0">
         <button
           type="button"
           onClick={onBackHome}
@@ -377,9 +571,6 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         <div className="flex items-center gap-1.5 text-xs font-bold text-white">
           <Flame className="w-4 h-4 text-red-500 fill-red-500" />
           <span>Viral Shorts</span>
-          <span className="text-[11px] font-mono text-zinc-400">
-            ({activeIndex + 1}/{slides.length})
-          </span>
         </div>
 
         <button
@@ -396,14 +587,18 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
       <div
         ref={feedContainerRef}
         onScroll={handleScroll}
-        className="w-full flex-1 overflow-y-scroll snap-y snap-mandatory no-scrollbar"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+        style={{ WebkitOverflowScrolling: 'touch' }}
+        className="w-full flex-1 min-h-0 h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar touch-pan-y overscroll-y-contain"
       >
         {slides.map((slide, idx) => {
           if (slide.type === 'ad') {
             return (
               <div
-                key={slide.id}
-                className="w-full h-full snap-start snap-always flex items-center justify-center p-3 bg-zinc-950"
+                key={slide.instanceKey}
+                className="w-full h-full min-h-full max-h-full shrink-0 snap-start snap-always flex items-center justify-center p-3 bg-zinc-950"
               >
                 <div className="relative w-full max-w-[420px] h-full max-h-[820px] rounded-2xl border border-red-900/50 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-4 flex flex-col items-center justify-between overflow-hidden shadow-2xl">
                   <div className="w-full flex items-center justify-between border-b border-zinc-800 pb-2.5">
@@ -412,7 +607,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => scrollToSlide(Math.min(slides.length - 1, idx + 1))}
+                      onClick={() => scrollToSlide(idx + 1)}
                       className="text-xs text-zinc-400 hover:text-white cursor-pointer"
                     >
                       Next Short ↓
@@ -437,7 +632,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => scrollToSlide(Math.min(slides.length - 1, idx + 1))}
+                    onClick={() => scrollToSlide(idx + 1)}
                     className="w-full py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-300 cursor-pointer"
                   >
                     Swipe or Tap for Next Short ↓
@@ -448,8 +643,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
           }
 
           const short = slide.item;
+          const instanceKey = slide.instanceKey;
           const isUnlocked = !short.isLongVideo || Boolean(unlockedMap[short.id]);
-          const isPlaying = Boolean(playingMap[short.id]);
+          const isPlaying = Boolean(playingMap[instanceKey]);
           const clicksSoFar = adGateClicks[short.id] || 0;
           const streamUrl = getResolvedShortStreamUrl(short);
           const thumbUrl = (short.thumbnail || short.thumbnailUrl || '').trim();
@@ -460,12 +656,12 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
           return (
             <div
-              key={short.id}
-              className="w-full h-full snap-start snap-always flex items-center justify-center bg-black sm:py-2"
+              key={instanceKey}
+              className="w-full h-full min-h-full max-h-full shrink-0 snap-start snap-always flex items-center justify-center bg-black sm:py-2"
             >
               <div
-                onClick={(e) => handleShortTapOrUnlock(short, e)}
-                className="relative w-full max-w-[430px] h-full sm:rounded-2xl overflow-hidden bg-zinc-950 border-x sm:border border-zinc-900 shadow-2xl flex flex-col justify-between cursor-pointer"
+                onClick={(e) => handleShortTapOrUnlock(short, instanceKey, e)}
+                className="relative w-full max-w-[430px] h-full sm:rounded-2xl overflow-hidden bg-zinc-950 border-x sm:border border-zinc-900 shadow-2xl flex flex-col justify-between cursor-pointer touch-pan-y"
               >
                 {/* Blurred ambient backdrop for horizontal long videos interleaved in Shorts */}
                 {short.isLongVideo && thumbUrl && (
@@ -480,9 +676,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                 {/* Video Element (Mounted for active & adjacent slides so mobile/Telegram decoders never stall) */}
                 {Math.abs(idx - activeIndex) <= 1 ? (
                   <video
-                    key={`${short.id}-${streamStages[short.id] || 0}`}
+                    key={`${instanceKey}-${streamStages[short.id] || 0}`}
                     ref={(el) => {
-                      videoRefs.current[short.id] = el;
+                      videoRefs.current[instanceKey] = el;
                     }}
                     src={streamUrl}
                     poster={thumbUrl || 'https://xtubeofficial.pages.dev/favicon.png'}
@@ -494,9 +690,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     controlsList="nodownload noplaybackrate"
                     disablePictureInPicture
                     onContextMenu={(e) => e.preventDefault()}
-                    onPlay={() => setPlayingMap((prev) => ({ ...prev, [short.id]: true }))}
-                    onPlaying={() => setPlayingMap((prev) => ({ ...prev, [short.id]: true }))}
-                    onPause={() => setPlayingMap((prev) => ({ ...prev, [short.id]: false }))}
+                    onPlay={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }))}
+                    onPlaying={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }))}
+                    onPause={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: false }))}
                     onCanPlay={(e) => {
                       if (idx === activeIndex && (!short.isLongVideo || unlockedMap[short.id])) {
                         const vid = e.currentTarget;
@@ -504,9 +700,9 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                           vid
                             .play()
                             .then(() => {
-                              setPlayingMap((prev) => ({ ...prev, [short.id]: true }));
-                              if (!viewedIdsRef.current.has(short.id)) {
-                                viewedIdsRef.current.add(short.id);
+                              setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }));
+                              if (!viewedInstancesRef.current.has(instanceKey)) {
+                                viewedInstancesRef.current.add(instanceKey);
                                 onIncrementShortViews(short.id);
                                 onShortWatched?.(short);
                               }
@@ -572,7 +768,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                 {/* Right Side YouTube Shorts Action Buttons */}
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-2.5 bottom-28 z-30 flex flex-col items-center gap-3.5"
+                  className="absolute right-2.5 bottom-28 z-30 flex flex-col items-center gap-3.5 touch-pan-y"
                 >
                   {/* Like (Shows only 'Like' / 'Liked' on public website; numeric count is visible only in Admin Panel) */}
                   <button
@@ -649,9 +845,8 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     </button>
                     <button
                       type="button"
-                      disabled={idx >= slides.length - 1}
                       onClick={() => scrollToSlide(idx + 1)}
-                      className="w-9 h-9 rounded-full bg-black/65 hover:bg-zinc-800 disabled:opacity-30 border border-white/15 flex items-center justify-center text-white cursor-pointer"
+                      className="w-9 h-9 rounded-full bg-black/65 hover:bg-zinc-800 border border-white/15 flex items-center justify-center text-white cursor-pointer"
                       aria-label="Next Short"
                     >
                       <ChevronDown className="w-4 h-4" />
@@ -662,7 +857,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                 {/* Bottom Info + Viral Adult Hashtags + Embedded 320x50 Banner Ad */}
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="relative z-30 mt-auto w-full bg-gradient-to-t from-black via-black/85 to-transparent pt-10 pb-2 px-3 space-y-2"
+                  className="relative z-30 mt-auto w-full bg-gradient-to-t from-black via-black/85 to-transparent pt-10 pb-2 px-3 space-y-2 touch-pan-y"
                 >
                   <div className="pr-14 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -702,7 +897,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     <div className="flex flex-wrap gap-1 pt-0.5">
                       {hashtagsList.slice(0, 7).map((tag, i) => (
                         <span
-                          key={`${short.id}-tag-${i}`}
+                          key={`${instanceKey}-tag-${i}`}
                           onClick={() => triggerSmartlinkAd()}
                           className="text-[11px] font-semibold text-red-400 hover:text-red-300 cursor-pointer"
                         >
