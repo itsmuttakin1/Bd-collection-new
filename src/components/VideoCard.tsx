@@ -52,7 +52,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     return `${Math.floor(days / 30)} ${t.monthsAgo}`;
   };
 
-  const authorInitial = (video.author || 'B').charAt(0).toUpperCase();
+  const displayAuthor =
+    !video.author || video.author === 'Bd Collection' ? 'X Tube' : video.author;
+  const authorInitial = displayAuthor.charAt(0).toUpperCase();
 
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isPortraitThumb, setIsPortraitThumb] = useState(false);
@@ -231,7 +233,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <h4 className="text-sm font-medium text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
               {video.title}
             </h4>
-            <p className="text-xs text-zinc-400 mt-1 truncate">{video.author}</p>
+            <p className="text-xs text-zinc-400 mt-1 truncate">{displayAuthor}</p>
             <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-0.5">
               <span className="tabular-nums">{formatViews(video.views)}</span>
               <span aria-hidden="true">·</span>
@@ -276,7 +278,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               {video.title}
             </h3>
             <p className="text-[13px] text-zinc-400 mt-1 truncate hover:text-zinc-300">
-              {video.author}
+              {displayAuthor}
             </p>
             <div className="flex items-center gap-1.5 text-[13px] text-zinc-400">
               <span className="tabular-nums">{formatViews(video.views)}</span>

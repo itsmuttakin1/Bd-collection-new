@@ -442,12 +442,15 @@ export default function App() {
     return 'PT3M30S';
   };
 
-  // Dynamic Google SEO, OpenGraph, Canonical URL, and Schema.org VideoObject JSON-LD for ALL videos
+  // Dynamic Google SEO, OpenGraph, Canonical URL, Keywords & Schema.org VideoObject JSON-LD for ALL Videos & Shorts
   useEffect(() => {
     const SITE_ORIGIN = 'https://bdcollection.pages.dev';
-    const defaultTitle = 'Bd Collection – Watch Bangladeshi Viral Videos & Trending Streams';
+    const BASE_KEYWORDS =
+      'X Tube, X tube official, xxx, xtube, x tube video, x tube shorts, Bangladeshi viral video, bd viral link, বাংলা ভাইরাল ভিডিও, নতুন ভাইরাল ভিডিও, desi viral video, viral short video, 18+ viral video, room date viral, trending shorts, x tube hd';
+    const defaultTitle =
+      'X Tube – Official Viral Videos, Shorts & Trending HD Streams | X Tube Official';
     const defaultDesc =
-      'Watch and stream the latest Bangladeshi viral videos, trending clips, and exclusive HD entertainment on Bd Collection.';
+      'X Tube (X Tube Official) – Watch and stream the latest Bangladeshi viral videos, trending Shorts, exclusive HD clips, and uncensored entertainment on X Tube.';
     const defaultImg = 'https://i.ibb.co/23nQP6mb/1000012168.jpg';
 
     const setMetaContent = (selector: string, val: string) => {
@@ -459,11 +462,11 @@ export default function App() {
     const jsonLdEl = document.getElementById('dynamic-video-jsonld');
 
     const buildVideoObjectNode = (v: VideoItem) => {
-      const vTitle = (v.title || 'Bd Collection Viral Video').trim();
+      const vTitle = (v.title || 'X Tube Official Viral Video').trim();
       const vDesc = (
         v.description ||
         v.keywords ||
-        `Watch "${vTitle}" in HD on Bd Collection. Bangladeshi viral video stream.`
+        `Watch "${vTitle}" in HD on X Tube Official. Bangladeshi viral video stream.`
       ).trim();
       const vThumb = (v.thumbnail || v.thumbnailUrl || defaultImg).trim();
       const vStream = (v.url || v.videoUrl || '').trim();
@@ -476,8 +479,9 @@ export default function App() {
         '@type': 'VideoObject',
         '@id': `${vWatchUrl}#video`,
         url: vWatchUrl,
-        name: vTitle,
+        name: `${vTitle} | X Tube`,
         description: vDesc,
+        keywords: `${v.keywords || ''}, ${BASE_KEYWORDS}`.replace(/^,\s*/, ''),
         thumbnailUrl: [vThumb],
         uploadDate: vUploadIso,
         duration: formatIsoDuration(v.duration),
@@ -496,7 +500,58 @@ export default function App() {
         },
         publisher: {
           '@type': 'Organization',
-          name: 'Bd Collection',
+          name: 'X Tube',
+          alternateName: 'X Tube Official',
+          url: SITE_ORIGIN,
+          logo: {
+            '@type': 'ImageObject',
+            url: `${SITE_ORIGIN}/favicon.png`,
+          },
+        },
+      };
+    };
+
+    const buildShortObjectNode = (s: ShortItem) => {
+      const sTitle = (s.title || 'X Tube Viral Short').trim();
+      const sDesc = (
+        s.hashtags ||
+        s.keywords ||
+        `Watch "${sTitle}" viral Short video on X Tube Official (X Tube Shorts).`
+      ).trim();
+      const sThumb = (s.thumbnail || s.thumbnailUrl || defaultImg).trim();
+      const sStream = (s.url || s.videoUrl || '').trim();
+      const sWatchUrl = `${SITE_ORIGIN}/?short=${encodeURIComponent(s.id)}`;
+      const sUploadIso = new Date(
+        Number(s.addedAt || s.createdAt) || 1761868800000
+      ).toISOString();
+
+      return {
+        '@type': 'VideoObject',
+        '@id': `${sWatchUrl}#short`,
+        url: sWatchUrl,
+        name: `${sTitle} | X Tube Shorts`,
+        description: `${sDesc} - Watch on X Tube Official.`,
+        keywords: `${s.hashtags || ''}, ${s.keywords || ''}, ${BASE_KEYWORDS}`.replace(/^,\s*/, ''),
+        thumbnailUrl: [sThumb],
+        uploadDate: sUploadIso,
+        duration: formatIsoDuration(s.duration || '00:35'),
+        contentUrl: sStream,
+        embedUrl: sWatchUrl,
+        isFamilyFriendly: true,
+        inLanguage: 'bn',
+        potentialAction: {
+          '@type': 'WatchAction',
+          target: sWatchUrl,
+        },
+        interactionStatistic: {
+          '@type': 'InteractionCounter',
+          interactionType: { '@type': 'WatchAction' },
+          userInteractionCount: Number(s.views) || 0,
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'X Tube',
+          alternateName: 'X Tube Official',
           url: SITE_ORIGIN,
           logo: {
             '@type': 'ImageObject',
@@ -507,17 +562,19 @@ export default function App() {
     };
 
     if (viewMode === 'watch' && activeVideo) {
-      const vidTitle = `${activeVideo.title} – Bd Collection`;
+      const vidTitle = `${activeVideo.title} – X Tube Official`;
       const vidDesc =
         activeVideo.description ||
         activeVideo.keywords ||
-        `Watch "${activeVideo.title}" in HD on Bd Collection. Bangladeshi viral video stream.`;
+        `Watch "${activeVideo.title}" in HD on X Tube (X Tube Official). Bangladeshi viral video stream.`;
+      const vidKeywords = `${activeVideo.title}, ${activeVideo.keywords || ''}, ${BASE_KEYWORDS}`;
       const vidThumb = activeVideo.thumbnail || activeVideo.thumbnailUrl || defaultImg;
       const vidStream = activeVideo.url || activeVideo.videoUrl || '';
       const vidPageUrl = `${SITE_ORIGIN}/?v=${encodeURIComponent(activeVideo.id)}`;
 
       document.title = vidTitle;
       setMetaContent('meta[name="description"]', vidDesc);
+      setMetaContent('meta[name="keywords"]', vidKeywords);
       setMetaContent('meta[property="og:type"]', 'video.other');
       setMetaContent('#og-title', vidTitle);
       setMetaContent('#og-description', vidDesc);
@@ -537,9 +594,68 @@ export default function App() {
         };
         jsonLdEl.textContent = JSON.stringify(singleVideoSchema);
       }
+    } else if (viewMode === 'shorts') {
+      const currentShort =
+        (activeShortId && shorts.find((s) => s.id === activeShortId)) || shorts[0] || null;
+      const shortTitle = currentShort
+        ? `${currentShort.title} – X Tube Shorts | X Tube Official`
+        : 'X Tube Shorts – Watch Viral Short Videos & Reels | X Tube Official';
+      const shortDesc = currentShort
+        ? `${currentShort.title} ${currentShort.hashtags || ''} – Watch viral Short video in HD on X Tube Official.`
+        : 'Watch trending Bangladeshi viral Shorts, vertical reels, and exclusive 18+ short clips on X Tube Official.';
+      const shortKeywords = currentShort
+        ? `${currentShort.title}, ${currentShort.hashtags || ''}, ${BASE_KEYWORDS}`
+        : `X Tube Shorts, viral shorts, ${BASE_KEYWORDS}`;
+      const shortThumb = currentShort?.thumbnail || videos[0]?.thumbnail || defaultImg;
+      const shortPageUrl = currentShort
+        ? `${SITE_ORIGIN}/?short=${encodeURIComponent(currentShort.id)}`
+        : `${SITE_ORIGIN}/?short=feed`;
+
+      document.title = shortTitle;
+      setMetaContent('meta[name="description"]', shortDesc);
+      setMetaContent('meta[name="keywords"]', shortKeywords);
+      setMetaContent('meta[property="og:type"]', 'video.other');
+      setMetaContent('#og-title', shortTitle);
+      setMetaContent('#og-description', shortDesc);
+      setMetaContent('#og-image', shortThumb);
+      setMetaContent('#og-url', shortPageUrl);
+      if (currentShort?.url) {
+        setMetaContent('#og-video', currentShort.url);
+        setMetaContent('#og-video-secure', currentShort.url);
+      }
+      setMetaContent('#twitter-title', shortTitle);
+      setMetaContent('#twitter-description', shortDesc);
+      setMetaContent('#twitter-image', shortThumb);
+      if (canonicalEl) canonicalEl.setAttribute('href', shortPageUrl);
+
+      if (jsonLdEl) {
+        const shortNodes = shorts
+          .filter((s) => Boolean(s.url))
+          .map((s) => buildShortObjectNode(s));
+        const shortsGraph = {
+          '@context': 'https://schema.org',
+          '@graph': [
+            ...(currentShort ? [buildShortObjectNode(currentShort)] : []),
+            {
+              '@type': 'ItemList',
+              '@id': `${SITE_ORIGIN}/#shortslist`,
+              name: 'X Tube Official Viral Shorts Feed',
+              numberOfItems: shortNodes.length,
+              itemListElement: shortNodes.map((node, idx) => ({
+                '@type': 'ListItem',
+                position: idx + 1,
+                url: node.url,
+                item: node,
+              })),
+            },
+          ],
+        };
+        jsonLdEl.textContent = JSON.stringify(shortsGraph);
+      }
     } else {
       document.title = defaultTitle;
       setMetaContent('meta[name="description"]', defaultDesc);
+      setMetaContent('meta[name="keywords"]', BASE_KEYWORDS);
       setMetaContent('meta[property="og:type"]', 'website');
       setMetaContent('#og-title', defaultTitle);
       setMetaContent('#og-description', defaultDesc);
@@ -554,7 +670,7 @@ export default function App() {
       setMetaContent('#twitter-image', videos[0]?.thumbnail || defaultImg);
       if (canonicalEl) canonicalEl.setAttribute('href', `${SITE_ORIGIN}/`);
 
-      if (jsonLdEl && videos.length > 0) {
+      if (jsonLdEl && (videos.length > 0 || shorts.length > 0)) {
         const NON_INDEXABLE_STREAMS = [
           '5_6230929087481782223.mp4',
           'VID_20261015_090110_156.mp4',
@@ -565,28 +681,33 @@ export default function App() {
             !NON_INDEXABLE_STREAMS.some((bad) => (v.url || '').includes(bad))
         );
         const videoNodes = validVideos.map((v) => buildVideoObjectNode(v));
+        const shortNodes = shorts
+          .filter((s) => Boolean(s.url))
+          .map((s) => buildShortObjectNode(s));
+        const allMediaNodes = [...videoNodes, ...shortNodes];
+
         const multiVideoGraph = {
           '@context': 'https://schema.org',
           '@graph': [
             {
               '@type': 'ItemList',
               '@id': `${SITE_ORIGIN}/#videolist`,
-              name: 'Bd Collection Trending & Viral Videos',
-              numberOfItems: videoNodes.length,
-              itemListElement: videoNodes.map((node, idx) => ({
+              name: 'X Tube Official Trending & Viral Videos & Shorts',
+              numberOfItems: allMediaNodes.length,
+              itemListElement: allMediaNodes.map((node, idx) => ({
                 '@type': 'ListItem',
                 position: idx + 1,
                 url: node.url,
                 item: node,
               })),
             },
-            ...videoNodes,
+            ...allMediaNodes,
           ],
         };
         jsonLdEl.textContent = JSON.stringify(multiVideoGraph);
       }
     }
-  }, [viewMode, activeVideo, videos]);
+  }, [viewMode, activeVideo, activeShortId, videos, shorts]);
 
   // Helper to update browser URL with canonical /?v=<videoId> or return to clean root URL
   const syncUrlWithVideo = (videoId: string | null, replace = false) => {
@@ -907,7 +1028,7 @@ export default function App() {
             likes: Number(val.likes) || 0,
             createdAt: resolvedTime,
             addedAt: resolvedTime,
-            author: val.author || 'Bd Collection',
+            author: !val.author || val.author === 'Bd Collection' ? 'X Tube' : val.author,
           };
         })
         .filter((item): item is ShortItem => Boolean(item));
@@ -969,7 +1090,7 @@ export default function App() {
         likes: Number(val.likes) || 0,
         createdAt: resolvedTime,
         addedAt: resolvedTime,
-        author: val.author || 'Bd Collection',
+        author: !val.author || val.author === 'Bd Collection' ? 'X Tube' : val.author,
       };
     };
 
@@ -1332,7 +1453,7 @@ export default function App() {
             likes: v.likes || 0,
             createdAt: v.createdAt,
             addedAt: v.addedAt || v.createdAt,
-            author: v.author || 'Bd Collection',
+            author: v.author || 'X Tube',
             isLongVideo: shorts.length === 0,
           }));
 
@@ -1366,7 +1487,7 @@ export default function App() {
         likes: v.likes || 0,
         createdAt: v.createdAt,
         addedAt: v.addedAt || v.createdAt,
-        author: v.author || 'Bd Collection',
+        author: v.author || 'X Tube',
         isLongVideo: true,
       }));
 
@@ -1444,7 +1565,7 @@ export default function App() {
               <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-white text-white ml-0.5" />
             </div>
             <span className="text-sm sm:text-lg font-bold tracking-tight text-white font-display">
-              Bd Collection
+              X Tube
             </span>
           </a>
         </div>
@@ -1807,7 +1928,7 @@ export default function App() {
                   <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 text-white font-semibold flex items-center justify-center shrink-0">
-                        {(activeVideo.author || 'B').charAt(0).toUpperCase()}
+                        {(activeVideo.author || 'X').charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{activeVideo.author}</p>
@@ -1954,6 +2075,32 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Crawlable SEO Index for Googlebot (Full Videos + Shorts + X Tube Official Keywords) */}
+          <footer className="sr-only" aria-label="X Tube Official Video and Shorts Directory">
+            <h2>X Tube Official – Watch Bangladeshi Viral Videos, Shorts &amp; Exclusive HD Streams</h2>
+            <p>
+              X Tube, X tube official, xxx, xtube, x tube video, x tube shorts, Bangladeshi viral video,
+              bd viral link, বাংলা ভাইরাল ভিডিও, নতুন ভাইরাল ভিডিও, desi viral video, viral short video,
+              18+ viral video, room date viral, trending shorts, x tube hd.
+            </p>
+            <nav aria-label="X Tube Sitemap Links">
+              <a href="/sitemap.xml">X Tube Sitemap</a>
+              <a href="/sitemap-videos.xml">X Tube Videos Sitemap</a>
+              <a href="/sitemap-shorts.xml">X Tube Shorts Sitemap</a>
+              <a href="/?short=feed">X Tube Viral Shorts Feed</a>
+              {videos.map((v) => (
+                <a key={`seo-vid-${v.id}`} href={`/?v=${encodeURIComponent(v.id)}`}>
+                  {v.title} - X Tube Official Video
+                </a>
+              ))}
+              {shorts.map((s) => (
+                <a key={`seo-short-${s.id}`} href={`/?short=${encodeURIComponent(s.id)}`}>
+                  {s.title} {s.hashtags} - X Tube Official Short
+                </a>
+              ))}
+            </nav>
+          </footer>
         </main>
       </div>
     </div>

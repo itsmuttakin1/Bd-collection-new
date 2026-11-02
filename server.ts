@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +23,21 @@ async function startServer() {
   const CANONICAL_SITE_URL = 'https://bdcollection.pages.dev';
   const FIREBASE_RTDB_VIDEOS_URL =
     'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos.json';
+  const FIREBASE_RTDB_SHORTS_URL =
+    'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts.json';
+
+  const SEO_CORE_TAGS = [
+    'X Tube',
+    'X tube official',
+    'xxx',
+    'xtube',
+    'x tube video',
+    'x tube shorts',
+    'Bangladeshi viral video',
+    'bd viral link',
+    'বাংলা ভাইরাল ভিডিও',
+    'desi viral video',
+  ];
 
   const escapeXml = (str: string) =>
     String(str || '')
@@ -82,112 +98,327 @@ async function startServer() {
     });
   });
 
-  // SEO robots.txt route
+  // SEO robots.txt route for X Tube (Allows Full Videos, Shorts & Streams for Googlebot)
+  const buildRobotsTxt = () =>
+    [
+      '# X Tube Official - Search Engine Crawler Rules',
+      '# Keywords: X Tube, X tube official, xxx, xtube, viral videos, shorts',
+      'User-agent: *',
+      'Allow: /',
+      'Allow: /?v=',
+      'Allow: /?short=',
+      'Allow: /api/stream',
+      'Disallow: /ad.html',
+      'Disallow: /api/r2-proxy/',
+      '',
+      'User-agent: Googlebot',
+      'Allow: /',
+      'Allow: /?v=',
+      'Allow: /?short=',
+      'Allow: /api/stream',
+      'Disallow: /ad.html',
+      'Disallow: /api/r2-proxy/',
+      '',
+      'User-agent: Googlebot-Video',
+      'Allow: /',
+      'Allow: /?v=',
+      'Allow: /?short=',
+      'Allow: /api/stream',
+      '',
+      'User-agent: Googlebot-Image',
+      'Allow: /',
+      '',
+      'User-agent: Bingbot',
+      'Allow: /',
+      'Allow: /?v=',
+      'Allow: /?short=',
+      '',
+      `Sitemap: ${CANONICAL_SITE_URL}/sitemap.xml`,
+      `Sitemap: ${CANONICAL_SITE_URL}/sitemap-videos.xml`,
+      `Sitemap: ${CANONICAL_SITE_URL}/sitemap-shorts.xml`,
+      '',
+    ].join('\n');
+
   app.get('/robots.txt', (_req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(
-      [
-        'User-agent: *',
-        'Allow: /',
-        'Allow: /api/stream',
-        'Disallow: /ad.html',
-        'Disallow: /api/r2-proxy/',
-        '',
-        'User-agent: Googlebot',
-        'Allow: /',
-        'Allow: /api/stream',
-        'Disallow: /ad.html',
-        'Disallow: /api/r2-proxy/',
-        '',
-        'User-agent: Googlebot-Video',
-        'Allow: /',
-        'Allow: /api/stream',
-        '',
-        'User-agent: Googlebot-Image',
-        'Allow: /',
-        '',
-        `Sitemap: ${CANONICAL_SITE_URL}/sitemap.xml`,
-        '',
-      ].join('\n')
-    );
+    res.send(buildRobotsTxt());
   });
 
-  // Dynamic Google Video Sitemap (/sitemap.xml) synced live with Firebase Realtime Database
-  app.get('/sitemap.xml', async (_req, res) => {
-    try {
-      const fbRes = await fetch(FIREBASE_RTDB_VIDEOS_URL);
-      const data = fbRes.ok ? await fbRes.json() : {};
-      const todayIso = new Date().toISOString();
-      const brokenFiles = ['5_6230929087481782223.mp4', 'VID_20261015_090110_156.mp4'];
+  // Helper to build live Google Video + Shorts Sitemap XML from Firebase RTDB and auto-sync to disk
+  const generateLiveSitemapXml = async (
+    mode: 'all' | 'videos' | 'shorts' = 'all'
+  ): Promise<{ xml: string; videoCount: number; shortCount: number }> => {
+    const [videosRes, shortsRes] = await Promise.all([
+      fetch(FIREBASE_RTDB_VIDEOS_URL, { cache: 'no-store' }).catch(() => null),
+      fetch(FIREBASE_RTDB_SHORTS_URL, { cache: 'no-store' }).catch(() => null),
+    ]);
 
-      const parseDurationSec = (raw?: string): number => {
-        if (!raw || typeof raw !== 'string') return 210;
-        const parts = raw.trim().split(':').map((n) => parseInt(n, 10));
-        if (parts.some((n) => isNaN(n) || n < 0)) return 210;
-        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-        if (parts.length === 2) {
-          const total = parts[0] * 60 + parts[1];
-          return total > 0 ? total : 210;
-        }
-        return 210;
-      };
+    const videosData = videosRes && videosRes.ok ? await videosRes.json() : {};
+    const shortsData = shortsRes && shortsRes.ok ? await shortsRes.json() : {};
+    const todayIso = new Date().toISOString();
+    const brokenFiles = ['5_6230929087481782223.mp4', 'VID_20261015_090110_156.mp4'];
 
-      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-      xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
-      xml += `        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n`;
+    const parseDurationSec = (raw?: string, fallbackSec = 210): number => {
+      if (!raw || typeof raw !== 'string') return fallbackSec;
+      const parts = raw.trim().split(':').map((n) => parseInt(n, 10));
+      if (parts.some((n) => isNaN(n) || n < 0)) return fallbackSec;
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) {
+        const total = parts[0] * 60 + parts[1];
+        return total > 0 ? total : fallbackSec;
+      }
+      return fallbackSec;
+    };
+
+    const normalizeShortUrl = (rawUrl: string, r2Key?: string): string => {
+      let clean = String(rawUrl || '').trim();
+      if (!clean && r2Key) {
+        clean = `https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev/${String(r2Key).replace(/^\/+/, '')}`;
+      }
+      if (clean.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
+        clean = clean.replace(
+          'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
+          'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
+        );
+      }
+      return clean;
+    };
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
+    xml += `        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n`;
+
+    // Root X Tube Homepage
+    xml += `  <url>\n`;
+    xml += `    <loc>${CANONICAL_SITE_URL}/</loc>\n`;
+    xml += `    <lastmod>${todayIso}</lastmod>\n`;
+    xml += `    <changefreq>hourly</changefreq>\n`;
+    xml += `    <priority>1.0</priority>\n`;
+    xml += `  </url>\n`;
+
+    // Dedicated X Tube Shorts Feed Hub URL for Google Indexing
+    if (mode === 'all' || mode === 'shorts') {
       xml += `  <url>\n`;
-      xml += `    <loc>${CANONICAL_SITE_URL}/</loc>\n`;
+      xml += `    <loc>${CANONICAL_SITE_URL}/?short=feed</loc>\n`;
       xml += `    <lastmod>${todayIso}</lastmod>\n`;
       xml += `    <changefreq>hourly</changefreq>\n`;
-      xml += `    <priority>1.0</priority>\n`;
+      xml += `    <priority>0.95</priority>\n`;
       xml += `  </url>\n`;
+    }
 
-      if (data && typeof data === 'object') {
-        for (const [id, rawVal] of Object.entries(data as Record<string, any>)) {
-          if (!rawVal || typeof rawVal !== 'object') continue;
-          const title = (rawVal.title || 'Bd Collection Viral Video').trim();
-          const desc = (
-            rawVal.description ||
-            rawVal.keywords ||
-            `${title} - Watch exclusive Bangladeshi viral video in HD on Bd Collection.`
-          ).trim();
-          const thumb = (rawVal.thumbnail || rawVal.thumbnailUrl || `${CANONICAL_SITE_URL}/favicon.png`).trim();
-          const contentLoc = (rawVal.url || rawVal.videoUrl || '').trim();
-          if (!contentLoc || brokenFiles.some((b) => contentLoc.includes(b))) continue;
+    let videoCount = 0;
+    let shortCount = 0;
 
-          const views = Number(rawVal.views) || 0;
-          const ts = Number(rawVal.addedAt || rawVal.createdAt) || Date.now();
-          const pubIso = new Date(ts).toISOString();
-          const durationSec = parseDurationSec(rawVal.duration);
-          const pageLoc = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(id)}`;
+    // 1. Add all published Full Videos (`/?v=<id>`)
+    if ((mode === 'all' || mode === 'videos') && videosData && typeof videosData === 'object') {
+      const videoEntries = Object.entries(videosData as Record<string, any>).sort(
+        (a, b) =>
+          (Number(b[1]?.addedAt || b[1]?.createdAt) || 0) -
+          (Number(a[1]?.addedAt || a[1]?.createdAt) || 0)
+      );
 
-          xml += `  <url>\n`;
-          xml += `    <loc>${escapeXml(pageLoc)}</loc>\n`;
-          xml += `    <lastmod>${pubIso}</lastmod>\n`;
-          xml += `    <changefreq>daily</changefreq>\n`;
-          xml += `    <priority>0.9</priority>\n`;
-          xml += `    <video:video>\n`;
-          xml += `      <video:thumbnail_loc>${escapeXml(thumb)}</video:thumbnail_loc>\n`;
-          xml += `      <video:title>${escapeXml(title)}</video:title>\n`;
-          xml += `      <video:description>${escapeXml(desc)}</video:description>\n`;
-          xml += `      <video:content_loc>${escapeXml(contentLoc)}</video:content_loc>\n`;
-          xml += `      <video:player_loc allow_embed="yes">${escapeXml(pageLoc)}</video:player_loc>\n`;
-          xml += `      <video:duration>${durationSec}</video:duration>\n`;
-          xml += `      <video:view_count>${views}</video:view_count>\n`;
-          xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
-          xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
-          xml += `      <video:live>no</video:live>\n`;
-          xml += `    </video:video>\n`;
-          xml += `  </url>\n`;
+      for (const [id, rawVal] of videoEntries) {
+        if (!rawVal || typeof rawVal !== 'object') continue;
+        const rawTitle = (rawVal.title || 'X Tube Official Viral Video').trim();
+        const title = rawTitle.toLowerCase().includes('x tube')
+          ? rawTitle
+          : `${rawTitle} | X Tube Official`;
+        const desc = (
+          rawVal.description ||
+          `${rawTitle} - Watch exclusive HD viral video on X Tube (X Tube Official, xxx, Bangladeshi viral stream).`
+        ).trim();
+        const thumb = (rawVal.thumbnail || rawVal.thumbnailUrl || `${CANONICAL_SITE_URL}/favicon.png`).trim();
+        const contentLoc = (rawVal.url || rawVal.videoUrl || '').trim();
+        if (!contentLoc || brokenFiles.some((b) => contentLoc.includes(b))) continue;
+
+        const views = Number(rawVal.views) || 0;
+        const ts = Number(rawVal.addedAt || rawVal.createdAt) || Date.now();
+        const pubIso = new Date(ts).toISOString();
+        const durationSec = parseDurationSec(rawVal.duration, 210);
+        const pageLoc = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(id)}`;
+
+        const itemTags = Array.from(
+          new Set([
+            ...SEO_CORE_TAGS,
+            ...String(rawVal.keywords || '')
+              .split(/[,#]+/)
+              .map((s) => s.trim())
+              .filter(Boolean),
+          ])
+        ).slice(0, 15);
+
+        xml += `  <url>\n`;
+        xml += `    <loc>${escapeXml(pageLoc)}</loc>\n`;
+        xml += `    <lastmod>${pubIso}</lastmod>\n`;
+        xml += `    <changefreq>daily</changefreq>\n`;
+        xml += `    <priority>0.9</priority>\n`;
+        xml += `    <video:video>\n`;
+        xml += `      <video:thumbnail_loc>${escapeXml(thumb)}</video:thumbnail_loc>\n`;
+        xml += `      <video:title>${escapeXml(title)}</video:title>\n`;
+        xml += `      <video:description>${escapeXml(desc)}</video:description>\n`;
+        xml += `      <video:content_loc>${escapeXml(contentLoc)}</video:content_loc>\n`;
+        xml += `      <video:player_loc allow_embed="yes">${escapeXml(pageLoc)}</video:player_loc>\n`;
+        xml += `      <video:duration>${durationSec}</video:duration>\n`;
+        xml += `      <video:view_count>${views}</video:view_count>\n`;
+        xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
+        xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
+        xml += `      <video:live>no</video:live>\n`;
+        for (const tag of itemTags) {
+          xml += `      <video:tag>${escapeXml(tag)}</video:tag>\n`;
         }
+        xml += `    </video:video>\n`;
+        xml += `  </url>\n`;
+        videoCount++;
       }
+    }
 
-      xml += `</urlset>\n`;
+    // 2. Add all uploaded Shorts (`/?short=<id>`) so X Tube Shorts rank on Google Video & Shorts Search
+    if ((mode === 'all' || mode === 'shorts') && shortsData && typeof shortsData === 'object') {
+      const shortEntries = Object.entries(shortsData as Record<string, any>).sort(
+        (a, b) =>
+          (Number(b[1]?.addedAt || b[1]?.createdAt) || 0) -
+          (Number(a[1]?.addedAt || a[1]?.createdAt) || 0)
+      );
+
+      for (const [id, rawVal] of shortEntries) {
+        if (!rawVal || typeof rawVal !== 'object') continue;
+        const rawTitle = (rawVal.title || 'X Tube Viral Short 🔥').trim();
+        const title = rawTitle.toLowerCase().includes('x tube')
+          ? rawTitle
+          : `${rawTitle} | X Tube Shorts`;
+        const hashtags = String(rawVal.hashtags || rawVal.keywords || '#Shorts #XTube #XXX #BdViral').trim();
+        const desc = `${rawTitle} ${hashtags} - Watch viral vertical Short video on X Tube Official (X Tube Shorts, xxx, trending short clip).`.trim();
+        const thumb = (rawVal.thumbnail || rawVal.thumbnailUrl || `${CANONICAL_SITE_URL}/favicon.png`).trim();
+        const contentLoc = normalizeShortUrl(rawVal.url || rawVal.videoUrl || '', rawVal.r2Key);
+        if (!contentLoc) continue;
+
+        const views = Number(rawVal.views) || 0;
+        const ts = Number(rawVal.addedAt || rawVal.createdAt) || Date.now();
+        const pubIso = new Date(ts).toISOString();
+        const durationSec = parseDurationSec(rawVal.duration, 35);
+        const pageLoc = `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(id)}`;
+
+        const shortTags = Array.from(
+          new Set([
+            ...SEO_CORE_TAGS,
+            'X Tube Shorts',
+            'YouTube Shorts',
+            'Viral Shorts',
+            ...hashtags
+              .split(/[\s,#]+/)
+              .map((s) => s.trim())
+              .filter(Boolean),
+          ])
+        ).slice(0, 15);
+
+        xml += `  <url>\n`;
+        xml += `    <loc>${escapeXml(pageLoc)}</loc>\n`;
+        xml += `    <lastmod>${pubIso}</lastmod>\n`;
+        xml += `    <changefreq>daily</changefreq>\n`;
+        xml += `    <priority>0.9</priority>\n`;
+        xml += `    <video:video>\n`;
+        xml += `      <video:thumbnail_loc>${escapeXml(thumb)}</video:thumbnail_loc>\n`;
+        xml += `      <video:title>${escapeXml(title)}</video:title>\n`;
+        xml += `      <video:description>${escapeXml(desc)}</video:description>\n`;
+        xml += `      <video:content_loc>${escapeXml(contentLoc)}</video:content_loc>\n`;
+        xml += `      <video:player_loc allow_embed="yes">${escapeXml(pageLoc)}</video:player_loc>\n`;
+        xml += `      <video:duration>${durationSec}</video:duration>\n`;
+        xml += `      <video:view_count>${views}</video:view_count>\n`;
+        xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
+        xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
+        xml += `      <video:live>no</video:live>\n`;
+        for (const tag of shortTags) {
+          xml += `      <video:tag>${escapeXml(tag)}</video:tag>\n`;
+        }
+        xml += `    </video:video>\n`;
+        xml += `  </url>\n`;
+        shortCount++;
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    // Automatically persist updated sitemap.xml & robots.txt to public/ (and dist/ if built)
+    if (mode === 'all') {
+      try {
+        const publicSitemapPath = path.join(__dirname, 'public', 'sitemap.xml');
+        fs.writeFileSync(publicSitemapPath, xml, 'utf-8');
+        const publicRobotsPath = path.join(__dirname, 'public', 'robots.txt');
+        fs.writeFileSync(publicRobotsPath, buildRobotsTxt(), 'utf-8');
+
+        const distDir = path.join(__dirname, 'dist');
+        if (fs.existsSync(distDir)) {
+          fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml, 'utf-8');
+          fs.writeFileSync(path.join(distDir, 'robots.txt'), buildRobotsTxt(), 'utf-8');
+        }
+      } catch {}
+    }
+
+    return { xml, videoCount, shortCount };
+  };
+
+  // Auto-sync sitemap on server boot and every 5 minutes in the background
+  generateLiveSitemapXml('all').catch(() => {});
+  setInterval(() => {
+    generateLiveSitemapXml('all').catch(() => {});
+  }, 5 * 60 * 1000);
+
+  // Dynamic Google Video + Shorts Sitemap (/sitemap.xml) synced live with Firebase Realtime Database
+  app.get('/sitemap.xml', async (_req, res) => {
+    try {
+      const { xml } = await generateLiveSitemapXml('all');
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.setHeader('Cache-Control', 'public, max-age=180');
       res.send(xml);
     } catch {
       res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+    }
+  });
+
+  app.get('/sitemap-videos.xml', async (_req, res) => {
+    try {
+      const { xml } = await generateLiveSitemapXml('videos');
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=180');
+      res.send(xml);
+    } catch {
+      res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+    }
+  });
+
+  app.get('/sitemap-shorts.xml', async (_req, res) => {
+    try {
+      const { xml } = await generateLiveSitemapXml('shorts');
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=180');
+      res.send(xml);
+    } catch {
+      res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+    }
+  });
+
+  // Instant Auto-Refresh Sitemap API (Triggered automatically whenever Admin uploads/edits/deletes a Video or Short)
+  app.all('/api/refresh-sitemap', async (_req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    try {
+      const { videoCount, shortCount } = await generateLiveSitemapXml('all');
+      // Also ping IndexNow / Search Engine endpoints non-blockingly
+      fetch(
+        `https://www.bing.com/indexnow?url=${encodeURIComponent(
+          `${CANONICAL_SITE_URL}/sitemap.xml`
+        )}&key=xtubeofficial2026`
+      ).catch(() => {});
+      res.json({
+        ok: true,
+        site: 'X Tube',
+        sitemapUrl: `${CANONICAL_SITE_URL}/sitemap.xml`,
+        shortsSitemapUrl: `${CANONICAL_SITE_URL}/sitemap-shorts.xml`,
+        videoCount,
+        shortCount,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err?.message || 'Sitemap refresh failed' });
     }
   });
 

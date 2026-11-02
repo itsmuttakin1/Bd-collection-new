@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bd Collection Admin · Multi-Server Storage & Video Manager</title>
+  <title>X Tube Admin · Multi-Server Storage &amp; Video Manager</title>
   <meta name="theme-color" content="#dc2626" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
@@ -39,7 +39,7 @@
             ▶
           </div>
           <div>
-            <h1 class="text-xl font-bold text-white">Bd Collection Admin</h1>
+            <h1 class="text-xl font-bold text-white">X Tube Admin</h1>
             <p class="text-xs text-zinc-400">Firebase Authentication Lock</p>
           </div>
         </div>
@@ -196,7 +196,7 @@
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center font-bold text-white">▶</div>
         <div>
-          <h1 class="text-lg font-bold text-white leading-none">Bd Collection Studio · Multi-Server Admin</h1>
+          <h1 class="text-lg font-bold text-white leading-none">X Tube Studio · Multi-Server Admin</h1>
           <div class="flex flex-wrap items-center gap-2 mt-1">
             <span id="admin-user-email" class="text-xs text-zinc-400 font-mono"></span>
             <span class="text-zinc-600">·</span>
@@ -3081,8 +3081,9 @@ service cloud.firestore {
           r2Key: uploadedKey || null,
           duration,
           views: 0,
-          author: 'Bd Collection'
+          author: 'X Tube'
         });
+        fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
 
         const generatedShareLink = window.buildVideoShareLink(newVideoRef.key);
         const shareBox = document.getElementById('last-uploaded-share-box');
@@ -3155,7 +3156,7 @@ service cloud.firestore {
       document.getElementById('edit-video-id-label').textContent = `Video ID: ${id}`;
       document.getElementById('edit-vid-title').value = item.title || '';
       document.getElementById('edit-vid-keywords').value = item.keywords || '';
-      document.getElementById('edit-vid-author').value = item.author || 'Bd Collection';
+      document.getElementById('edit-vid-author').value = item.author || 'X Tube';
       document.getElementById('edit-vid-thumb').value = currentThumb;
       document.getElementById('edit-vid-url').value = item.url || item.videoUrl || '';
       document.getElementById('edit-vid-views').value = Number(item.views) || 0;
@@ -3176,7 +3177,7 @@ service cloud.firestore {
 
       const updatedTitle = document.getElementById('edit-vid-title').value.trim();
       const updatedKeywords = document.getElementById('edit-vid-keywords').value.trim();
-      const updatedAuthor = document.getElementById('edit-vid-author').value.trim() || 'Bd Collection';
+      const updatedAuthor = document.getElementById('edit-vid-author').value.trim() || 'X Tube';
       const updatedThumb = document.getElementById('edit-vid-thumb').value.trim();
       const updatedUrl = document.getElementById('edit-vid-url').value.trim();
       const updatedViews = Number(document.getElementById('edit-vid-views').value) || 0;
@@ -3196,8 +3197,9 @@ service cloud.firestore {
           duration: updatedDuration,
           description: updatedDesc
         });
+        fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
         closeEditModal();
-        showStatus(`Updated video "${updatedTitle}" successfully!`, 'success');
+        showStatus(`Updated video "${updatedTitle}" & auto-updated Google Sitemap!`, 'success');
       } catch (err) {
         showStatus(`Update Error: ${err.message}. Check your UID in Firebase Rules.`, 'error');
       }
@@ -3572,8 +3574,9 @@ service cloud.firestore {
       });
     });
 
-    // 1-Click Live Google Video Sitemap Generator for https://bdcollection.pages.dev
+    // 1-Click Live Google Video + Shorts Sitemap Generator for X Tube (https://bdcollection.pages.dev)
     document.getElementById('download-sitemap-btn').addEventListener('click', () => {
+      fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
       const siteOrigin = 'https://bdcollection.pages.dev';
       const todayIso = new Date().toISOString();
       const brokenFiles = ['5_6230929087481782223.mp4', 'VID_20261015_090110_156.mp4'];
@@ -3585,16 +3588,16 @@ service cloud.firestore {
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&apos;');
 
-      const parseDurSec = (raw) => {
-        if (!raw || typeof raw !== 'string') return 210;
+      const parseDurSec = (raw, fallback = 210) => {
+        if (!raw || typeof raw !== 'string') return fallback;
         const parts = raw.trim().split(':').map((n) => parseInt(n, 10));
-        if (parts.some((n) => isNaN(n) || n < 0)) return 210;
+        if (parts.some((n) => isNaN(n) || n < 0)) return fallback;
         if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
         if (parts.length === 2) {
           const total = parts[0] * 60 + parts[1];
-          return total > 0 ? total : 210;
+          return total > 0 ? total : fallback;
         }
-        return 210;
+        return fallback;
       };
 
       let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -3603,17 +3606,24 @@ service cloud.firestore {
       xml += `  <url>\n`;
       xml += `    <loc>${siteOrigin}/</loc>\n`;
       xml += `    <lastmod>${todayIso}</lastmod>\n`;
-      xml += `    <changefreq>hourly</changefreq>\n`;
+      xml += `    <changefreq>always</changefreq>\n`;
       xml += `    <priority>1.0</priority>\n`;
       xml += `  </url>\n`;
+      xml += `  <url>\n`;
+      xml += `    <loc>${siteOrigin}/?short=feed</loc>\n`;
+      xml += `    <lastmod>${todayIso}</lastmod>\n`;
+      xml += `    <changefreq>hourly</changefreq>\n`;
+      xml += `    <priority>0.95</priority>\n`;
+      xml += `  </url>\n`;
 
+      // 1. All Published Full Videos
       Object.entries(rawVideosMap || {}).forEach(([id, v]) => {
         if (!v || typeof v !== 'object') return;
-        const title = (v.title || 'Bd Collection Viral Video').trim();
+        const title = (v.title || 'X Tube Official Viral Video').trim();
         const desc = (
           v.description ||
           v.keywords ||
-          `${title} - Watch exclusive Bangladeshi viral video in HD on Bd Collection.`
+          `${title} - Watch exclusive Bangladeshi viral video in HD on X Tube Official (xxx, xtube).`
         ).trim();
         const thumb = (v.thumbnail || v.thumbnailUrl || `${siteOrigin}/favicon.png`).trim();
         const contentLoc = (v.url || v.videoUrl || '').trim();
@@ -3622,7 +3632,7 @@ service cloud.firestore {
         const views = Number(v.views) || 0;
         const ts = Number(v.addedAt || v.createdAt) || Date.now();
         const pubIso = new Date(ts).toISOString();
-        const durationSec = parseDurSec(v.duration);
+        const durationSec = parseDurSec(v.duration, 210);
         const locUrl = `${siteOrigin}/?v=${encodeURIComponent(id)}`;
 
         xml += `  <url>\n`;
@@ -3632,7 +3642,7 @@ service cloud.firestore {
         xml += `    <priority>0.9</priority>\n`;
         xml += `    <video:video>\n`;
         xml += `      <video:thumbnail_loc>${escXml(thumb)}</video:thumbnail_loc>\n`;
-        xml += `      <video:title>${escXml(title)}</video:title>\n`;
+        xml += `      <video:title>${escXml(`${title} | X Tube Official`)}</video:title>\n`;
         xml += `      <video:description>${escXml(desc)}</video:description>\n`;
         xml += `      <video:content_loc>${escXml(contentLoc)}</video:content_loc>\n`;
         xml += `      <video:player_loc allow_embed="yes">${escXml(locUrl)}</video:player_loc>\n`;
@@ -3641,6 +3651,52 @@ service cloud.firestore {
         xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
         xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
         xml += `      <video:live>no</video:live>\n`;
+        xml += `      <video:tag>X Tube</video:tag>\n`;
+        xml += `      <video:tag>X tube official</video:tag>\n`;
+        xml += `      <video:tag>xxx</video:tag>\n`;
+        xml += `      <video:tag>xtube</video:tag>\n`;
+        xml += `      <video:tag>Bangladeshi viral video</video:tag>\n`;
+        xml += `    </video:video>\n`;
+        xml += `  </url>\n`;
+      });
+
+      // 2. All Published Shorts
+      Object.entries(rawShortsMap || {}).forEach(([id, s]) => {
+        if (!s || typeof s !== 'object') return;
+        const title = (s.title || 'X Tube Official Viral Short').trim();
+        const hashtags = (s.hashtags || s.keywords || '#Shorts #XTube #BdViral #18Plus').trim();
+        const desc = `${title} ${hashtags} - Watch viral Short video in HD on X Tube Official (X Tube Shorts).`;
+        const thumb = (s.thumbnail || s.thumbnailUrl || `${siteOrigin}/favicon.png`).trim();
+        const contentLoc = (s.url || s.videoUrl || '').trim();
+        if (!contentLoc) return;
+
+        const views = Number(s.views) || 0;
+        const ts = Number(s.addedAt || s.createdAt) || Date.now();
+        const pubIso = new Date(ts).toISOString();
+        const durationSec = parseDurSec(s.duration, 35);
+        const locUrl = `${siteOrigin}/?short=${encodeURIComponent(id)}`;
+
+        xml += `  <url>\n`;
+        xml += `    <loc>${escXml(locUrl)}</loc>\n`;
+        xml += `    <lastmod>${pubIso}</lastmod>\n`;
+        xml += `    <changefreq>daily</changefreq>\n`;
+        xml += `    <priority>0.9</priority>\n`;
+        xml += `    <video:video>\n`;
+        xml += `      <video:thumbnail_loc>${escXml(thumb)}</video:thumbnail_loc>\n`;
+        xml += `      <video:title>${escXml(`${title} | X Tube Shorts`)}</video:title>\n`;
+        xml += `      <video:description>${escXml(desc)}</video:description>\n`;
+        xml += `      <video:content_loc>${escXml(contentLoc)}</video:content_loc>\n`;
+        xml += `      <video:player_loc allow_embed="yes">${escXml(locUrl)}</video:player_loc>\n`;
+        xml += `      <video:duration>${durationSec}</video:duration>\n`;
+        xml += `      <video:view_count>${views}</video:view_count>\n`;
+        xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
+        xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
+        xml += `      <video:live>no</video:live>\n`;
+        xml += `      <video:tag>X Tube</video:tag>\n`;
+        xml += `      <video:tag>X tube official</video:tag>\n`;
+        xml += `      <video:tag>x tube shorts</video:tag>\n`;
+        xml += `      <video:tag>xxx</video:tag>\n`;
+        xml += `      <video:tag>xtube</video:tag>\n`;
         xml += `    </video:video>\n`;
         xml += `  </url>\n`;
       });
@@ -3656,7 +3712,7 @@ service cloud.firestore {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showStatus('Downloaded fresh sitemap.xml with all valid published videos for https://bdcollection.pages.dev!', 'success');
+      showStatus('Downloaded fresh X Tube sitemap.xml (with all Videos + Shorts) & synced server sitemap!', 'success');
     });
 
     // Initialize Telegram Mini App Bot Link UI in Admin Panel
@@ -4315,8 +4371,9 @@ service cloud.firestore {
           duration,
           views: 0,
           likes: 0,
-          author: 'Bd Collection'
+          author: 'X Tube'
         });
+        fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
 
         const shortShareLink = window.buildShortShareLink(newShortRef.key);
         const shareBox = document.getElementById('last-short-share-box');

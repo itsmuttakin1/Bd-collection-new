@@ -255,10 +255,19 @@ export const NativeBannerAd: React.FC<{ className?: string }> = ({ className = '
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
+    // Remove stale script if container is currently empty so navigating between Home/Watch/Shorts always populates the Native Banner
+    const containerEl = wrapper.querySelector(`#${NATIVE_BANNER_CONTAINER_ID}`);
     const existingScript = document.querySelector(`script[src="${NATIVE_BANNER_SCRIPT_SRC}"]`);
-    if (!existingScript) {
+    if (existingScript && containerEl && containerEl.children.length === 0) {
+      try {
+        existingScript.remove();
+      } catch {}
+    }
+
+    if (!document.querySelector(`script[src="${NATIVE_BANNER_SCRIPT_SRC}"]`)) {
       const script = document.createElement('script');
       script.async = true;
+      script.setAttribute('async', 'async');
       script.setAttribute('data-cfasync', 'false');
       script.src = NATIVE_BANNER_SCRIPT_SRC;
       script.onerror = () => {
@@ -297,7 +306,7 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
         </style>
       </head>
       <body>
-        <script type="text/javascript">
+        <script>
           atOptions = {
             'key' : '${BANNER_320x50_KEY}',
             'format' : 'iframe',
@@ -306,7 +315,7 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
             'params' : {}
           };
         </script>
-        <script type="text/javascript" src="${BANNER_320x50_SCRIPT_SRC}"></script>
+        <script src="${BANNER_320x50_SCRIPT_SRC}"></script>
       </body>
     </html>
   `;

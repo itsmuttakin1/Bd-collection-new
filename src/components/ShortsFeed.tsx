@@ -667,10 +667,12 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                   <div className="pr-14 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="w-7 h-7 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                        B
+                        X
                       </div>
                       <span className="text-xs font-bold text-white truncate">
-                        @{short.author || 'BdCollection'}
+                        @{!short.author || short.author === 'Bd Collection' || short.author === 'X Tube'
+                          ? 'XTubeOfficial'
+                          : short.author.replace(/\s+/g, '')}
                       </span>
                       <button
                         type="button"

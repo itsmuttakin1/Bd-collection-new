@@ -129,12 +129,13 @@ export const copyTextToClipboard = async (text: string): Promise<boolean> => {
   }
 };
 
-export const SMARTLINK_URL = "https://asiaso.org/4/83d7ffcba5e9ff163422eb60b234e632";
-export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/eab46957ba8ada08fe799687dd63716f";
-export const NATIVE_BANNER_SCRIPT_SRC = "https://brijmohan.org/21/9e05788a1e91471d1f2353aad323fd56";
-export const NATIVE_BANNER_CONTAINER_ID = "container-9e05788a1e91471d1f2353aad323fd56";
-export const BANNER_320x50_KEY = "f9d96eee7a61e1baf855ad37f42838ae";
-export const BANNER_320x50_SCRIPT_SRC = "https://brijmohan.org/22/f9d96eee7a61e1baf855ad37f42838ae";
-export const SOCIAL_BAR_SCRIPT_SRC = "https://brijmohan.org/14/9685e94c6cd837de7f2e6be4199a8040";
+export const SMARTLINK_URL = "https://asiaso.org/4/19da97c151732fac7f15885cffc09675";
+export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/f8789aea5ef961063dfc6ebf1cf99900";
+export const NATIVE_BANNER_SCRIPT_SRC = "https://brijmohan.org/21/a7d1393a2e85dd67ac13b3e060394934";
+export const NATIVE_BANNER_CONTAINER_ID = "container-a7d1393a2e85dd67ac13b3e060394934";
+export const BANNER_320x50_KEY = "3b1a924db6016b5bf4ddfe098d957940";
+export const BANNER_320x50_SCRIPT_SRC = "https://brijmohan.org/22/3b1a924db6016b5bf4ddfe098d957940";
+export const SOCIAL_BAR_SCRIPT_SRC = "https://brijmohan.org/14/4c4a8e781dbd7fa6718915694148d8d9";
 
 export { ref, onValue, push, set, remove, get, update, runTransaction, onDisconnect, serverTimestamp };
+

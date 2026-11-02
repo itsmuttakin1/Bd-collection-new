@@ -1,20 +1,36 @@
+# X Tube Official - Search Engine Crawler Rules
+# Keywords: X Tube, X tube official, xxx, xtube, viral videos, shorts
 User-agent: *
 Allow: /
+Allow: /?v=
+Allow: /?short=
 Allow: /api/stream
 Disallow: /ad.html
 Disallow: /api/r2-proxy/
 
 User-agent: Googlebot
 Allow: /
+Allow: /?v=
+Allow: /?short=
 Allow: /api/stream
 Disallow: /ad.html
 Disallow: /api/r2-proxy/
 
 User-agent: Googlebot-Video
 Allow: /
+Allow: /?v=
+Allow: /?short=
 Allow: /api/stream
 
 User-agent: Googlebot-Image
 Allow: /
 
+User-agent: Bingbot
+Allow: /
+Allow: /?v=
+Allow: /?short=
+
 Sitemap: https://bdcollection.pages.dev/sitemap.xml
+Sitemap: https://bdcollection.pages.dev/sitemap-videos.xml
+Sitemap: https://bdcollection.pages.dev/sitemap-shorts.xml
+
