@@ -47,11 +47,28 @@ const getRequestedVideoIdFromUrl = (): string | null => {
   if (typeof window === 'undefined') return null;
   try {
     const params = new URLSearchParams(window.location.search);
-    const v = params.get('v') || params.get('video') || params.get('id');
+    const v =
+      params.get('v') ||
+      params.get('video') ||
+      params.get('id') ||
+      params.get('tgWebAppStartParam') ||
+      params.get('startapp');
     if (v && v.trim()) return v.trim();
+
+    // Check Telegram Mini App initDataUnsafe.start_param for t.me/bot/app?startapp=VIDEO_ID links
+    const tgStartParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (typeof tgStartParam === 'string' && tgStartParam.trim()) {
+      return tgStartParam.trim();
+    }
+
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
-      const hv = hashParams.get('v') || hashParams.get('video') || hashParams.get('id');
+      const hv =
+        hashParams.get('v') ||
+        hashParams.get('video') ||
+        hashParams.get('id') ||
+        hashParams.get('tgWebAppStartParam') ||
+        hashParams.get('startapp');
       if (hv && hv.trim()) return hv.trim();
     }
   } catch {}
@@ -104,7 +121,7 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
 };
 
 export default function App() {
-  // Read `?v=<videoId>` from URL if someone opened a shared video link from Index or Admin Panel
+  // Read `?v=<videoId>` or Telegram Mini App `start_param` from URL
   const initialUrlVidId = getRequestedVideoIdFromUrl();
   const pendingSharedIdRef = useRef<string | null>(initialUrlVidId);
   const [sharedVideoId, setSharedVideoId] = useState<string | null>(initialUrlVidId);
@@ -116,6 +133,50 @@ export default function App() {
   const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+
+  // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
+  useEffect(() => {
+    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
+    if (!tg) return;
+    try {
+      tg.ready();
+      tg.expand();
+      if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#050505');
+      if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#050505');
+    } catch {}
+  }, []);
+
+  // Sync Telegram Mini App native BackButton with Watch vs Home view
+  useEffect(() => {
+    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
+    const backButton = tg?.BackButton;
+    if (!backButton) return;
+
+    const handleBack = () => {
+      pendingSharedIdRef.current = null;
+      setSharedVideoId(null);
+      setViewMode('home');
+      setActiveVideo(null);
+      try {
+        window.history.pushState({}, '', '/');
+      } catch {}
+    };
+
+    try {
+      if (viewMode === 'watch') {
+        backButton.show();
+        backButton.onClick(handleBack);
+      } else {
+        backButton.hide();
+      }
+    } catch {}
+
+    return () => {
+      try {
+        backButton.offClick(handleBack);
+      } catch {}
+    };
+  }, [viewMode]);
   const [sortByTrending, setSortByTrending] = useState<boolean>(false);
   const [trendingSeed, setTrendingSeed] = useState<number>(0);
   const [trendingVideos, setTrendingVideos] = useState<VideoItem[]>([]);

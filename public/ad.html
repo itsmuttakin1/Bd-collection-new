@@ -322,6 +322,63 @@
         </div>
       </section>
 
+      <!-- TELEGRAM MINI APP & BOTFATHER SETUP PANEL -->
+      <section class="p-5 rounded-2xl border border-sky-800/60 bg-zinc-900/70 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-lg">✈️</span>
+              <h2 class="text-base font-bold text-white">Telegram Mini App &amp; Bot Setup (টেলিগ্রাম মিনি অ্যাপ সেটআপ ও শেয়ার লিংক)</h2>
+              <span class="px-2.5 py-0.5 rounded-md bg-sky-950/90 border border-sky-700/70 text-[11px] font-mono text-sky-300">
+                ✓ All Ads &amp; Videos Ready
+              </span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-0.5">আপনার এই ওয়েবসাইটটি (সবগুলো Ads সহ) সরাসরি Telegram Bot-এর ভেতরে Mini App হিসেবে চালানোর গাইড এবং ডিরেক্ট ভিডিও শেয়ার লিংক</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="copy-tg-webapp-url-btn" type="button"
+              class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors cursor-pointer">
+              📋 Copy Mini App URL (https://bdcollection.pages.dev)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+          <!-- Step-by-step BotFather guide -->
+          <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2 text-zinc-300 leading-relaxed">
+            <h3 class="text-xs font-bold text-sky-400">🤖 কিভাবে @BotFather দিয়ে আপনার Bot-এ Mini App সেট করবেন:</h3>
+            <ol class="list-decimal list-inside space-y-1.5">
+              <li>Telegram-এ গিয়ে <strong class="text-white">@BotFather</strong> ওপেন করুন এবং <code class="text-sky-300 font-mono">/newbot</code> লিখে নতুন একটি Bot তৈরি করুন (অথবা আপনার আগের Bot সিলেক্ট করুন)।</li>
+              <li><strong>Menu Button সেট করতে:</strong> <code class="text-sky-300 font-mono">/setmenubutton</code> লিখে আপনার Bot সিলেক্ট করুন → URL চাপে দিন: <code class="text-emerald-300 font-mono">https://bdcollection.pages.dev</code> → বাটনের নাম দিন: <code class="text-amber-300 font-mono">🎬 Watch Videos</code>।</li>
+              <li><strong>Direct Mini App Link বানাতে:</strong> <code class="text-sky-300 font-mono">/newapp</code> লিখে আপনার Bot সিলেক্ট করুন → Title, Description ও একটি 640x360 ছবি দিন → Web App URL-এ দিন: <code class="text-emerald-300 font-mono">https://bdcollection.pages.dev</code> → Short name দিন (যেমন: <code class="text-amber-300 font-mono">app</code>)।</li>
+              <li>এতে আপনি <code class="text-sky-300 font-mono">https://t.me/YourBotUsername/app</code> ফরম্যাটে একটি লিংক পাবেন, যা ক্লিক করলেই Telegram-এর ভেতরেই আপনার পুরো ওয়েবসাইট ও সব Ads চলবে!</li>
+            </ol>
+          </div>
+
+          <!-- Bot Mini App Base URL config for 1-click video deep links -->
+          <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3 flex flex-col justify-between">
+            <div class="space-y-2">
+              <h3 class="text-xs font-bold text-emerald-400">🔗 Telegram Mini App Direct Video Link Generator:</h3>
+              <p class="text-zinc-400 leading-relaxed">
+                নিচের বক্সে আপনার Bot-এর Mini App লিংকটি (যেমন: <code class="text-sky-300 font-mono">https://t.me/YourBotName/app</code>) লিখে <strong>Save</strong> করুন। এরপর যেকোনো ভিডিওর <strong>✈️ TG Link</strong> বাটনে ক্লিক করলেই <code class="text-emerald-300 font-mono">?startapp=VIDEO_ID</code> সহ ডিরেক্ট টেলিগ্রাম মিনি অ্যাপ লিংক কপি হয়ে যাবে!
+              </p>
+              <div class="flex flex-col sm:flex-row gap-2 pt-1">
+                <input id="tg-bot-base-input" type="url" placeholder="https://t.me/YourBotUsername/app"
+                  class="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-sky-500" />
+                <button id="save-tg-bot-base-btn" type="button"
+                  class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer shrink-0">
+                  Save Bot Link
+                </button>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400">
+              <span>Smartlink 3-Click Ads, Banner Ads, Social Bar সব Telegram WebView-তে সাপোর্টেড</span>
+              <span id="tg-bot-saved-badge" class="font-mono text-sky-400"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- LIVE WEBSITE VISITORS & TRAFFIC ANALYTICS (TOTAL USERS + ONLINE USERS) -->
       <section class="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/50 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -2073,6 +2130,62 @@ service cloud.firestore {
       return shareUrl;
     };
 
+    // Build & Copy Telegram Mini App Direct Video Link (https://t.me/BotUser/app?startapp=VIDEO_ID)
+    window.getTelegramMiniAppBaseUrl = () => {
+      try {
+        return (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
+      } catch {
+        return '';
+      }
+    };
+
+    window.buildTelegramVideoShareLink = (videoId) => {
+      const cleanId = String(videoId || '').trim();
+      const base = window.getTelegramMiniAppBaseUrl().replace(/\/+$/, '');
+      if (!base) {
+        return window.buildVideoShareLink(cleanId);
+      }
+      // Telegram start_param supports A-Z, a-z, 0-9, _ and -
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}startapp=${encodeURIComponent(cleanId)}`;
+    };
+
+    window.copyTelegramVideoShareLink = async (videoId, title = '') => {
+      if (!videoId) return '';
+      const base = window.getTelegramMiniAppBaseUrl();
+      if (!base) {
+        showStatus(
+          'প্রথমে উপরের "Telegram Mini App & Bot Setup" বক্সে আপনার Bot লিংক (যেমন: https://t.me/YourBot/app) দিয়ে Save করুন!',
+          'error'
+        );
+        const inputEl = document.getElementById('tg-bot-base-input');
+        if (inputEl) {
+          inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          inputEl.focus();
+        }
+        return '';
+      }
+      const tgUrl = window.buildTelegramVideoShareLink(videoId);
+      try {
+        await navigator.clipboard.writeText(tgUrl);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = tgUrl;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showStatus(
+        `Copied Telegram Mini App Video Link${title ? ` for "${title}"` : ''}: ${tgUrl}`,
+        'success'
+      );
+      return tgUrl;
+    };
+
     // Helper to download any thumbnail (DataURL, remote ImgBB/PostImg URL, or auto-extract from video stream URL)
     window.downloadThumbnailImage = async (imgSrc, filenameBase = 'video-thumbnail', fallbackVideoUrl = '') => {
       const cleanName =
@@ -3017,6 +3130,10 @@ service cloud.firestore {
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
               🔗 Share Link
             </button>
+            <button data-tg-share-vid="${v.id}" type="button" title="Copy Telegram Mini App Direct Video Link"
+              class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer transition-colors">
+              ✈️ TG Link
+            </button>
             <a href="${shareLink}" target="_blank" rel="noopener noreferrer" title="Open Share Link in New Tab"
               class="inline-block px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-semibold transition-colors">
               ↗ Open
@@ -3073,6 +3190,15 @@ service cloud.firestore {
           await window.copyVideoShareLink(v.id, v.title);
           btn.textContent = '✓ Copied!';
           setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
+        });
+
+        tr.querySelector('[data-tg-share-vid]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const copied = await window.copyTelegramVideoShareLink(v.id, v.title);
+          if (copied) {
+            btn.textContent = '✓ TG Copied!';
+            setTimeout(() => (btn.textContent = '✈️ TG Link'), 2000);
+          }
         });
 
         tr.querySelector('[data-copy-inline]').addEventListener('click', async (e) => {
@@ -3195,6 +3321,54 @@ service cloud.firestore {
       URL.revokeObjectURL(url);
       showStatus('Downloaded fresh sitemap.xml with all valid published videos for https://bdcollection.pages.dev!', 'success');
     });
+
+    // Initialize Telegram Mini App Bot Link UI in Admin Panel
+    (() => {
+      const tgInput = document.getElementById('tg-bot-base-input');
+      const tgSaveBtn = document.getElementById('save-tg-bot-base-btn');
+      const tgBadge = document.getElementById('tg-bot-saved-badge');
+      const copyWebAppUrlBtn = document.getElementById('copy-tg-webapp-url-btn');
+
+      const savedBase = window.getTelegramMiniAppBaseUrl();
+      if (tgInput && savedBase) {
+        tgInput.value = savedBase;
+      }
+      if (tgBadge) {
+        tgBadge.textContent = savedBase ? `Active: ${savedBase}` : 'Not set yet';
+      }
+
+      if (tgSaveBtn && tgInput) {
+        tgSaveBtn.addEventListener('click', () => {
+          const val = tgInput.value.trim().replace(/\/+$/, '');
+          try {
+            localStorage.setItem('bd_tg_miniapp_base', val);
+          } catch {}
+          if (tgBadge) {
+            tgBadge.textContent = val ? `Active: ${val}` : 'Not set yet';
+          }
+          showStatus(
+            val
+              ? `Saved Telegram Mini App Bot Link: ${val}`
+              : 'Cleared Telegram Mini App Bot Link.',
+            'success'
+          );
+        });
+      }
+
+      if (copyWebAppUrlBtn) {
+        copyWebAppUrlBtn.addEventListener('click', async () => {
+          const url = 'https://bdcollection.pages.dev';
+          try {
+            await navigator.clipboard.writeText(url);
+          } catch {}
+          copyWebAppUrlBtn.textContent = '✓ Copied https://bdcollection.pages.dev';
+          showStatus('Copied Mini App URL: https://bdcollection.pages.dev', 'success');
+          setTimeout(() => {
+            copyWebAppUrlBtn.textContent = '📋 Copy Mini App URL (https://bdcollection.pages.dev)';
+          }, 2000);
+        });
+      }
+    })();
   </script>
 </body>
 </html>

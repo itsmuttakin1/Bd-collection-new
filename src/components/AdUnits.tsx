@@ -368,10 +368,22 @@ export function triggerPopunderAd() {
 }
 
 /**
- * Opens the Smartlink URL
+ * Opens the Smartlink URL (Supports both standard browsers & Telegram Mini App WebView)
  */
 export function triggerSmartlinkAd() {
   try {
+    const tgWebApp = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
+    // If running inside Telegram Mini App, use Telegram's native openLink API so the ad opens
+    // in the external browser without closing the Mini App or being blocked by WebView popup rules.
+    if (tgWebApp && tgWebApp.initData && typeof tgWebApp.openLink === 'function') {
+      try {
+        tgWebApp.openLink(SMARTLINK_URL, { try_instant_view: false });
+        return;
+      } catch {
+        // Fallback to anchor click below
+      }
+    }
+
     const link = document.createElement('a');
     link.href = SMARTLINK_URL;
     link.target = '_blank';
