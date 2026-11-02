@@ -235,7 +235,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         key={`${videoId}-${streamStage}`}
         ref={videoRef}
         src={resolvedVideoSrc}
-        poster={poster && poster.trim() ? poster.trim() : 'https://bdcollection.pages.dev/favicon.png'}
+        poster={poster && poster.trim() ? poster.trim() : 'https://xtubeofficial.pages.dev/favicon.png'}
         title={title}
         playsInline
         preload="metadata"

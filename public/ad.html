@@ -338,7 +338,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <button id="copy-tg-webapp-url-btn" type="button"
               class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors cursor-pointer">
-              📋 Copy Mini App URL (https://bdcollection.pages.dev)
+              📋 Copy Mini App URL (https://xtubeofficial.pages.dev)
             </button>
           </div>
         </div>
@@ -349,8 +349,8 @@
             <h3 class="text-xs font-bold text-sky-400">🤖 কিভাবে @BotFather দিয়ে আপনার Bot-এ Mini App সেট করবেন:</h3>
             <ol class="list-decimal list-inside space-y-1.5">
               <li>Telegram-এ গিয়ে <strong class="text-white">@BotFather</strong> ওপেন করুন এবং <code class="text-sky-300 font-mono">/newbot</code> লিখে নতুন একটি Bot তৈরি করুন (অথবা আপনার আগের Bot সিলেক্ট করুন)।</li>
-              <li><strong>Menu Button সেট করতে:</strong> <code class="text-sky-300 font-mono">/setmenubutton</code> লিখে আপনার Bot সিলেক্ট করুন → URL চাপে দিন: <code class="text-emerald-300 font-mono">https://bdcollection.pages.dev</code> → বাটনের নাম দিন: <code class="text-amber-300 font-mono">🎬 Watch Videos</code>।</li>
-              <li><strong>Direct Mini App Link বানাতে:</strong> <code class="text-sky-300 font-mono">/newapp</code> লিখে আপনার Bot সিলেক্ট করুন → Title, Description ও একটি 640x360 ছবি দিন → Web App URL-এ দিন: <code class="text-emerald-300 font-mono">https://bdcollection.pages.dev</code> → Short name দিন (যেমন: <code class="text-amber-300 font-mono">app</code>)।</li>
+              <li><strong>Menu Button সেট করতে:</strong> <code class="text-sky-300 font-mono">/setmenubutton</code> লিখে আপনার Bot সিলেক্ট করুন → URL চাপে দিন: <code class="text-emerald-300 font-mono">https://xtubeofficial.pages.dev</code> → বাটনের নাম দিন: <code class="text-amber-300 font-mono">🎬 Watch Videos</code>।</li>
+              <li><strong>Direct Mini App Link বানাতে:</strong> <code class="text-sky-300 font-mono">/newapp</code> লিখে আপনার Bot সিলেক্ট করুন → Title, Description ও একটি 640x360 ছবি দিন → Web App URL-এ দিন: <code class="text-emerald-300 font-mono">https://xtubeofficial.pages.dev</code> → Short name দিন (যেমন: <code class="text-amber-300 font-mono">app</code>)।</li>
               <li>এতে আপনি <code class="text-sky-300 font-mono">https://t.me/YourBotUsername/app</code> ফরম্যাটে একটি লিংক পাবেন, যা ক্লিক করলেই Telegram-এর ভেতরেই আপনার পুরো ওয়েবসাইট ও সব Ads চলবে!</li>
             </ol>
           </div>
@@ -2417,7 +2417,7 @@ service cloud.firestore {
       const origin =
         typeof window !== 'undefined' && window.location && window.location.origin
           ? window.location.origin
-          : 'https://bdcollection.pages.dev';
+          : 'https://xtubeofficial.pages.dev';
       return `${origin}/?v=${encodeURIComponent(cleanId)}`;
     };
 
@@ -3574,10 +3574,10 @@ service cloud.firestore {
       });
     });
 
-    // 1-Click Live Google Video + Shorts Sitemap Generator for X Tube (https://bdcollection.pages.dev)
+    // 1-Click Live Google Video + Shorts Sitemap Generator for X Tube (https://xtubeofficial.pages.dev)
     document.getElementById('download-sitemap-btn').addEventListener('click', () => {
       fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
-      const siteOrigin = 'https://bdcollection.pages.dev';
+      const siteOrigin = 'https://xtubeofficial.pages.dev';
       const todayIso = new Date().toISOString();
       const brokenFiles = ['5_6230929087481782223.mp4', 'VID_20261015_090110_156.mp4'];
       const escXml = (s) =>
@@ -3750,14 +3750,14 @@ service cloud.firestore {
 
       if (copyWebAppUrlBtn) {
         copyWebAppUrlBtn.addEventListener('click', async () => {
-          const url = 'https://bdcollection.pages.dev';
+          const url = 'https://xtubeofficial.pages.dev';
           try {
             await navigator.clipboard.writeText(url);
           } catch {}
-          copyWebAppUrlBtn.textContent = '✓ Copied https://bdcollection.pages.dev';
-          showStatus('Copied Mini App URL: https://bdcollection.pages.dev', 'success');
+          copyWebAppUrlBtn.textContent = '✓ Copied https://xtubeofficial.pages.dev';
+          showStatus('Copied Mini App URL: https://xtubeofficial.pages.dev', 'success');
           setTimeout(() => {
-            copyWebAppUrlBtn.textContent = '📋 Copy Mini App URL (https://bdcollection.pages.dev)';
+            copyWebAppUrlBtn.textContent = '📋 Copy Mini App URL (https://xtubeofficial.pages.dev)';
           }, 2000);
         });
       }
@@ -3801,7 +3801,7 @@ service cloud.firestore {
       const origin =
         typeof window !== 'undefined' && window.location && window.location.origin
           ? window.location.origin
-          : 'https://bdcollection.pages.dev';
+          : 'https://xtubeofficial.pages.dev';
       return `${origin}/?short=${encodeURIComponent(cleanId)}`;
     };
 

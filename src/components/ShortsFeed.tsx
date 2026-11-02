@@ -485,7 +485,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                       videoRefs.current[short.id] = el;
                     }}
                     src={streamUrl}
-                    poster={thumbUrl || 'https://bdcollection.pages.dev/favicon.png'}
+                    poster={thumbUrl || 'https://xtubeofficial.pages.dev/favicon.png'}
                     playsInline
                     autoPlay={idx === activeIndex && !short.isLongVideo}
                     loop

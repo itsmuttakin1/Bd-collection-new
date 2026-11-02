@@ -157,7 +157,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         <video
           ref={videoRef}
           src={streamWithFragment}
-          poster="https://bdcollection.pages.dev/favicon.png"
+          poster="https://xtubeofficial.pages.dev/favicon.png"
           preload="metadata"
           muted
           playsInline

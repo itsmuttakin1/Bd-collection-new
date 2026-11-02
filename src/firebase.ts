@@ -78,7 +78,7 @@ export const buildVideoShareLink = (videoId: string): string => {
   const origin =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin
-      : 'https://bdcollection.pages.dev';
+      : 'https://xtubeofficial.pages.dev';
   return `${origin}/?v=${encodeURIComponent(cleanId)}`;
 };
 
@@ -90,7 +90,7 @@ export const buildShortShareLink = (shortId: string): string => {
   const origin =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin
-      : 'https://bdcollection.pages.dev';
+      : 'https://xtubeofficial.pages.dev';
   return `${origin}/?short=${encodeURIComponent(cleanId)}`;
 };
 

@@ -444,7 +444,7 @@ export default function App() {
 
   // Dynamic Google SEO, OpenGraph, Canonical URL, Keywords & Schema.org VideoObject JSON-LD for ALL Videos & Shorts
   useEffect(() => {
-    const SITE_ORIGIN = 'https://bdcollection.pages.dev';
+    const SITE_ORIGIN = 'https://xtubeofficial.pages.dev';
     const BASE_KEYWORDS =
       'X Tube, X tube official, xxx, xtube, x tube video, x tube shorts, Bangladeshi viral video, bd viral link, বাংলা ভাইরাল ভিডিও, নতুন ভাইরাল ভিডিও, desi viral video, viral short video, 18+ viral video, room date viral, trending shorts, x tube hd';
     const defaultTitle =

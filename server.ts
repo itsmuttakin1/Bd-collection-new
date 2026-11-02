@@ -20,7 +20,7 @@ const corsHeaders: Record<string, string> = {
 async function startServer() {
   const app = express();
   const PORT = 3000;
-  const CANONICAL_SITE_URL = 'https://bdcollection.pages.dev';
+  const CANONICAL_SITE_URL = 'https://xtubeofficial.pages.dev';
   const FIREBASE_RTDB_VIDEOS_URL =
     'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos.json';
   const FIREBASE_RTDB_SHORTS_URL =

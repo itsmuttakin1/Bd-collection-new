@@ -30,7 +30,6 @@ Allow: /
 Allow: /?v=
 Allow: /?short=
 
-Sitemap: https://bdcollection.pages.dev/sitemap.xml
-Sitemap: https://bdcollection.pages.dev/sitemap-videos.xml
-Sitemap: https://bdcollection.pages.dev/sitemap-shorts.xml
-
+Sitemap: https://xtubeofficial.pages.dev/sitemap.xml
+Sitemap: https://xtubeofficial.pages.dev/sitemap-videos.xml
+Sitemap: https://xtubeofficial.pages.dev/sitemap-shorts.xml
