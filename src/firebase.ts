@@ -30,6 +30,7 @@ export const db = getDatabase(app);
 
 export interface VideoItem {
   id: string;
+  rawId?: string;
   title: string;
   description: string;
   category: string;
@@ -45,6 +46,54 @@ export interface VideoItem {
   addedAt?: number;
   author: string;
 }
+
+/**
+ * Generates the canonical Watch Share Link (`https://<origin>/?v=<videoId>`)
+ * identical across Index cards, Watch page, and Admin Panel (`/ad.html`).
+ */
+export const buildVideoShareLink = (videoId: string): string => {
+  const cleanId = String(videoId || '').trim();
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://bdcollection.pages.dev';
+  return `${origin}/?v=${encodeURIComponent(cleanId)}`;
+};
+
+/**
+ * Reliable clipboard copy helper with offscreen textarea fallback for iframes and all browsers.
+ */
+export const copyTextToClipboard = async (text: string): Promise<boolean> => {
+  if (!text) return false;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fallback to textarea copy below
+  }
+
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.opacity = '0';
+    textArea.style.pointerEvents = 'none';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, textArea.value.length);
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return copied;
+  } catch {
+    return false;
+  }
+};
 
 export const SMARTLINK_URL = "https://asiaso.org/4/83d7ffcba5e9ff163422eb60b234e632";
 export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/eab46957ba8ada08fe799687dd63716f";

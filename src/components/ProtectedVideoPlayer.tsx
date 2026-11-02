@@ -24,7 +24,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [popunderClicks, setPopunderClicks] = useState<number>(0);
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
 
-  // 0 = direct R2 URL, 1 = /api/stream range proxy, 2 = /api/stream?transcode=1 FFmpeg H.264 live stream
+  // 0 = direct R2 URL, 1 = /api/stream range proxy, 2 = /api/stream?transcode=1 FFmpeg H.264 live stream, 3 = backup stream fallback
   const [streamStage, setStreamStage] = useState<number>(0);
 
   // Playback state
@@ -40,14 +40,18 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [isPortraitPoster, setIsPortraitPoster] = useState<boolean>(false);
 
   const cleanVideoUrl = (videoUrl || '').trim();
+  const FALLBACK_STREAM_URL = 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/v1.mp4';
 
   const resolvedVideoSrc = (() => {
-    if (!cleanVideoUrl) return '';
+    if (!cleanVideoUrl) return FALLBACK_STREAM_URL;
     if (streamStage === 1) {
       return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}`;
     }
     if (streamStage === 2) {
       return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}&transcode=1`;
+    }
+    if (streamStage === 3) {
+      return FALLBACK_STREAM_URL;
     }
     return cleanVideoUrl;
   })();
@@ -119,8 +123,8 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   };
 
   const handleVideoError = () => {
-    // Automatically escalate through 3-stage stream pipeline if direct R2 URL or codec fails
-    if (streamStage < 2) {
+    // Automatically escalate through stream pipeline if direct R2 URL or codec fails
+    if (streamStage < 3) {
       const nextStage = streamStage + 1;
       setStreamStage(nextStage);
       setTimeout(() => {
@@ -143,7 +147,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         .play()
         .then(() => setIsPlaying(true))
         .catch(() => {
-          if (streamStage < 2) {
+          if (streamStage < 3) {
             handleVideoError();
           }
         });

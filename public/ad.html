@@ -612,6 +612,25 @@
                 Upload & Publish Video
               </button>
             </div>
+
+            <!-- Newly Uploaded Video Index Share Link Banner -->
+            <div id="last-uploaded-share-box" class="hidden p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-700/70 space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-emerald-300">✅ Video Published! Index Share Link:</span>
+                <div class="flex items-center gap-2">
+                  <button id="last-uploaded-copy-btn" type="button"
+                    class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer">
+                    🔗 Copy Share Link
+                  </button>
+                  <a id="last-uploaded-open-link" href="/" target="_blank" rel="noopener noreferrer"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium">
+                    ↗ Open Video
+                  </a>
+                </div>
+              </div>
+              <input id="last-uploaded-share-input" type="text" readonly
+                class="w-full px-3 py-1.5 rounded-lg bg-zinc-950 border border-emerald-800/70 text-xs font-mono text-emerald-300 focus:outline-none select-all" />
+            </div>
           </form>
         </div>
 
@@ -1391,8 +1410,37 @@ service cloud.firestore {
       renderActiveServerFiles();
     });
 
-    async function publishServerFileToWebsite(activeSrv, file) {
+    // Find if an R2 file is already published in Firebase `rawVideosMap` and return its Firebase videoId
+    function findPublishedVideoIdForServerFile(fileKey) {
+      if (!fileKey || !rawVideosMap) return null;
+      const encodedKey = fileKey.split('/').map(encodeURIComponent).join('/');
+      for (const [vidId, item] of Object.entries(rawVideosMap)) {
+        if (!item || typeof item !== 'object') continue;
+        const u = (item.url || item.videoUrl || '').trim();
+        if (
+          item.r2Key === fileKey ||
+          u.endsWith(`/${fileKey}`) ||
+          u.endsWith(`/${encodedKey}`)
+        ) {
+          return vidId;
+        }
+      }
+      return null;
+    }
+
+    async function publishServerFileToWebsite(activeSrv, file, copyShareAfter = false) {
       try {
+        const existingId = findPublishedVideoIdForServerFile(file.key);
+        if (existingId) {
+          const existingTitle = rawVideosMap[existingId]?.title || file.key;
+          if (copyShareAfter && window.copyVideoShareLink) {
+            await window.copyVideoShareLink(existingId, existingTitle);
+          } else {
+            showStatus(`"${existingTitle}" is already published on the website!`, 'info');
+          }
+          return existingId;
+        }
+
         const cleanDomain = normalizeBaseUrl(activeSrv.publicUrl || activeSrv.workerUrl);
         const encodedKey = file.key.split('/').map(encodeURIComponent).join('/');
         const streamUrl = `${cleanDomain}/${encodedKey}`;
@@ -1413,9 +1461,15 @@ service cloud.firestore {
           createdAt: now,
           author: 'Bd Collection'
         });
-        showStatus(`Published "${title}" to Firebase database!`, 'success');
+        if (copyShareAfter && window.copyVideoShareLink) {
+          await window.copyVideoShareLink(newRef.key, title);
+        } else {
+          showStatus(`Published "${title}" to Firebase database!`, 'success');
+        }
+        return newRef.key;
       } catch (err) {
         showStatus(`Firebase Write Error: ${err.message}. Check your UID in Firebase Rules above!`, 'error');
+        return null;
       }
     }
 
@@ -1613,6 +1667,7 @@ service cloud.firestore {
           currentlyPlayingServerFile &&
           currentlyPlayingServerFile.serverId === activeSrv.id &&
           currentlyPlayingServerFile.key === file.key;
+        const publishedVidId = findPublishedVideoIdForServerFile(file.key);
 
         const row = document.createElement('div');
         row.className = `p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition-colors ${
@@ -1626,9 +1681,13 @@ service cloud.firestore {
               <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">#${idx + 1}</span>
               <p class="text-xs font-mono ${isPlaying ? 'text-red-300 font-semibold' : 'text-zinc-200'} truncate">${file.key}</p>
             </div>
-            <p class="text-[11px] font-mono text-zinc-500 mt-0.5">${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}</p>
+            <p class="text-[11px] font-mono text-zinc-500 mt-0.5">${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}${publishedVidId ? ' · <span class="text-emerald-400">Published ✓</span>' : ''}</p>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
+            <button data-share-r2="${file.key}" type="button" title="Copy Index Share Link"
+              class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
+              🔗 Share Link
+            </button>
             <button data-play-key="${file.key}" type="button" class="px-2.5 py-1 rounded ${
               isPlaying
                 ? 'bg-red-600 text-white'
@@ -1637,13 +1696,25 @@ service cloud.firestore {
               ${isPlaying ? '▶ Playing' : '▶ Play'}
             </button>
             <button data-pub-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium cursor-pointer">
-              + Publish
+              ${publishedVidId ? '✓ Published' : '+ Publish'}
             </button>
             <button data-del-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium cursor-pointer">
               Delete
             </button>
           </div>
         `;
+
+        row.querySelector('[data-share-r2]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const existingId = findPublishedVideoIdForServerFile(file.key);
+          if (existingId) {
+            await window.copyVideoShareLink(existingId, rawVideosMap[existingId]?.title || file.key);
+          } else {
+            await publishServerFileToWebsite(activeSrv, file, true);
+          }
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
+        });
 
         row.querySelector('[data-play-key]').addEventListener('click', () => {
           playServerFileInExplorer(activeSrv, file);
@@ -1654,7 +1725,7 @@ service cloud.firestore {
         });
 
         row.querySelector('[data-pub-key]').addEventListener('click', () => {
-          publishServerFileToWebsite(activeSrv, file);
+          publishServerFileToWebsite(activeSrv, file, false);
         });
 
         row.querySelector('[data-del-key]').addEventListener('click', () => {
@@ -1950,28 +2021,53 @@ service cloud.firestore {
       });
     };
 
-    // Helper to build the exact Index Watch Share Link (`https://domain/?v=<videoId>`)
+    // Helper to build the exact Index Watch Share Link (`https://<origin>/?v=<videoId>`)
+    // Matches `buildVideoShareLink` in `src/firebase.ts` 100%
     window.buildVideoShareLink = (videoId) => {
-      const origin = window.location.origin || 'https://bdcollection.pages.dev';
-      return `${origin}/?v=${encodeURIComponent(videoId)}`;
+      const cleanId = String(videoId || '').trim();
+      const origin =
+        typeof window !== 'undefined' && window.location && window.location.origin
+          ? window.location.origin
+          : 'https://bdcollection.pages.dev';
+      return `${origin}/?v=${encodeURIComponent(cleanId)}`;
     };
 
-    // Helper to copy a video's Share Link to clipboard
+    // Reliable clipboard copy helper with offscreen textarea fallback for iframes and all browsers
     window.copyVideoShareLink = async (videoId, title = '') => {
-      if (!videoId) return;
+      if (!videoId) return '';
       const shareUrl = window.buildVideoShareLink(videoId);
+      let copiedOk = false;
+
       try {
-        await navigator.clipboard.writeText(shareUrl);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+          copiedOk = true;
+        }
       } catch {
-        const ta = document.createElement('textarea');
-        ta.value = shareUrl;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
+        copiedOk = false;
       }
+
+      if (!copiedOk) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = shareUrl;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.top = '0';
+          ta.style.left = '0';
+          ta.style.opacity = '0';
+          ta.style.pointerEvents = 'none';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          ta.setSelectionRange(0, ta.value.length);
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch {}
+      }
+
       showStatus(
-        `Copied Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `Copied Index Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
         'success'
       );
       return shareUrl;
@@ -2543,10 +2639,26 @@ service cloud.firestore {
           author: 'Bd Collection'
         });
 
+        const generatedShareLink = window.buildVideoShareLink(newVideoRef.key);
+        const shareBox = document.getElementById('last-uploaded-share-box');
+        const shareInput = document.getElementById('last-uploaded-share-input');
+        const openLink = document.getElementById('last-uploaded-open-link');
+        const copyBtn = document.getElementById('last-uploaded-copy-btn');
+        if (shareBox && shareInput && openLink && copyBtn) {
+          shareInput.value = generatedShareLink;
+          openLink.href = generatedShareLink;
+          shareBox.classList.remove('hidden');
+          copyBtn.onclick = async () => {
+            await window.copyVideoShareLink(newVideoRef.key, title);
+            copyBtn.textContent = '✓ Copied!';
+            setTimeout(() => (copyBtn.textContent = '🔗 Copy Share Link'), 2000);
+          };
+        }
+
         showStatus(
           uploadedKey
-            ? `Uploaded "${uploadedKey}" to ${activeSrv.name} and saved to Firebase!`
-            : `Published "${title}" to Firebase!`,
+            ? `Uploaded "${uploadedKey}" to ${activeSrv.name} & Published! Share Link: ${generatedShareLink}`
+            : `Published "${title}"! Share Link: ${generatedShareLink}`,
           'success'
         );
 
@@ -2844,6 +2956,7 @@ service cloud.firestore {
       }
 
       rawVideosMap = val;
+      renderActiveServerFiles();
       const list = Object.entries(val).map(([id, item]) => ({
         id,
         title: item.title || 'Untitled',
@@ -2881,7 +2994,17 @@ service cloud.firestore {
           <td class="py-2.5 px-3">
             <p class="font-medium text-white line-clamp-1">${v.title}</p>
             <p class="text-[11px] text-zinc-500">${v.keywords}</p>
-            <p class="text-[10px] font-mono text-emerald-400/90 truncate max-w-xs mt-0.5" title="${shareLink}">🔗 ${shareLink}</p>
+            <div class="flex items-center gap-1.5 mt-1">
+              <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
+                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[230px]"
+                title="Open Index Watch Share Link in New Tab">
+                ${shareLink}
+              </a>
+              <button data-copy-inline="${v.id}" type="button" title="Copy Index Share Link"
+                class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
+                Copy
+              </button>
+            </div>
           </td>
           <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
             <button type="button" data-play-pub="${v.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to play video">
@@ -2890,10 +3013,14 @@ service cloud.firestore {
           </td>
           <td class="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">${v.views.toLocaleString()}</td>
           <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
-            <button data-share-vid="${v.id}" type="button" title="Copy Website Share Link"
+            <button data-share-vid="${v.id}" type="button" title="Copy Index Share Link"
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
               🔗 Share Link
             </button>
+            <a href="${shareLink}" target="_blank" rel="noopener noreferrer" title="Open Share Link in New Tab"
+              class="inline-block px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-semibold transition-colors">
+              ↗ Open
+            </a>
             <button data-dl-thumb="${v.id}" type="button" title="Download Video Thumbnail"
               class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer transition-colors">
               ⬇ Thumb
@@ -2946,6 +3073,13 @@ service cloud.firestore {
           await window.copyVideoShareLink(v.id, v.title);
           btn.textContent = '✓ Copied!';
           setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
+        });
+
+        tr.querySelector('[data-copy-inline]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          await window.copyVideoShareLink(v.id, v.title);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => (btn.textContent = 'Copy'), 2000);
         });
 
         tr.querySelector('[data-dl-thumb]').addEventListener('click', (e) => {

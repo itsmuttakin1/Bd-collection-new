@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   db,
   ref,
@@ -13,6 +13,8 @@ import {
   runTransaction,
   onDisconnect,
   VideoItem,
+  buildVideoShareLink,
+  copyTextToClipboard,
 } from './firebase';
 import {
   NativeBannerAd,
@@ -41,17 +43,75 @@ import {
 
 type ViewMode = 'home' | 'watch';
 
-export default function App() {
-  // Read `?v=<videoId>` from URL if someone opened a shared video link
-  const [sharedVideoId, setSharedVideoId] = useState<string | null>(() => {
+const getRequestedVideoIdFromUrl = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
     const params = new URLSearchParams(window.location.search);
-    return params.get('v');
-  });
+    const v = params.get('v') || params.get('video') || params.get('id');
+    if (v && v.trim()) return v.trim();
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
+      const hv = hashParams.get('v') || hashParams.get('video') || hashParams.get('id');
+      if (hv && hv.trim()) return hv.trim();
+    }
+  } catch {}
+  return null;
+};
 
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('v') ? 'watch' : 'home';
+const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoItem | undefined => {
+  if (!rawTarget) return undefined;
+  const target = rawTarget.trim();
+  if (!target) return undefined;
+
+  let decoded = target;
+  try {
+    decoded = decodeURIComponent(target).trim();
+  } catch {}
+
+  // 1. Exact or decoded Firebase key / inner rawId match
+  const exact = list.find(
+    (v) =>
+      v.id === target ||
+      v.id === decoded ||
+      v.id.trim() === target ||
+      v.id.trim() === decoded ||
+      (v.rawId && (v.rawId === target || v.rawId === decoded))
+  );
+  if (exact) return exact;
+
+  // 2. Case-insensitive ID match
+  const lower = decoded.toLowerCase();
+  const caseMatch = list.find(
+    (v) =>
+      v.id.toLowerCase() === lower ||
+      (v.rawId && v.rawId.toLowerCase() === lower)
+  );
+  if (caseMatch) return caseMatch;
+
+  // 3. Match by r2Key or stream URL filename
+  return list.find((v) => {
+    if (v.r2Key && (v.r2Key === target || v.r2Key === decoded)) return true;
+    const stream = (v.url || v.videoUrl || '').trim();
+    if (!stream) return false;
+    return (
+      stream === target ||
+      stream === decoded ||
+      stream.endsWith(`/${target}`) ||
+      stream.endsWith(`/${decoded}`) ||
+      stream.endsWith(`/${encodeURIComponent(decoded)}`)
+    );
   });
+};
+
+export default function App() {
+  // Read `?v=<videoId>` from URL if someone opened a shared video link from Index or Admin Panel
+  const initialUrlVidId = getRequestedVideoIdFromUrl();
+  const pendingSharedIdRef = useRef<string | null>(initialUrlVidId);
+  const [sharedVideoId, setSharedVideoId] = useState<string | null>(initialUrlVidId);
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    initialUrlVidId ? 'watch' : 'home'
+  );
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
@@ -208,7 +268,15 @@ export default function App() {
       if (canonicalEl) canonicalEl.setAttribute('href', `${SITE_ORIGIN}/`);
 
       if (jsonLdEl && videos.length > 0) {
-        const validVideos = videos.filter((v) => Boolean(v.url && v.thumbnail));
+        const NON_INDEXABLE_STREAMS = [
+          '5_6230929087481782223.mp4',
+          'VID_20261015_090110_156.mp4',
+        ];
+        const validVideos = videos.filter(
+          (v) =>
+            Boolean(v.url && v.thumbnail) &&
+            !NON_INDEXABLE_STREAMS.some((bad) => (v.url || '').includes(bad))
+        );
         const videoNodes = validVideos.map((v) => buildVideoObjectNode(v));
         const multiVideoGraph = {
           '@context': 'https://schema.org',
@@ -233,38 +301,47 @@ export default function App() {
     }
   }, [viewMode, activeVideo, videos]);
 
-  // Helper to update browser URL with ?v=<videoId> or return to clean root URL
-  const syncUrlWithVideo = (videoId: string | null) => {
+  // Helper to update browser URL with canonical /?v=<videoId> or return to clean root URL
+  const syncUrlWithVideo = (videoId: string | null, replace = false) => {
     try {
       const url = new URL(window.location.href);
+      url.pathname = '/';
       if (videoId) {
         url.searchParams.set('v', videoId);
       } else {
         url.searchParams.delete('v');
+        url.searchParams.delete('video');
+        url.searchParams.delete('id');
       }
-      window.history.pushState({}, '', url.toString());
+      if (replace) {
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        window.history.pushState({}, '', url.toString());
+      }
     } catch {}
   };
 
   const goHome = () => {
-    setViewMode('home');
+    pendingSharedIdRef.current = null;
     setSharedVideoId(null);
+    setViewMode('home');
     syncUrlWithVideo(null);
   };
 
   // Listen to browser Back / Forward buttons
   useEffect(() => {
     const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const vidId = params.get('v');
+      const vidId = getRequestedVideoIdFromUrl();
       if (vidId) {
+        pendingSharedIdRef.current = vidId;
         setSharedVideoId(vidId);
-        const found = videos.find((item) => item.id === vidId);
+        const found = findMatchingVideo(videos, vidId);
         if (found) {
           setActiveVideo(found);
           setViewMode('watch');
         }
       } else {
+        pendingSharedIdRef.current = null;
         setSharedVideoId(null);
         setViewMode('home');
       }
@@ -409,52 +486,46 @@ export default function App() {
     };
   }, []);
 
-  // Sync videos from Firebase Realtime Database (`video-platform-7c031`) + Immediate REST fetch for Googlebot SEO
+  // Sync ALL videos from Firebase Realtime Database (`video-platform-7c031`) so every Admin Panel video share link works
   useEffect(() => {
     const videosRef = ref(db, 'videos');
     let initialSharedViewCounted = false;
-    const BROKEN_404_FILES = [
-      '5_6230929087481782223.mp4',
-      'VID_20261015_090110_156.mp4',
-    ];
+
+    const parseSingleVideoEntry = (key: string, val: any): VideoItem | null => {
+      if (!val || typeof val !== 'object') return null;
+      const resolvedThumb = (val.thumbnail || val.thumbnailUrl || val.thumb || '').trim();
+      const resolvedUrl = (val.url || val.videoUrl || val.streamUrl || '').trim();
+      const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
+      const resolvedKeywords = val.keywords || '';
+
+      if (!resolvedUrl) return null;
+
+      return {
+        id: key,
+        rawId: typeof val.id === 'string' ? val.id : undefined,
+        title: val.title || 'Untitled Video',
+        description: val.description || resolvedKeywords || '',
+        category: val.category || 'Viral',
+        keywords: resolvedKeywords,
+        videoUrl: resolvedUrl,
+        url: resolvedUrl,
+        r2Key: val.r2Key,
+        thumbnailUrl: resolvedThumb,
+        thumbnail: resolvedThumb,
+        duration: val.duration || '',
+        views: Number(val.views) || 0,
+        createdAt: resolvedTime,
+        addedAt: resolvedTime,
+        author: val.author || 'Bd Collection',
+      };
+    };
 
     const applyRawVideosData = (data: any) => {
       let finalVideos: VideoItem[] = [];
 
       if (data && typeof data === 'object') {
         const parsed: VideoItem[] = Object.entries(data)
-          .map(([key, val]: [string, any]) => {
-            if (!val || typeof val !== 'object') return null;
-            const resolvedThumb = (val.thumbnail || val.thumbnailUrl || val.thumb || '').trim();
-            const resolvedUrl = (val.url || val.videoUrl || val.streamUrl || '').trim();
-            const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
-            const resolvedKeywords = val.keywords || '';
-
-            if (
-              !resolvedUrl ||
-              BROKEN_404_FILES.some((broken) => resolvedUrl.includes(broken))
-            ) {
-              return null;
-            }
-
-            return {
-              id: key,
-              title: val.title || 'Untitled Video',
-              description: val.description || resolvedKeywords || '',
-              category: val.category || 'Viral',
-              keywords: resolvedKeywords,
-              videoUrl: resolvedUrl,
-              url: resolvedUrl,
-              r2Key: val.r2Key,
-              thumbnailUrl: resolvedThumb,
-              thumbnail: resolvedThumb,
-              duration: val.duration || '',
-              views: Number(val.views) || 0,
-              createdAt: resolvedTime,
-              addedAt: resolvedTime,
-              author: val.author || 'Bd Collection',
-            };
-          })
+          .map(([key, val]: [string, any]) => parseSingleVideoEntry(key, val))
           .filter((item): item is VideoItem => Boolean(item));
 
         parsed.sort((a, b) => b.createdAt - a.createdAt);
@@ -463,20 +534,62 @@ export default function App() {
 
       setVideos(finalVideos);
 
-      // Check if visitor or Googlebot arrived via a shared video link `?v=<videoId>`
-      const params = new URLSearchParams(window.location.search);
-      const urlVidId = params.get('v');
+      // Check if visitor opened a shared video link `?v=<videoId>` (from Index or Admin Panel)
+      const urlVidId = getRequestedVideoIdFromUrl() || pendingSharedIdRef.current;
       if (urlVidId) {
-        const targetVideo = finalVideos.find((item) => item.id === urlVidId);
+        const targetVideo = findMatchingVideo(finalVideos, urlVidId);
         if (targetVideo) {
+          pendingSharedIdRef.current = targetVideo.id;
+          setSharedVideoId(targetVideo.id);
           setActiveVideo(targetVideo);
           setViewMode('watch');
+          syncUrlWithVideo(targetVideo.id, true);
           if (!initialSharedViewCounted) {
             initialSharedViewCounted = true;
             incrementVideoViews(targetVideo.id);
           }
+          setLoadingVideos(false);
         } else {
-          setViewMode('home');
+          // Direct node lookup in Firebase RTDB in case video was just added or key needs direct resolution
+          let decodedId = urlVidId.trim();
+          try {
+            decodedId = decodeURIComponent(decodedId).trim();
+          } catch {}
+
+          fetch(
+            `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos/${encodeURIComponent(
+              decodedId
+            )}.json`,
+            { cache: 'no-store' }
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .then((singleVal) => {
+              const singleVideo = parseSingleVideoEntry(decodedId, singleVal);
+              if (singleVideo) {
+                setVideos((prev) =>
+                  prev.some((v) => v.id === singleVideo.id) ? prev : [singleVideo, ...prev]
+                );
+                pendingSharedIdRef.current = singleVideo.id;
+                setSharedVideoId(singleVideo.id);
+                setActiveVideo(singleVideo);
+                setViewMode('watch');
+                syncUrlWithVideo(singleVideo.id, true);
+                if (!initialSharedViewCounted) {
+                  initialSharedViewCounted = true;
+                  incrementVideoViews(singleVideo.id);
+                }
+              } else if (finalVideos.length > 0) {
+                setViewMode('home');
+              }
+            })
+            .catch(() => {
+              if (finalVideos.length > 0) {
+                setViewMode('home');
+              }
+            })
+            .finally(() => {
+              setLoadingVideos(false);
+            });
         }
       } else {
         setActiveVideo((prev) => {
@@ -484,13 +597,14 @@ export default function App() {
           const updated = finalVideos.find((item) => item.id === prev.id);
           return updated || prev;
         });
+        setLoadingVideos(false);
       }
-
-      setLoadingVideos(false);
     };
 
-    // Fast HTTP JSON fetch so Googlebot renderer gets all videos immediately without waiting for WebSocket
-    fetch('https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos.json')
+    // Fast HTTP JSON fetch with no-store so newly published Admin Panel videos are immediately available
+    fetch('https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos.json', {
+      cache: 'no-store',
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (json && typeof json === 'object') {
@@ -529,6 +643,7 @@ export default function App() {
       }
     }
 
+    pendingSharedIdRef.current = video.id;
     setActiveVideo(video);
     setSharedVideoId(video.id);
     setViewMode('watch');
@@ -541,24 +656,12 @@ export default function App() {
     incrementVideoViews(video.id);
   };
 
-  // Build and copy direct shareable link for the active video (`https://domain/?v=<videoId>`)
+  // Build and copy direct shareable link for the active video (`https://<origin>/?v=<videoId>`)
   const handleShareVideo = async (video: VideoItem) => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?v=${encodeURIComponent(
-      video.id
-    )}`;
+    const shareUrl = buildVideoShareLink(video.id);
+    pendingSharedIdRef.current = video.id;
     syncUrlWithVideo(video.id);
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = shareUrl;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
-
+    await copyTextToClipboard(shareUrl);
     setCopiedShare(true);
     setTimeout(() => setCopiedShare(false), 2000);
   };

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Play } from 'lucide-react';
-import { VideoItem } from '../firebase';
+import { Play, Share2, Check } from 'lucide-react';
+import { VideoItem, buildVideoShareLink, copyTextToClipboard } from '../firebase';
 import { TranslationStrings } from '../i18n';
 
 interface VideoCardProps {
@@ -27,6 +27,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [copiedCardLink, setCopiedCardLink] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const hashIdx =
@@ -196,7 +197,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     </>
   );
 
-  const watchHref = `/?v=${encodeURIComponent(video.id)}`;
+  const watchHref = buildVideoShareLink(video.id);
 
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Allow Ctrl/Cmd/Middle-click to open in new tab normally; intercept standard left-click
@@ -205,38 +206,61 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     onCardClick(video);
   };
 
+  const handleQuickShare = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const shareUrl = buildVideoShareLink(video.id);
+    await copyTextToClipboard(shareUrl);
+    setCopiedCardLink(true);
+    setTimeout(() => setCopiedCardLink(false), 2000);
+  };
+
   if (compact) {
     return (
-      <a
-        href={watchHref}
-        onClick={handleAnchorClick}
-        className="group flex gap-3 cursor-pointer rounded-xl p-1.5 hover:bg-zinc-900/70 transition-colors"
-      >
-        <div className="relative w-40 sm:w-44 aspect-video rounded-lg bg-zinc-900 overflow-hidden shrink-0">
-          {renderThumbnailMedia()}
-        </div>
-
-        <div className="flex-1 min-w-0 py-0.5">
-          <h4 className="text-sm font-medium text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
-            {video.title}
-          </h4>
-          <p className="text-xs text-zinc-400 mt-1 truncate">{video.author}</p>
-          <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-0.5">
-            <span className="tabular-nums">{formatViews(video.views)}</span>
-            <span aria-hidden="true">·</span>
-            <span>{formatTimeAgo(video.createdAt)}</span>
+      <div className="group flex gap-3 items-start rounded-xl p-1.5 hover:bg-zinc-900/70 transition-colors">
+        <a
+          href={watchHref}
+          onClick={handleAnchorClick}
+          className="flex flex-1 min-w-0 gap-3 cursor-pointer"
+        >
+          <div className="relative w-40 sm:w-44 aspect-video rounded-lg bg-zinc-900 overflow-hidden shrink-0">
+            {renderThumbnailMedia()}
           </div>
-        </div>
-      </a>
+
+          <div className="flex-1 min-w-0 py-0.5">
+            <h4 className="text-sm font-medium text-zinc-100 group-hover:text-white line-clamp-2 leading-snug">
+              {video.title}
+            </h4>
+            <p className="text-xs text-zinc-400 mt-1 truncate">{video.author}</p>
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-0.5">
+              <span className="tabular-nums">{formatViews(video.views)}</span>
+              <span aria-hidden="true">·</span>
+              <span>{formatTimeAgo(video.createdAt)}</span>
+            </div>
+          </div>
+        </a>
+        <button
+          type="button"
+          onClick={handleQuickShare}
+          title={copiedCardLink ? t.copied : t.share}
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer"
+        >
+          {copiedCardLink ? (
+            <Check className="w-3.5 h-3.5 text-emerald-400" />
+          ) : (
+            <Share2 className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
     );
   }
 
   return (
-    <article className="group cursor-pointer flex flex-col gap-3">
+    <article className="group flex flex-col gap-3">
       <a
         href={watchHref}
         onClick={handleAnchorClick}
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-3 cursor-pointer"
       >
         <div className="relative w-full aspect-video rounded-xl bg-zinc-900 overflow-hidden shadow-md">
           {renderThumbnailMedia()}
@@ -260,6 +284,25 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               <span>{formatTimeAgo(video.createdAt)}</span>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleQuickShare}
+            title={copiedCardLink ? t.copied : t.share}
+            className="px-2 py-1 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-[11px] font-medium flex items-center gap-1 transition-colors shrink-0 cursor-pointer"
+          >
+            {copiedCardLink ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400">{t.copied}</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5" />
+                <span>{t.share}</span>
+              </>
+            )}
+          </button>
         </div>
       </a>
     </article>
