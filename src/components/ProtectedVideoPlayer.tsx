@@ -40,10 +40,9 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const [isPortraitPoster, setIsPortraitPoster] = useState<boolean>(false);
 
   const cleanVideoUrl = (videoUrl || '').trim();
-  const FALLBACK_STREAM_URL = 'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/v1.mp4';
 
   const resolvedVideoSrc = (() => {
-    if (!cleanVideoUrl) return FALLBACK_STREAM_URL;
+    if (!cleanVideoUrl) return '';
     if (streamStage === 1) {
       return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}`;
     }
@@ -51,7 +50,8 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       return `/api/stream?url=${encodeURIComponent(cleanVideoUrl)}&transcode=1`;
     }
     if (streamStage === 3) {
-      return FALLBACK_STREAM_URL;
+      const sep = cleanVideoUrl.includes('?') ? '&' : '?';
+      return `${cleanVideoUrl}${sep}t=${encodeURIComponent(videoId)}`;
     }
     return cleanVideoUrl;
   })();
@@ -68,6 +68,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+      videoRef.current.load();
     }
   }, [videoId, videoUrl]);
 
@@ -123,7 +124,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   };
 
   const handleVideoError = () => {
-    // Automatically escalate through stream pipeline if direct R2 URL or codec fails
+    // Automatically escalate through stream pipeline for THIS exact video if direct R2 URL or codec fails
     if (streamStage < 3) {
       const nextStage = streamStage + 1;
       setStreamStage(nextStage);
@@ -134,7 +135,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         if (isUnlocked) {
           startVideoPlayback();
         }
-      }, 80);
+      }, 100);
     }
   };
 
@@ -209,6 +210,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       className="relative w-full aspect-video bg-black rounded-xl overflow-hidden select-none group shadow-lg"
     >
       <video
+        key={`${videoId}-${streamStage}`}
         ref={videoRef}
         src={resolvedVideoSrc}
         poster={poster && poster.trim() ? poster.trim() : 'https://bdcollection.pages.dev/favicon.png'}
@@ -252,9 +254,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
         className="w-full h-full object-contain pointer-events-none"
-      >
-        {resolvedVideoSrc && <source src={resolvedVideoSrc} type="video/mp4" />}
-      </video>
+      />
 
       {/* Smart Adjusted Thumbnail Overlay before video is unlocked */}
       {!isUnlocked && hasValidPoster && (

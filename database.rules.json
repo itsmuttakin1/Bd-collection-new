@@ -15,6 +15,23 @@
         }
       }
     },
+    "shorts": {
+      ".read": true,
+      "$shortId": {
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+        "views": {
+          ".read": true,
+          ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+        },
+        "likes": {
+          ".read": true,
+          ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+        },
+        "$other": {
+          ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+        }
+      }
+    },
     "stats": {
       ".read": true,
       "totalUsers": {

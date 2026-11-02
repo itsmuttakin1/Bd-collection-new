@@ -35,6 +35,7 @@ export interface VideoItem {
   description: string;
   category: string;
   keywords?: string;
+  hashtags?: string;
   videoUrl: string;
   url?: string;
   r2Key?: string;
@@ -42,9 +43,30 @@ export interface VideoItem {
   thumbnail?: string;
   duration: string;
   views: number;
+  likes?: number;
   createdAt: number;
   addedAt?: number;
   author: string;
+  isShort?: boolean;
+}
+
+export interface ShortItem {
+  id: string;
+  title: string;
+  hashtags: string;
+  keywords?: string;
+  videoUrl: string;
+  url: string;
+  r2Key?: string;
+  thumbnail: string;
+  thumbnailUrl?: string;
+  duration: string;
+  views: number;
+  likes: number;
+  createdAt: number;
+  addedAt: number;
+  author: string;
+  isLongVideo?: boolean;
 }
 
 /**
@@ -58,6 +80,18 @@ export const buildVideoShareLink = (videoId: string): string => {
       ? window.location.origin
       : 'https://bdcollection.pages.dev';
   return `${origin}/?v=${encodeURIComponent(cleanId)}`;
+};
+
+/**
+ * Generates the canonical Short Share Link (`https://<origin>/?short=<shortId>`)
+ */
+export const buildShortShareLink = (shortId: string): string => {
+  const cleanId = String(shortId || '').trim();
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://bdcollection.pages.dev';
+  return `${origin}/?short=${encodeURIComponent(cleanId)}`;
 };
 
 /**

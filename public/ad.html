@@ -752,6 +752,213 @@
         </div>
       </section>
 
+      <!-- SECTION 2B: YOUTUBE-STYLE SHORTS UPLOAD STUDIO & PUBLISHED SHORTS MANAGER (/shorts) -->
+      <section class="p-6 rounded-2xl border border-red-900/60 bg-gradient-to-b from-zinc-900/70 to-zinc-950 space-y-6 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <span class="px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-bold">📱 YT SHORTS</span>
+              <h2 class="text-base sm:text-lg font-bold text-white">YouTube-Style Shorts Upload Studio &amp; Manager (`/shorts`)</h2>
+            </div>
+            <p class="text-xs text-zinc-400 mt-1">
+              যেকোনো শর্ট ভিডিও সিলেক্ট করে আপলোড করুন — অটোমেটিক <strong>৩টি থাম্বনেইল</strong> তৈরি হবে এবং <strong>Auto Viral Adult Title + Hashtags</strong> অটো লেখা থাকবে (চাইলে নিজের মতো Title এডিট বা পরিবর্তন করতে পারবেন)
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="shorts-catalog-count" class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-400">0 shorts</span>
+          </div>
+        </div>
+
+        <form id="short-upload-form" class="space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- Left 6 Cols: Video File Picker + Auto Viral Adult Title & Hashtags -->
+            <div class="lg:col-span-6 space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1.5">১. Select Short Video File (আপলোডের জন্য শর্ট ভিডিও সিলেক্ট করুন) *</label>
+                <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-red-800/70 hover:border-red-500 rounded-xl bg-zinc-950/80 cursor-pointer transition-colors p-4 text-center">
+                  <div class="w-8 h-8 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-1 font-bold">📱</div>
+                  <span id="short-file-chosen-name" class="text-xs font-semibold text-zinc-200">Click to select a Short video file from your device</span>
+                  <span id="short-file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-0.5">Auto-generates 3 thumbnails + Auto Viral Adult Hashtags</span>
+                  <input id="short-file-input" type="file" accept="video/*" class="hidden" />
+                </label>
+              </div>
+
+              <!-- Progress Bar for Short Upload -->
+              <div id="short-progress-wrap" class="hidden space-y-1.5">
+                <div class="flex justify-between text-xs font-mono">
+                  <span class="text-zinc-300">Uploading Short to Storage Server...</span>
+                  <span id="short-progress-pct" class="text-red-400">0%</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+                  <div id="short-progress-bar" class="h-full bg-red-600 transition-all duration-150" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <!-- Auto Viral Adult Title & Hashtags Box (Auto-filled + Custom Editable) -->
+              <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label class="block text-xs font-bold text-white">২. Short Title &amp; Auto Viral Adult Hashtags (চাইলে নিজের মতো Title লিখুন) *</label>
+                    <p class="text-[11px] text-zinc-400">অটোমেটিক ভাইরাল অ্যাডাল্ট টাইটেল ও হ্যাশট্যাগ দেওয়া আছে — আপনি চাইলে এডিট করে নিজের টাইটেল দিতে পারবেন</p>
+                  </div>
+                  <button id="short-auto-viral-btn" type="button"
+                    class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold cursor-pointer transition-colors">
+                    🎲 Change Auto Viral Title &amp; Hashtags
+                  </button>
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-medium text-zinc-300 mb-1">Short Title (টাইটেল বক্স - অটো লেখা আছে, চাইলে পরিবর্তন করুন)</label>
+                  <input id="short-title" type="text" required
+                    value="🔥 দেশি ভাইরাল হট শর্টস 🥵💋 #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl"
+                    placeholder="টাইটেল লিখুন অথবা অটো ভাইরাল টাইটেল ব্যবহার করুন..."
+                    class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-medium text-zinc-300 mb-1">Auto Viral Adult Hashtags (`hashtags`)</label>
+                  <input id="short-hashtags" type="text"
+                    value="#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl #HotBhabi #BanglaViral #Exclusive18 #ViralLink"
+                    class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-300 focus:outline-none focus:border-red-500" />
+                </div>
+
+                <!-- Quick 1-Click Viral Adult Hashtag Chips -->
+                <div class="space-y-1">
+                  <span class="text-[10px] text-zinc-400">ক্লিক করলে টাইটেল ও হ্যাশট্যাগে যুক্ত হবে (Quick Add Viral Tags):</span>
+                  <div id="short-quick-tags" class="flex flex-wrap gap-1.5">
+                    <button type="button" data-short-tag="#Shorts" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#Shorts</button>
+                    <button type="button" data-short-tag="#18Plus" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#18Plus</button>
+                    <button type="button" data-short-tag="#BdViral" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#BdViral</button>
+                    <button type="button" data-short-tag="#DesiHot" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#DesiHot</button>
+                    <button type="button" data-short-tag="#RoomDate" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#RoomDate</button>
+                    <button type="button" data-short-tag="#HotBhabi" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#HotBhabi</button>
+                    <button type="button" data-short-tag="#ViralGirl" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#ViralGirl</button>
+                    <button type="button" data-short-tag="#PrivateLeak" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#PrivateLeak</button>
+                    <button type="button" data-short-tag="#Uncensored" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#Uncensored</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right 6 Cols: 3 Auto-Generated Thumbnails Selector + Preview + Stream URL -->
+            <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3.5 flex flex-col justify-between">
+              <div class="space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label class="block text-xs font-bold text-white">৩. Short Video 3 Auto Thumbnails (৩টি অটো থাম্বনেইল জেনারেটর)</label>
+                    <p id="short-thumb-status" class="text-[11px] text-zinc-400">শর্ট ভিডিও সিলেক্ট করলে অটোমেটিক ৩টি থাম্বনেইল তৈরি হবে — ক্লিক করে যেকোনোটি সিলেক্ট বা ডাউনলোড করুন</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <button id="short-regen-3thumbs-btn" type="button"
+                      class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium cursor-pointer">
+                      ↻ নতুন ৩টি ফ্রেম
+                    </button>
+                    <button id="short-dl-thumb-btn" type="button"
+                      class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold cursor-pointer">
+                      ⬇ Download
+                    </button>
+                    <label class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
+                      🖼️ Custom Thumb
+                      <input id="short-custom-thumb-input" type="file" accept="image/*" class="hidden" />
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 3 Thumbnails Grid for Shorts -->
+                <div id="short-auto-thumbs-section" class="hidden p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-2">
+                  <span class="text-[11px] font-semibold text-emerald-400">🎬 অটো-জেনারেটেড ৩টি থাম্বনেইল (যেকোনো একটিতে ক্লিক করে সিলেক্ট করুন):</span>
+                  <div id="short-auto-thumbs-grid" class="grid grid-cols-3 gap-2.5"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <div class="sm:col-span-5">
+                    <div class="relative w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                      <span id="short-thumb-placeholder" class="text-[10px] text-zinc-500 text-center px-2">3 Thumbnails will appear here</span>
+                      <img id="short-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-md scale-125 opacity-70" />
+                      <img id="short-thumb-preview-img" src="" alt="Short Thumb" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
+                    </div>
+                  </div>
+                  <div class="sm:col-span-7 space-y-2.5">
+                    <div>
+                      <label class="block text-[11px] text-zinc-300 mb-1">Selected Short Thumbnail URL (`thumbnail`)</label>
+                      <input id="short-thumb-url" type="url" placeholder="https://i.ibb.co/..."
+                        class="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                    </div>
+                    <div>
+                      <label class="block text-[11px] text-zinc-300 mb-1">Or Direct Short Video Stream URL (`url` - Optional)</label>
+                      <div class="flex gap-1.5">
+                        <input id="short-custom-url" type="url" placeholder="https://pub-xxxx.r2.dev/short.mp4"
+                          class="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                        <button id="short-gen-from-url-btn" type="button" title="Generate 3 Thumbnails from URL"
+                          class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 cursor-pointer shrink-0">
+                          🎬 3 Frames
+                        </button>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-[11px] text-zinc-300 mb-1">Duration</label>
+                        <input id="short-duration" type="text" value="00:35"
+                          class="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                      </div>
+                      <div class="flex items-end">
+                        <button id="short-submit-btn" type="submit"
+                          class="w-full py-2 px-3 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-lg">
+                          🚀 Upload &amp; Publish Short
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Newly Published Short Share Link Box -->
+              <div id="last-short-share-box" class="hidden p-3 rounded-xl bg-emerald-950/50 border border-emerald-700/70 space-y-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs font-semibold text-emerald-300">✅ Short Published! Direct Share Link:</span>
+                  <div class="flex items-center gap-1.5">
+                    <button id="last-short-copy-btn" type="button"
+                      class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
+                      🔗 Copy Short Link
+                    </button>
+                    <button id="last-short-tg-btn" type="button"
+                      class="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold cursor-pointer">
+                      ✈️ Copy TG Short Link
+                    </button>
+                  </div>
+                </div>
+                <input id="last-short-share-input" type="text" readonly
+                  class="w-full px-3 py-1 rounded bg-zinc-950 border border-emerald-800/70 text-xs font-mono text-emerald-300 focus:outline-none select-all" />
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <!-- Published Shorts List Table -->
+        <div class="pt-4 border-t border-zinc-800/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Published Website Shorts (`/shorts` · With Ads Active)</h3>
+            <span class="text-[11px] text-zinc-400">ওয়েবসাইটের Shorts সেকশনে থাকা সব শর্ট ভিডিও</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
+                  <th class="py-2 px-3">THUMBNAIL</th>
+                  <th class="py-2 px-3">SHORT TITLE &amp; VIRAL HASHTAGS</th>
+                  <th class="py-2 px-3">STREAM URL</th>
+                  <th class="py-2 px-3 text-right">VIEWS / LIKES</th>
+                  <th class="py-2 px-3 text-right">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="shorts-table-body" class="divide-y divide-zinc-800/60 text-xs">
+                <tr><td colspan="5" class="py-5 text-center text-zinc-500">No Shorts uploaded yet. Upload your first Short above!</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- SECTION 3: PUBLISHED VIDEOS ON WEBSITE + OLD VIDEO EDIT SYSTEM -->
       <section class="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -775,7 +982,7 @@
                 <th class="py-2.5 px-3">THUMBNAIL</th>
                 <th class="py-2.5 px-3">TITLE & KEYWORDS</th>
                 <th class="py-2.5 px-3">VIDEO STREAM URL (`url`)</th>
-                <th class="py-2.5 px-3 text-right">LIVE VIEWS</th>
+                <th class="py-2.5 px-3 text-right">VIEWS / LIKES (ADMIN ONLY)</th>
                 <th class="py-2.5 px-3 text-right">ACTIONS (EDIT / DELETE)</th>
               </tr>
             </thead>
@@ -952,6 +1159,27 @@ export default {
                   ".read": true,
                   ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
                 },
+                likes: {
+                  ".read": true,
+                  ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
+                },
+                "$other": {
+                  ".write": adminOnly
+                }
+              }
+            },
+            shorts: {
+              ".read": true,
+              "$shortId": {
+                ".write": adminOnly,
+                views: {
+                  ".read": true,
+                  ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
+                },
+                likes: {
+                  ".read": true,
+                  ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
+                },
                 "$other": {
                   ".write": adminOnly
                 }
@@ -1051,8 +1279,8 @@ service cloud.firestore {
       const text = buildFirebaseRulesJson();
       navigator.clipboard.writeText(text);
       e.target.textContent = '✓ Copied Updated Firebase Rules!';
-      showStatus('Copied updated Firebase Realtime Database Rules (with Total Users & Online Users)! Paste in Firebase Console → Realtime Database → Rules → Publish.', 'success');
-      setTimeout(() => (e.target.textContent = '📋 Copy Updated Firebase Rules (User Count + Online)'), 2500);
+      showStatus('Copied updated Firebase Realtime Database Rules (with Videos, Shorts, Total Users & Online Users)! Paste in Firebase Console → Realtime Database → Rules → Publish.', 'success');
+      setTimeout(() => (e.target.textContent = '📋 Copy Updated Firebase Rules (User Count + Online + Shorts)'), 2500);
     });
 
     document.getElementById('copy-firestore-rules-btn').addEventListener('click', (e) => {
@@ -3077,6 +3305,7 @@ service cloud.firestore {
         thumb: item.thumbnail || item.thumbnailUrl || '',
         streamUrl: item.url || item.videoUrl || '',
         views: Number(item.views) || 0,
+        likes: Number(item.likes) || 0,
         time: Number(item.addedAt || item.createdAt) || 0
       }));
       list.sort((a, b) => b.time - a.time);
@@ -3124,7 +3353,11 @@ service cloud.firestore {
               ${v.streamUrl}
             </button>
           </td>
-          <td class="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">${v.views.toLocaleString()}</td>
+          <td class="py-2.5 px-3 text-right font-mono">
+            <span class="text-emerald-400 font-semibold">${v.views.toLocaleString()}</span>
+            <span class="text-zinc-500"> / </span>
+            <span class="text-red-400 font-semibold">♥ ${v.likes.toLocaleString()}</span>
+          </td>
           <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
             <button data-share-vid="${v.id}" type="button" title="Copy Index Share Link"
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
@@ -3369,6 +3602,726 @@ service cloud.firestore {
         });
       }
     })();
+
+    // ============================================================================
+    // SECTION 2B: YOUTUBE-STYLE SHORTS UPLOAD STUDIO & PUBLISHED SHORTS MANAGER
+    // ============================================================================
+    let selectedShortFile = null;
+    let shortGeneratedThreeThumbs = [];
+    let selectedShortThumbIdx = 0;
+    let shortAutoThumbUrl = '';
+    let rawShortsMap = {};
+
+    const AUTO_VIRAL_SHORT_PRESETS = [
+      {
+        title: '🔥 দেশি ভাইরাল হট শর্টস 🥵💋 #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl',
+        hashtags: '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl #HotBhabi #BanglaViral #Exclusive18 #ViralLink'
+      },
+      {
+        title: '🥵 প্রাইভেট রুম ডেট ভাইরাল শর্টস 🔥💋 #Shorts #RoomDate #18Plus #BdViral #PrivateLeak #DesiGirl',
+        hashtags: '#Shorts #RoomDate #18Plus #BdViral #PrivateLeak #DesiGirl #Uncensored #HotVideo #BanglaHot #ViralShorts'
+      },
+      {
+        title: '💋 নতুন দেশি ভাবি হট ভাইরাল ক্লিপ 🔥🥵 #Shorts #HotBhabi #18Plus #DesiHot #BdViral #Uncensored',
+        hashtags: '#Shorts #HotBhabi #18Plus #DesiHot #BdViral #Uncensored #ExclusiveClip #ViralGirl #NightShow #BdCollection'
+      },
+      {
+        title: '🔞 আনসেন্সরড কলেজ গার্ল ভাইরাল শর্টস 🔥🥵 #Shorts #18Plus #ViralGirl #BdViral #DesiHot #PrivateLeak',
+        hashtags: '#Shorts #18Plus #ViralGirl #BdViral #DesiHot #PrivateLeak #RoomDate #HotShorts #BanglaViral #ViralLink'
+      },
+      {
+        title: '🔥 রাতের গোপন ভিডিও ফাঁস শর্টস 🥵💋 #Shorts #PrivateLeak #18Plus #BdViral #RoomDate #HotBhabi',
+        hashtags: '#Shorts #PrivateLeak #18Plus #BdViral #RoomDate #HotBhabi #DesiHot #Uncensored #Exclusive18 #ViralGirl'
+      }
+    ];
+    let currentViralPresetIdx = 0;
+
+    window.buildShortShareLink = (shortId) => {
+      const cleanId = String(shortId || '').trim();
+      const origin =
+        typeof window !== 'undefined' && window.location && window.location.origin
+          ? window.location.origin
+          : 'https://bdcollection.pages.dev';
+      return `${origin}/?short=${encodeURIComponent(cleanId)}`;
+    };
+
+    window.copyShortShareLink = async (shortId, title = '') => {
+      if (!shortId) return '';
+      const shareUrl = window.buildShortShareLink(shortId);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = shareUrl;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showStatus(
+        `Copied Short Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        'success'
+      );
+      return shareUrl;
+    };
+
+    window.buildTelegramShortShareLink = (shortId) => {
+      const cleanId = String(shortId || '').trim();
+      const base = window.getTelegramMiniAppBaseUrl().replace(/\/+$/, '');
+      if (!base) {
+        return window.buildShortShareLink(cleanId);
+      }
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}startapp=${encodeURIComponent(`short_${cleanId}`)}`;
+    };
+
+    window.copyTelegramShortShareLink = async (shortId, title = '') => {
+      if (!shortId) return '';
+      const base = window.getTelegramMiniAppBaseUrl();
+      if (!base) {
+        showStatus(
+          'প্রথমে উপরের "Telegram Mini App & Bot Setup" বক্সে আপনার Bot লিংক দিয়ে Save করুন!',
+          'error'
+        );
+        const inputEl = document.getElementById('tg-bot-base-input');
+        if (inputEl) {
+          inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          inputEl.focus();
+        }
+        return '';
+      }
+      const tgUrl = window.buildTelegramShortShareLink(shortId);
+      try {
+        await navigator.clipboard.writeText(tgUrl);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = tgUrl;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showStatus(
+        `Copied Telegram Short Link${title ? ` for "${title}"` : ''}: ${tgUrl}`,
+        'success'
+      );
+      return tgUrl;
+    };
+
+    const updateShortThumbPreviewUI = (src) => {
+      const img = document.getElementById('short-thumb-preview-img');
+      const bg = document.getElementById('short-thumb-preview-bg');
+      const placeholder = document.getElementById('short-thumb-placeholder');
+      if (!img || !placeholder) return;
+      if (src) {
+        img.src = src;
+        img.classList.remove('hidden');
+        if (bg) {
+          bg.src = src;
+          bg.classList.remove('hidden');
+        }
+        placeholder.classList.add('hidden');
+      } else {
+        img.src = '';
+        img.classList.add('hidden');
+        if (bg) {
+          bg.src = '';
+          bg.classList.add('hidden');
+        }
+        placeholder.classList.remove('hidden');
+      }
+    };
+
+    const renderShortThreeThumbsPicker = () => {
+      const section = document.getElementById('short-auto-thumbs-section');
+      const grid = document.getElementById('short-auto-thumbs-grid');
+      if (!section || !grid) return;
+
+      if (!shortGeneratedThreeThumbs || shortGeneratedThreeThumbs.length === 0) {
+        section.classList.add('hidden');
+        grid.innerHTML = '';
+        return;
+      }
+
+      section.classList.remove('hidden');
+      grid.innerHTML = '';
+
+      shortGeneratedThreeThumbs.forEach((item, idx) => {
+        const isSelected = idx === selectedShortThumbIdx;
+        const card = document.createElement('div');
+        card.className = `group relative aspect-video w-full rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
+          isSelected
+            ? 'border-red-500 ring-2 ring-red-500/40 shadow-lg scale-[1.01]'
+            : 'border-zinc-800 hover:border-zinc-600 opacity-85 hover:opacity-100'
+        }`;
+
+        card.innerHTML = `
+          <img src="${item.hostedUrl || item.dataUrl}" alt="Short Thumb ${idx + 1}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+          <button type="button" data-dl-short-frame="${idx}" title="Download this Short thumbnail frame"
+            class="absolute top-1.5 right-1.5 z-20 px-2 py-0.5 rounded-lg bg-black/80 hover:bg-sky-600 border border-white/15 text-[10px] font-semibold text-white shadow cursor-pointer transition-colors">
+            ⬇
+          </button>
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-1.5 flex items-center justify-between">
+            <span class="text-[10px] font-semibold ${isSelected ? 'text-red-300' : 'text-zinc-200'}">
+              ${isSelected ? '✓ Selected' : `Frame ${idx + 1}`}
+            </span>
+            <span class="px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-mono text-zinc-300">${item.timeLabel}</span>
+          </div>
+        `;
+
+        card.querySelector('[data-dl-short-frame]').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const titleVal = document.getElementById('short-title').value.trim() || 'short';
+          window.downloadThumbnailImage(
+            item.dataUrl || item.hostedUrl,
+            `${titleVal}-short-frame-${idx + 1}`
+          );
+        });
+
+        card.addEventListener('click', () => {
+          selectShortGeneratedThumbnailOption(idx);
+        });
+
+        grid.appendChild(card);
+      });
+    };
+
+    const selectShortGeneratedThumbnailOption = async (idx) => {
+      const chosen = shortGeneratedThreeThumbs[idx];
+      if (!chosen) return;
+
+      selectedShortThumbIdx = idx;
+      const statusEl = document.getElementById('short-thumb-status');
+      const sizeEl = document.getElementById('short-file-chosen-size');
+
+      shortAutoThumbUrl = chosen.hostedUrl || chosen.dataUrl;
+      updateShortThumbPreviewUI(shortAutoThumbUrl);
+      renderShortThreeThumbsPicker();
+
+      if (chosen.hostedUrl) {
+        document.getElementById('short-thumb-url').value = chosen.hostedUrl;
+        statusEl.textContent = `Short Thumbnail Frame ${idx + 1} (${chosen.timeLabel}) selected ✓ (${chosen.hostedUrl})`;
+        return;
+      }
+
+      try {
+        statusEl.textContent = `Uploading Short Thumbnail Frame ${idx + 1} (${chosen.timeLabel}) to ImgBB...`;
+        const hostedUrl = await uploadToImgBB(chosen.dataUrl);
+        chosen.hostedUrl = hostedUrl;
+
+        if (selectedShortThumbIdx === idx) {
+          document.getElementById('short-thumb-url').value = hostedUrl;
+          shortAutoThumbUrl = hostedUrl;
+          updateShortThumbPreviewUI(hostedUrl);
+          statusEl.textContent = `Short Thumbnail Frame ${idx + 1} uploaded to ImgBB ✓ (${hostedUrl})`;
+          if (selectedShortFile && sizeEl) {
+            sizeEl.textContent = `${formatBytes(selectedShortFile.size)} · 3 Thumbnails Ready (Frame ${idx + 1} Selected) ✓`;
+          }
+        }
+        renderShortThreeThumbsPicker();
+      } catch {
+        if (selectedShortThumbIdx === idx) {
+          document.getElementById('short-thumb-url').value = chosen.dataUrl;
+          statusEl.textContent = `Short Thumbnail Frame ${idx + 1} (${chosen.timeLabel}) selected ✓`;
+        }
+      }
+    };
+
+    const processShortVideoThreeThumbnails = async (fileOrUrl, forceRandom = false, isFile = true) => {
+      const statusEl = document.getElementById('short-thumb-status');
+      const sizeEl = document.getElementById('short-file-chosen-size');
+      const durInput = document.getElementById('short-duration');
+
+      statusEl.textContent = 'শর্ট ভিডিও থেকে ৩টি উজ্জ্বল থাম্বনেইল তৈরি হচ্ছে...';
+      const extracted = await extractThreeVideoThumbnails(fileOrUrl, forceRandom, isFile);
+
+      if (extracted.duration && durInput) {
+        durInput.value = extracted.duration;
+      }
+
+      if (extracted.frames && extracted.frames.length > 0) {
+        shortGeneratedThreeThumbs = extracted.frames;
+        let bestIdx = 0;
+        let maxBright = -1;
+        shortGeneratedThreeThumbs.forEach((f, i) => {
+          if (f.brightness > maxBright) {
+            maxBright = f.brightness;
+            bestIdx = i;
+          }
+        });
+        await selectShortGeneratedThumbnailOption(bestIdx);
+      } else {
+        shortGeneratedThreeThumbs = [];
+        renderShortThreeThumbsPicker();
+        if (isFile && fileOrUrl && sizeEl) {
+          sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Ready to upload`;
+        }
+        statusEl.textContent = '৩টি ফ্রেম নেওয়া যায়নি—Custom Thumb বাটনে ক্লিক করে ইমেজ দিন।';
+      }
+    };
+
+    // Short video file input change -> Auto-generate 3 thumbnails + keep Auto Viral Title & Hashtags ready
+    document.getElementById('short-file-input').addEventListener('change', async (e) => {
+      selectedShortFile = e.target.files[0] || null;
+      shortAutoThumbUrl = '';
+      shortGeneratedThreeThumbs = [];
+      renderShortThreeThumbsPicker();
+
+      const nameEl = document.getElementById('short-file-chosen-name');
+      const sizeEl = document.getElementById('short-file-chosen-size');
+      const titleInput = document.getElementById('short-title');
+      const hashtagsInput = document.getElementById('short-hashtags');
+
+      if (selectedShortFile) {
+        nameEl.textContent = selectedShortFile.name;
+        sizeEl.textContent = `${formatBytes(selectedShortFile.size)} · Generating 3 Short thumbnails...`;
+        if (!titleInput.value.trim()) {
+          const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
+          titleInput.value = preset.title;
+        }
+        if (!hashtagsInput.value.trim()) {
+          const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
+          hashtagsInput.value = preset.hashtags;
+        }
+        await processShortVideoThreeThumbnails(selectedShortFile, false, true);
+      } else {
+        nameEl.textContent = 'Click to select a Short video file from your device';
+        sizeEl.textContent = 'Auto-generates 3 thumbnails + Auto Viral Adult Hashtags';
+      }
+    });
+
+    // Cycle Auto Viral Adult Title & Hashtags button
+    document.getElementById('short-auto-viral-btn').addEventListener('click', () => {
+      currentViralPresetIdx = (currentViralPresetIdx + 1) % AUTO_VIRAL_SHORT_PRESETS.length;
+      const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx];
+      document.getElementById('short-title').value = preset.title;
+      document.getElementById('short-hashtags').value = preset.hashtags;
+      showStatus('Auto Viral Adult Title & Hashtags updated! আপনি চাইলে নিজের মতো এডিট করতে পারেন।', 'info');
+    });
+
+    // Quick-add Hashtag chips
+    document.querySelectorAll('#short-quick-tags [data-short-tag]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.getAttribute('data-short-tag');
+        if (!tag) return;
+        const hashInput = document.getElementById('short-hashtags');
+        const titleInput = document.getElementById('short-title');
+        if (hashInput && !hashInput.value.includes(tag)) {
+          hashInput.value = `${hashInput.value.trim()} ${tag}`.trim();
+        }
+        if (titleInput && !titleInput.value.includes(tag)) {
+          titleInput.value = `${titleInput.value.trim()} ${tag}`.trim();
+        }
+      });
+    });
+
+    // Regenerate 3 frames for Short
+    document.getElementById('short-regen-3thumbs-btn').addEventListener('click', async () => {
+      if (selectedShortFile) {
+        await processShortVideoThreeThumbnails(selectedShortFile, true, true);
+        return;
+      }
+      const streamUrl = document.getElementById('short-custom-url').value.trim();
+      if (streamUrl) {
+        const proxied = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+        await processShortVideoThreeThumbnails(proxied, true, false);
+      } else {
+        showStatus('প্রথমে একটি শর্ট ভিডিও ফাইল সিলেক্ট করুন অথবা Stream URL দিন।', 'error');
+      }
+    });
+
+    // Generate 3 frames from direct Short stream URL
+    document.getElementById('short-gen-from-url-btn').addEventListener('click', async () => {
+      const streamUrl = document.getElementById('short-custom-url').value.trim();
+      if (!streamUrl) {
+        showStatus('প্রথমে Direct Short Video Stream URL দিন।', 'error');
+        return;
+      }
+      const proxied = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+      await processShortVideoThreeThumbnails(proxied, true, false);
+    });
+
+    // Download Selected Short Thumbnail
+    document.getElementById('short-dl-thumb-btn').addEventListener('click', () => {
+      const selectedFrame =
+        selectedShortThumbIdx >= 0 && shortGeneratedThreeThumbs[selectedShortThumbIdx]
+          ? shortGeneratedThreeThumbs[selectedShortThumbIdx].dataUrl ||
+            shortGeneratedThreeThumbs[selectedShortThumbIdx].hostedUrl
+          : '';
+      const thumbSrc =
+        selectedFrame ||
+        document.getElementById('short-thumb-url').value.trim() ||
+        shortAutoThumbUrl ||
+        '';
+      const titleVal = document.getElementById('short-title').value.trim() || 'short-thumbnail';
+      const streamUrl = document.getElementById('short-custom-url').value.trim();
+      window.downloadThumbnailImage(thumbSrc, titleVal, streamUrl);
+    });
+
+    // Custom Thumbnail upload for Short
+    document.getElementById('short-custom-thumb-input').addEventListener('change', async (e) => {
+      const imgFile = e.target.files[0];
+      if (!imgFile) return;
+
+      selectedShortThumbIdx = -1;
+      renderShortThreeThumbsPicker();
+
+      const statusEl = document.getElementById('short-thumb-status');
+      const localPreview = URL.createObjectURL(imgFile);
+      updateShortThumbPreviewUI(localPreview);
+      statusEl.textContent = `Uploading "${imgFile.name}" to ImgBB...`;
+
+      try {
+        const hostedUrl = await uploadToImgBB(imgFile);
+        document.getElementById('short-thumb-url').value = hostedUrl;
+        shortAutoThumbUrl = hostedUrl;
+        updateShortThumbPreviewUI(hostedUrl);
+        statusEl.textContent = `Custom Short Thumbnail uploaded to ImgBB ✓ (${hostedUrl})`;
+      } catch (err) {
+        statusEl.textContent = `ImgBB Upload Error: ${err.message}`;
+      }
+    });
+
+    document.getElementById('short-thumb-url').addEventListener('input', (e) => {
+      updateShortThumbPreviewUI(e.target.value.trim());
+    });
+
+    // Submit Short Upload Form -> Upload to R2 & Save to Firebase `shorts` node
+    document.getElementById('short-upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+      const adminKey =
+        document.getElementById('upload-admin-key').value.trim() ||
+        (activeSrv ? activeSrv.adminKey : '');
+      const publicDomainInput = normalizeBaseUrl(
+        document.getElementById('upload-public-domain').value ||
+          (activeSrv ? activeSrv.publicUrl : '')
+      );
+
+      const rawTitle = document.getElementById('short-title').value.trim();
+      const hashtags =
+        document.getElementById('short-hashtags').value.trim() ||
+        '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl';
+      const title =
+        rawTitle ||
+        `🔥 দেশি ভাইরাল হট শর্টস 🥵💋 ${hashtags}`;
+      const duration = document.getElementById('short-duration').value.trim() || '00:35';
+      let finalThumb =
+        document.getElementById('short-thumb-url').value.trim() || shortAutoThumbUrl || '';
+      const customUrl = document.getElementById('short-custom-url').value.trim();
+
+      const submitBtn = document.getElementById('short-submit-btn');
+      const progWrap = document.getElementById('short-progress-wrap');
+      const progBar = document.getElementById('short-progress-bar');
+      const progPct = document.getElementById('short-progress-pct');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading Short...';
+
+      let finalVideoUrl = customUrl;
+      let uploadedKey = '';
+
+      try {
+        if (finalThumb.startsWith('data:image/')) {
+          try {
+            finalThumb = await uploadToImgBB(finalThumb);
+          } catch {}
+        }
+
+        if (selectedShortFile) {
+          if (!activeSrv) {
+            throw new Error('Please add and select a Storage Server first using "+ Add Storage Server".');
+          }
+          if (!adminKey) {
+            throw new Error('Please enter the X-Admin-Key for the selected server.');
+          }
+
+          progWrap.classList.remove('hidden');
+          progBar.style.width = '40%';
+          progPct.textContent = 'Uploading...';
+
+          const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
+          const formData = new FormData();
+          formData.append('file', selectedShortFile);
+          formData.append('folder', 'shorts');
+
+          let res;
+          try {
+            res = await fetch(`${baseUrl}/api/upload`, {
+              method: 'POST',
+              headers: {
+                'X-Admin-Key': adminKey
+              },
+              body: formData
+            });
+          } catch {
+            res = await fetch('/api/r2-proxy/upload', {
+              method: 'POST',
+              headers: {
+                'X-Admin-Key': adminKey,
+                'X-Worker-Url': baseUrl
+              },
+              body: formData
+            });
+          }
+
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || `Short upload failed (${res.status})`);
+          }
+
+          progBar.style.width = '100%';
+          progPct.textContent = '100%';
+
+          uploadedKey = data.key;
+          finalVideoUrl = `${publicDomainInput}/${uploadedKey}`;
+        }
+
+        if (!finalVideoUrl) {
+          throw new Error('Please select a Short video file from your device or enter a direct video stream URL.');
+        }
+
+        const now = Date.now();
+        const newShortRef = push(ref(db, 'shorts'));
+        await set(newShortRef, {
+          addedAt: now,
+          createdAt: now,
+          title,
+          hashtags,
+          keywords: `Shorts Virallink bdgirl ${hashtags}`,
+          thumbnail: finalThumb,
+          thumbnailUrl: finalThumb,
+          url: finalVideoUrl,
+          videoUrl: finalVideoUrl,
+          r2Key: uploadedKey || null,
+          duration,
+          views: 0,
+          likes: 0,
+          author: 'Bd Collection'
+        });
+
+        const shortShareLink = window.buildShortShareLink(newShortRef.key);
+        const shareBox = document.getElementById('last-short-share-box');
+        const shareInput = document.getElementById('last-short-share-input');
+        const copyBtn = document.getElementById('last-short-copy-btn');
+        const tgBtn = document.getElementById('last-short-tg-btn');
+
+        if (shareBox && shareInput && copyBtn && tgBtn) {
+          shareInput.value = shortShareLink;
+          shareBox.classList.remove('hidden');
+          copyBtn.onclick = async () => {
+            await window.copyShortShareLink(newShortRef.key, title);
+            copyBtn.textContent = '✓ Copied!';
+            setTimeout(() => (copyBtn.textContent = '🔗 Copy Short Link'), 2000);
+          };
+          tgBtn.onclick = async () => {
+            await window.copyTelegramShortShareLink(newShortRef.key, title);
+          };
+        }
+
+        showStatus(
+          `Published Short "${title}"! Share Link: ${shortShareLink}`,
+          'success'
+        );
+
+        selectedShortFile = null;
+        shortAutoThumbUrl = '';
+        shortGeneratedThreeThumbs = [];
+        renderShortThreeThumbsPicker();
+        document.getElementById('short-file-input').value = '';
+        document.getElementById('short-custom-thumb-input').value = '';
+        document.getElementById('short-file-chosen-name').textContent = 'Click to select a Short video file from your device';
+        document.getElementById('short-file-chosen-size').textContent = 'Auto-generates 3 thumbnails + Auto Viral Adult Hashtags';
+        document.getElementById('short-thumb-url').value = '';
+        document.getElementById('short-custom-url').value = '';
+        updateShortThumbPreviewUI('');
+
+        // Advance to next Auto Viral Adult Title & Hashtag preset ready for next upload
+        currentViralPresetIdx = (currentViralPresetIdx + 1) % AUTO_VIRAL_SHORT_PRESETS.length;
+        const nextPreset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx];
+        document.getElementById('short-title').value = nextPreset.title;
+        document.getElementById('short-hashtags').value = nextPreset.hashtags;
+
+        if (activeSrv && uploadedKey) {
+          await fetchServerFileList(activeSrv);
+          renderStorageCards();
+          renderActiveServerFiles();
+        }
+      } catch (err) {
+        showStatus(
+          `${err.message || 'Short upload failed.'} (If PERMISSION_DENIED, copy the Updated Firebase Rules above and publish them in Firebase Console)`,
+          'error'
+        );
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🚀 Upload & Publish Short';
+        setTimeout(() => progWrap.classList.add('hidden'), 1500);
+      }
+    });
+
+    // Listen to Published Shorts in Firebase RTDB (`shorts`)
+    onValue(ref(db, 'shorts'), (snapshot) => {
+      const tbody = document.getElementById('shorts-table-body');
+      const countEl = document.getElementById('shorts-catalog-count');
+      if (!tbody || !countEl) return;
+
+      tbody.innerHTML = '';
+      const val = snapshot.val();
+      if (!val || typeof val !== 'object') {
+        rawShortsMap = {};
+        countEl.textContent = '0 shorts';
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="py-5 text-center text-zinc-500">No Shorts uploaded yet. Upload your first Short above!</td></tr>';
+        return;
+      }
+
+      rawShortsMap = val;
+      const list = Object.entries(val).map(([id, item]) => ({
+        id,
+        title: item.title || 'Viral Short 🔥',
+        hashtags: item.hashtags || '#Shorts #BdViral #18Plus',
+        thumb: item.thumbnail || item.thumbnailUrl || '',
+        streamUrl: item.url || item.videoUrl || '',
+        views: Number(item.views) || 0,
+        likes: Number(item.likes) || 0,
+        time: Number(item.addedAt || item.createdAt) || 0
+      }));
+      list.sort((a, b) => b.time - a.time);
+      countEl.textContent = `${list.length} shorts`;
+
+      list.forEach((s) => {
+        const shareLink = window.buildShortShareLink(s.id);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-zinc-900/60';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3">
+            <div class="relative w-24 h-13 group">
+              ${
+                s.thumb
+                  ? `<img src="${s.thumb}" alt="short thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
+                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Short</div>`
+              }
+              <button data-dl-short-thumb-img="${s.id}" type="button" title="Download Short Thumbnail"
+                class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer">
+                ⬇
+              </button>
+            </div>
+          </td>
+          <td class="py-2.5 px-3">
+            <p class="font-medium text-white line-clamp-1">${s.title}</p>
+            <p class="text-[11px] text-red-400 font-mono line-clamp-1">${s.hashtags}</p>
+            <div class="flex items-center gap-1.5 mt-1">
+              <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
+                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[230px]">
+                ${shareLink}
+              </a>
+              <button data-copy-short-inline="${s.id}" type="button"
+                class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
+                Copy
+              </button>
+            </div>
+          </td>
+          <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
+            <button type="button" data-play-short="${s.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to preview Short">
+              ${s.streamUrl}
+            </button>
+          </td>
+          <td class="py-2.5 px-3 text-right font-mono">
+            <span class="text-emerald-400 font-semibold">${s.views.toLocaleString()}</span>
+            <span class="text-zinc-500"> / </span>
+            <span class="text-red-400 font-semibold">♥ ${s.likes.toLocaleString()}</span>
+          </td>
+          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+            <button data-share-short="${s.id}" type="button"
+              class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
+              🔗 Share Link
+            </button>
+            <button data-tg-share-short="${s.id}" type="button"
+              class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
+              ✈️ TG Link
+            </button>
+            <button data-dl-short-thumb="${s.id}" type="button"
+              class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer">
+              ⬇ Thumb
+            </button>
+            <button data-play-short-btn="${s.id}" type="button"
+              class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
+              ▶ Play
+            </button>
+            <button data-rm-short="${s.id}" type="button"
+              class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
+              Delete
+            </button>
+          </td>
+        `;
+
+        const handlePlayShort = () => {
+          if (!s.streamUrl) return;
+          playStreamWithFallbacks(
+            [s.streamUrl],
+            s.title,
+            `Published Short · ${s.views.toLocaleString()} views · ${s.streamUrl}`,
+            null,
+            async () => {
+              await remove(ref(db, `shorts/${s.id}`));
+              closeExplorerVideoPlayer();
+              showStatus(`Removed Short "${s.title}"`, 'success');
+            }
+          );
+        };
+
+        tr.querySelector('[data-share-short]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          await window.copyShortShareLink(s.id, s.title);
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
+        });
+
+        tr.querySelector('[data-copy-short-inline]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          await window.copyShortShareLink(s.id, s.title);
+          btn.textContent = '✓ Copied';
+          setTimeout(() => (btn.textContent = 'Copy'), 2000);
+        });
+
+        tr.querySelector('[data-tg-share-short]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const copied = await window.copyTelegramShortShareLink(s.id, s.title);
+          if (copied) {
+            btn.textContent = '✓ TG Copied!';
+            setTimeout(() => (btn.textContent = '✈️ TG Link'), 2000);
+          }
+        });
+
+        tr.querySelector('[data-dl-short-thumb]').addEventListener('click', () => {
+          window.downloadThumbnailImage(s.thumb, s.title || s.id, s.streamUrl);
+        });
+
+        tr.querySelector('[data-dl-short-thumb-img]').addEventListener('click', () => {
+          window.downloadThumbnailImage(s.thumb, s.title || s.id, s.streamUrl);
+        });
+
+        tr.querySelector('[data-play-short]').addEventListener('click', handlePlayShort);
+        tr.querySelector('[data-play-short-btn]').addEventListener('click', handlePlayShort);
+
+        tr.querySelector('[data-rm-short]').addEventListener('click', async () => {
+          try {
+            await remove(ref(db, `shorts/${s.id}`));
+            showStatus(`Removed Short "${s.title}" from website.`, 'success');
+          } catch (err) {
+            showStatus(`Delete Error: ${err.message}`, 'error');
+          }
+        });
+
+        tbody.appendChild(tr);
+      });
+    });
   </script>
 </body>
 </html>

@@ -13,7 +13,9 @@ import {
   runTransaction,
   onDisconnect,
   VideoItem,
+  ShortItem,
   buildVideoShareLink,
+  buildShortShareLink,
   copyTextToClipboard,
 } from './firebase';
 import {
@@ -25,6 +27,7 @@ import {
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 import { VideoCard } from './components/VideoCard';
+import { ShortsFeed } from './components/ShortsFeed';
 import {
   LANGUAGES,
   detectInitialLanguage,
@@ -39,36 +42,56 @@ import {
   Share2,
   Menu,
   Globe,
+  Smartphone,
 } from 'lucide-react';
 
-type ViewMode = 'home' | 'watch';
+type ViewMode = 'home' | 'watch' | 'shorts';
 
-const getRequestedVideoIdFromUrl = (): string | null => {
+let telegramStartParamConsumed = false;
+
+const getRequestedShortIdFromUrl = (allowTelegramStartParam = false): string | null => {
   if (typeof window === 'undefined') return null;
   try {
     const params = new URLSearchParams(window.location.search);
-    const v =
-      params.get('v') ||
-      params.get('video') ||
-      params.get('id') ||
-      params.get('tgWebAppStartParam') ||
-      params.get('startapp');
+    const s = params.get('short') || params.get('s');
+    if (s && s.trim()) return s.trim();
+
+    if (allowTelegramStartParam && !telegramStartParamConsumed) {
+      const startParam =
+        params.get('tgWebAppStartParam') ||
+        params.get('startapp') ||
+        (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      if (typeof startParam === 'string' && startParam.trim().startsWith('short_')) {
+        telegramStartParamConsumed = true;
+        return startParam.trim().replace(/^short_/, '');
+      }
+    }
+  } catch {}
+  return null;
+};
+
+const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('v') || params.get('video') || params.get('id');
     if (v && v.trim()) return v.trim();
 
-    // Check Telegram Mini App initDataUnsafe.start_param for t.me/bot/app?startapp=VIDEO_ID links
-    const tgStartParam = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (typeof tgStartParam === 'string' && tgStartParam.trim()) {
-      return tgStartParam.trim();
+    // Only read Telegram start_param ONCE on initial app launch so subsequent Firebase view updates never revert to the initial video
+    if (allowTelegramStartParam && !telegramStartParamConsumed) {
+      const tgParam =
+        params.get('tgWebAppStartParam') ||
+        params.get('startapp') ||
+        (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      if (typeof tgParam === 'string' && tgParam.trim() && !tgParam.trim().startsWith('short_')) {
+        telegramStartParamConsumed = true;
+        return tgParam.trim();
+      }
     }
 
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
-      const hv =
-        hashParams.get('v') ||
-        hashParams.get('video') ||
-        hashParams.get('id') ||
-        hashParams.get('tgWebAppStartParam') ||
-        hashParams.get('startapp');
+      const hv = hashParams.get('v') || hashParams.get('video') || hashParams.get('id');
       if (hv && hv.trim()) return hv.trim();
     }
   } catch {}
@@ -121,15 +144,33 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
 };
 
 export default function App() {
-  // Read `?v=<videoId>` or Telegram Mini App `start_param` from URL
-  const initialUrlVidId = getRequestedVideoIdFromUrl();
-  const pendingSharedIdRef = useRef<string | null>(initialUrlVidId);
-  const [sharedVideoId, setSharedVideoId] = useState<string | null>(initialUrlVidId);
-
-  const [viewMode, setViewMode] = useState<ViewMode>(() =>
-    initialUrlVidId ? 'watch' : 'home'
+  // Read initial `?v=<videoId>`, `?short=<shortId>`, or one-time Telegram `start_param`
+  const initialShortId = useMemo(() => getRequestedShortIdFromUrl(true), []);
+  const initialUrlVidId = useMemo(
+    () => (initialShortId ? null : getRequestedVideoIdFromUrl(true)),
+    [initialShortId]
   );
+
+  const pendingSharedIdRef = useRef<string | null>(initialUrlVidId);
+  const initialSharedResolvedRef = useRef<boolean>(!initialUrlVidId);
+  const activeVideoIdRef = useRef<string | null>(initialUrlVidId);
+  const userNavigatedRef = useRef<boolean>(false);
+  const suggestedOrderRef = useRef<{ forVideoId: string; count: number; ids: string[] }>({
+    forVideoId: '',
+    count: 0,
+    ids: [],
+  });
+
+  const [, setSharedVideoId] = useState<string | null>(initialUrlVidId);
+  const [activeShortId, setActiveShortId] = useState<string | null>(initialShortId);
+
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (initialShortId) return 'shorts';
+    if (initialUrlVidId) return 'watch';
+    return 'home';
+  });
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [shorts, setShorts] = useState<ShortItem[]>([]);
   const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
@@ -146,15 +187,18 @@ export default function App() {
     } catch {}
   }, []);
 
-  // Sync Telegram Mini App native BackButton with Watch vs Home view
+  // Sync Telegram Mini App native BackButton with Watch/Shorts vs Home view
   useEffect(() => {
     const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
     const backButton = tg?.BackButton;
     if (!backButton) return;
 
     const handleBack = () => {
+      userNavigatedRef.current = true;
       pendingSharedIdRef.current = null;
+      activeVideoIdRef.current = null;
       setSharedVideoId(null);
+      setActiveShortId(null);
       setViewMode('home');
       setActiveVideo(null);
       try {
@@ -163,7 +207,7 @@ export default function App() {
     };
 
     try {
-      if (viewMode === 'watch') {
+      if (viewMode === 'watch' || viewMode === 'shorts') {
         backButton.show();
         backButton.onClick(handleBack);
       } else {
@@ -367,6 +411,10 @@ export default function App() {
     try {
       const url = new URL(window.location.href);
       url.pathname = '/';
+      url.searchParams.delete('tgWebAppStartParam');
+      url.searchParams.delete('startapp');
+      url.searchParams.delete('short');
+      url.searchParams.delete('s');
       if (videoId) {
         url.searchParams.set('v', videoId);
       } else {
@@ -382,28 +430,83 @@ export default function App() {
     } catch {}
   };
 
+  const syncUrlWithShort = (shortId: string | null, replace = false) => {
+    try {
+      const url = new URL(window.location.href);
+      url.pathname = '/';
+      url.searchParams.delete('v');
+      url.searchParams.delete('video');
+      url.searchParams.delete('id');
+      url.searchParams.delete('tgWebAppStartParam');
+      url.searchParams.delete('startapp');
+      if (shortId) {
+        url.searchParams.set('short', shortId);
+      } else {
+        url.searchParams.delete('short');
+        url.searchParams.delete('s');
+      }
+      if (replace) {
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        window.history.pushState({}, '', url.toString());
+      }
+    } catch {}
+  };
+
   const goHome = () => {
+    userNavigatedRef.current = true;
+    initialSharedResolvedRef.current = true;
     pendingSharedIdRef.current = null;
+    activeVideoIdRef.current = null;
     setSharedVideoId(null);
+    setActiveShortId(null);
+    setActiveVideo(null);
     setViewMode('home');
     syncUrlWithVideo(null);
+  };
+
+  const openShortsTab = (shortId?: string) => {
+    if (adBlockActive) return;
+    userNavigatedRef.current = true;
+    initialSharedResolvedRef.current = true;
+    pendingSharedIdRef.current = null;
+    activeVideoIdRef.current = null;
+    setSharedVideoId(null);
+    const targetId = shortId || shorts[0]?.id || null;
+    setActiveShortId(targetId);
+    setViewMode('shorts');
+    syncUrlWithShort(targetId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Listen to browser Back / Forward buttons
   useEffect(() => {
     const handlePopState = () => {
-      const vidId = getRequestedVideoIdFromUrl();
+      userNavigatedRef.current = true;
+      const sId = getRequestedShortIdFromUrl(false);
+      if (sId) {
+        setActiveShortId(sId);
+        setViewMode('shorts');
+        return;
+      }
+
+      const vidId = getRequestedVideoIdFromUrl(false);
       if (vidId) {
         pendingSharedIdRef.current = vidId;
+        activeVideoIdRef.current = vidId;
         setSharedVideoId(vidId);
         const found = findMatchingVideo(videos, vidId);
         if (found) {
+          activeVideoIdRef.current = found.id;
           setActiveVideo(found);
           setViewMode('watch');
         }
       } else {
         pendingSharedIdRef.current = null;
+        activeVideoIdRef.current = null;
         setSharedVideoId(null);
+        setActiveShortId(null);
+        setActiveVideo(null);
         setViewMode('home');
       }
     };
@@ -432,12 +535,37 @@ export default function App() {
     }
   };
 
-  // Increment view count atomically in Firebase RTDB (`videos/$videoId/views`)
+  // Increment view & like count atomically in Firebase RTDB (`videos/$videoId/views` & `likes`)
   const incrementVideoViews = (videoId: string) => {
     if (!videoId) return;
     const viewsRef = ref(db, `videos/${videoId}/views`);
     runTransaction(viewsRef, (currentViews) => {
       return (Number(currentViews) || 0) + 1;
+    }).catch(() => {});
+  };
+
+  const incrementVideoLikes = (videoId: string) => {
+    if (!videoId) return;
+    const likesRef = ref(db, `videos/${videoId}/likes`);
+    runTransaction(likesRef, (currentLikes) => {
+      return (Number(currentLikes) || 0) + 1;
+    }).catch(() => {});
+  };
+
+  // Increment Short views & likes atomically in Firebase RTDB (`shorts/$shortId/views` & `likes`)
+  const incrementShortViews = (shortId: string) => {
+    if (!shortId) return;
+    const viewsRef = ref(db, `shorts/${shortId}/views`);
+    runTransaction(viewsRef, (currentViews) => {
+      return (Number(currentViews) || 0) + 1;
+    }).catch(() => {});
+  };
+
+  const incrementShortLikes = (shortId: string) => {
+    if (!shortId) return;
+    const likesRef = ref(db, `shorts/${shortId}/likes`);
+    runTransaction(likesRef, (currentLikes) => {
+      return (Number(currentLikes) || 0) + 1;
     }).catch(() => {});
   };
 
@@ -547,6 +675,68 @@ export default function App() {
     };
   }, []);
 
+  // Sync ALL Shorts from Firebase Realtime Database (`shorts`)
+  useEffect(() => {
+    const shortsRef = ref(db, 'shorts');
+
+    const parseShortsData = (data: any): ShortItem[] => {
+      if (!data || typeof data !== 'object') return [];
+      const parsed: ShortItem[] = Object.entries(data)
+        .map(([key, val]: [string, any]) => {
+          if (!val || typeof val !== 'object') return null;
+          const resolvedUrl = (val.url || val.videoUrl || '').trim();
+          if (!resolvedUrl) return null;
+          const resolvedThumb = (val.thumbnail || val.thumbnailUrl || '').trim();
+          const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
+          const resolvedHashtags =
+            (val.hashtags || val.keywords || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl').trim();
+
+          return {
+            id: key,
+            title: val.title || '🔥 দেশি ভাইরাল শর্টস 🥵💋',
+            hashtags: resolvedHashtags,
+            keywords: val.keywords || resolvedHashtags,
+            videoUrl: resolvedUrl,
+            url: resolvedUrl,
+            r2Key: val.r2Key,
+            thumbnail: resolvedThumb,
+            thumbnailUrl: resolvedThumb,
+            duration: val.duration || '00:30',
+            views: Number(val.views) || 0,
+            likes: Number(val.likes) || 0,
+            createdAt: resolvedTime,
+            addedAt: resolvedTime,
+            author: val.author || 'Bd Collection',
+          };
+        })
+        .filter((item): item is ShortItem => Boolean(item));
+
+      parsed.sort((a, b) => b.createdAt - a.createdAt);
+      return parsed;
+    };
+
+    fetch('https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts.json', {
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json && typeof json === 'object') {
+          setShorts(parseShortsData(json));
+        }
+      })
+      .catch(() => {});
+
+    const unsubShorts = onValue(
+      shortsRef,
+      (snapshot) => {
+        setShorts(parseShortsData(snapshot.val()));
+      },
+      () => {}
+    );
+
+    return () => unsubShorts();
+  }, []);
+
   // Sync ALL videos from Firebase Realtime Database (`video-platform-7c031`) so every Admin Panel video share link works
   useEffect(() => {
     const videosRef = ref(db, 'videos');
@@ -575,6 +765,7 @@ export default function App() {
         thumbnail: resolvedThumb,
         duration: val.duration || '',
         views: Number(val.views) || 0,
+        likes: Number(val.likes) || 0,
         createdAt: resolvedTime,
         addedAt: resolvedTime,
         author: val.author || 'Bd Collection',
@@ -595,12 +786,28 @@ export default function App() {
 
       setVideos(finalVideos);
 
-      // Check if visitor opened a shared video link `?v=<videoId>` (from Index or Admin Panel)
-      const urlVidId = getRequestedVideoIdFromUrl() || pendingSharedIdRef.current;
+      // If the user already clicked a video or navigated manually, NEVER override their activeVideo with a URL or start_param lookup!
+      // Only update the currently playing video's metadata (e.g. views) in place.
+      if (userNavigatedRef.current || initialSharedResolvedRef.current) {
+        const currentActiveId = activeVideoIdRef.current;
+        if (currentActiveId) {
+          const updatedActive = finalVideos.find((item) => item.id === currentActiveId);
+          if (updatedActive) {
+            setActiveVideo(updatedActive);
+          }
+        }
+        setLoadingVideos(false);
+        return;
+      }
+
+      // Initial boot resolution for shared video link `?v=<videoId>` or one-time Telegram `start_param`
+      const urlVidId = pendingSharedIdRef.current;
       if (urlVidId) {
         const targetVideo = findMatchingVideo(finalVideos, urlVidId);
         if (targetVideo) {
+          initialSharedResolvedRef.current = true;
           pendingSharedIdRef.current = targetVideo.id;
+          activeVideoIdRef.current = targetVideo.id;
           setSharedVideoId(targetVideo.id);
           setActiveVideo(targetVideo);
           setViewMode('watch');
@@ -625,12 +832,14 @@ export default function App() {
           )
             .then((r) => (r.ok ? r.json() : null))
             .then((singleVal) => {
+              initialSharedResolvedRef.current = true;
               const singleVideo = parseSingleVideoEntry(decodedId, singleVal);
               if (singleVideo) {
                 setVideos((prev) =>
                   prev.some((v) => v.id === singleVideo.id) ? prev : [singleVideo, ...prev]
                 );
                 pendingSharedIdRef.current = singleVideo.id;
+                activeVideoIdRef.current = singleVideo.id;
                 setSharedVideoId(singleVideo.id);
                 setActiveVideo(singleVideo);
                 setViewMode('watch');
@@ -644,6 +853,7 @@ export default function App() {
               }
             })
             .catch(() => {
+              initialSharedResolvedRef.current = true;
               if (finalVideos.length > 0) {
                 setViewMode('home');
               }
@@ -653,11 +863,7 @@ export default function App() {
             });
         }
       } else {
-        setActiveVideo((prev) => {
-          if (!prev) return null;
-          const updated = finalVideos.find((item) => item.id === prev.id);
-          return updated || prev;
-        });
+        initialSharedResolvedRef.current = true;
         setLoadingVideos(false);
       }
     };
@@ -688,8 +894,9 @@ export default function App() {
   }, []);
 
   // 3x Smartlink clicks on any video card before opening Watch page
+  // Uses functional state updater and locks onto the exact clicked `video.id`
   const handleVideoCardClick = (video: VideoItem) => {
-    if (adBlockActive) return;
+    if (adBlockActive || !video) return;
     const currentClicks = smartlinkCounts[video.id] || 0;
 
     if (currentClicks < 3) {
@@ -704,9 +911,13 @@ export default function App() {
       }
     }
 
+    userNavigatedRef.current = true;
+    initialSharedResolvedRef.current = true;
     pendingSharedIdRef.current = video.id;
+    activeVideoIdRef.current = video.id;
     setActiveVideo(video);
     setSharedVideoId(video.id);
+    setActiveShortId(null);
     setViewMode('watch');
     syncUrlWithVideo(video.id);
     incrementVideoViews(video.id);
@@ -721,6 +932,7 @@ export default function App() {
   const handleShareVideo = async (video: VideoItem) => {
     const shareUrl = buildVideoShareLink(video.id);
     pendingSharedIdRef.current = video.id;
+    activeVideoIdRef.current = video.id;
     syncUrlWithVideo(video.id);
     await copyTextToClipboard(shareUrl);
     setCopiedShare(true);
@@ -753,7 +965,6 @@ export default function App() {
   };
 
   const filteredVideos = useMemo(() => {
-    // Base list: if Trending is active, use the randomized trending order (synced with latest video data)
     let sourceList = videos;
     if (sortByTrending) {
       if (trendingVideos.length > 0) {
@@ -761,12 +972,11 @@ export default function App() {
         const syncedRandom = trendingVideos
           .map((tv) => videoMap.get(tv.id))
           .filter((v): v is VideoItem => Boolean(v));
-        // Include any newly added videos that weren't in trendingVideos yet
         const existingIds = new Set(syncedRandom.map((v) => v.id));
         const newOnes = videos.filter((v) => !existingIds.has(v.id));
         sourceList = [...syncedRandom, ...newOnes];
       } else {
-        sourceList = shuffleVideosRandomly(videos);
+        sourceList = videos;
       }
     }
 
@@ -782,14 +992,85 @@ export default function App() {
     });
   }, [videos, searchQuery, sortByTrending, trendingVideos, trendingSeed]);
 
+  // Stabilized Suggested Videos order so Firebase view increments NEVER reshuffle cards while user is clicking
   const suggestedVideos = useMemo(() => {
+    const currentVidId = activeVideo?.id || '__none__';
     const others = activeVideo ? videos.filter((v) => v.id !== activeVideo.id) : videos;
-    return shuffleVideosRandomly(others);
+
+    if (
+      suggestedOrderRef.current.forVideoId !== currentVidId ||
+      suggestedOrderRef.current.count !== others.length ||
+      suggestedOrderRef.current.ids.length === 0
+    ) {
+      const shuffled = shuffleVideosRandomly(others);
+      suggestedOrderRef.current = {
+        forVideoId: currentVidId,
+        count: others.length,
+        ids: shuffled.map((v) => v.id),
+      };
+      return shuffled;
+    }
+
+    const videoMap = new Map<string, VideoItem>(others.map((v) => [v.id, v]));
+    const ordered = suggestedOrderRef.current.ids
+      .map((id) => videoMap.get(id))
+      .filter((v): v is VideoItem => Boolean(v));
+    const inOrder = new Set(ordered.map((v) => v.id));
+    const remaining = others.filter((v) => !inOrder.has(v.id));
+    return [...ordered, ...remaining];
   }, [videos, activeVideo?.id]);
+
+  // Effective Shorts list: shows uploaded `shorts` from Admin Panel and occasionally ("maje maje") interleaves long `videos`
+  const displayShorts = useMemo<ShortItem[]>(() => {
+    const longVideosAsShorts: ShortItem[] = videos.map((v) => ({
+      id: v.id,
+      title: v.title,
+      hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
+      keywords: v.keywords,
+      videoUrl: v.videoUrl || v.url || '',
+      url: v.url || v.videoUrl || '',
+      r2Key: v.r2Key,
+      thumbnail: v.thumbnail || v.thumbnailUrl || '',
+      thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
+      duration: v.duration || '02:30',
+      views: v.views || 0,
+      likes: v.likes || 0,
+      createdAt: v.createdAt,
+      addedAt: v.addedAt || v.createdAt,
+      author: v.author || 'Bd Collection',
+      isLongVideo: true,
+    }));
+
+    if (shorts.length === 0) {
+      return longVideosAsShorts;
+    }
+
+    const usedIds = new Set(shorts.map((s) => s.id));
+    const availableLong = longVideosAsShorts.filter((lv) => !usedIds.has(lv.id));
+    const mixed: ShortItem[] = [];
+    let longIdx = 0;
+
+    shorts.forEach((s, idx) => {
+      mixed.push(s);
+      // Occasionally ("maje maje"): insert 1 long video after every 2 uploaded Shorts
+      if ((idx + 1) % 2 === 0 && longIdx < availableLong.length) {
+        mixed.push(availableLong[longIdx]);
+        longIdx++;
+      }
+    });
+
+    // If there are only 1-2 uploaded Shorts, still mix in up to 3 occasional long videos after them
+    while (longIdx < availableLong.length && longIdx < Math.max(3, Math.ceil(shorts.length / 2) + 2)) {
+      mixed.push(availableLong[longIdx]);
+      longIdx++;
+    }
+
+    return mixed;
+  }, [shorts, videos]);
 
   return (
     <div
-      className={`min-h-screen bg-[#0f0f0f] text-zinc-100 flex flex-col ${
+      className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#0f0f0f] text-zinc-100 flex flex-col ${
         adBlockActive ? 'h-screen overflow-hidden' : ''
       }`}
       dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
@@ -797,17 +1078,17 @@ export default function App() {
       {/* Anti-AdBlocker & Anti-AdGuard DNS Full-Screen Lock Wall */}
       <AntiAdBlockGuard onBlockStateChange={setAdBlockActive} />
 
-      {/* Social Bar Ad only activates on Watch page so Index strictly has ONLY the Native Banner */}
-      <SocialBarLoader active={viewMode === 'watch'} />
+      {/* Social Bar Ad activates on Watch & Shorts pages */}
+      <SocialBarLoader active={viewMode === 'watch' || viewMode === 'shorts'} />
 
-      {/* YouTube-Style Top Navigation Bar */}
-      <header className="h-14 px-4 flex items-center justify-between gap-3 bg-[#0f0f0f] sticky top-0 z-40 border-b border-zinc-900">
+      {/* YouTube-Style Top Navigation Bar (Responsive for Telegram Mini App & Mobile) */}
+      <header className="h-14 px-2.5 sm:px-4 w-full max-w-full overflow-hidden flex items-center justify-between gap-2 sm:gap-3 bg-[#0f0f0f] sticky top-0 z-40 border-b border-zinc-900">
         {/* Left: Menu + Brand Logo */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-full hover:bg-zinc-800 text-zinc-200 transition-colors cursor-pointer"
+            className="hidden sm:inline-flex p-2 rounded-full hover:bg-zinc-800 text-zinc-200 transition-colors cursor-pointer"
             aria-label="Toggle Menu"
           >
             <Menu className="w-5 h-5" />
@@ -820,21 +1101,21 @@ export default function App() {
               setSortByTrending(false);
               goHome();
             }}
-            className="flex items-center gap-2 whitespace-nowrap shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0"
           >
-            <div className="w-8 h-6 rounded-lg bg-red-600 flex items-center justify-center">
-              <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
+            <div className="w-7 h-5 sm:w-8 sm:h-6 rounded-lg bg-red-600 flex items-center justify-center shrink-0">
+              <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-white text-white ml-0.5" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-white font-display">
+            <span className="text-sm sm:text-lg font-bold tracking-tight text-white font-display">
               Bd Collection
             </span>
           </a>
         </div>
 
         {/* Center: Search Bar */}
-        <div className="flex-1 max-w-xl mx-auto">
+        <div className="flex-1 min-w-0 max-w-xl mx-auto">
           <div className="flex items-center w-full">
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <input
                 type="text"
                 value={searchQuery}
@@ -843,29 +1124,42 @@ export default function App() {
                   if (viewMode !== 'home') goHome();
                 }}
                 placeholder={t.searchPlaceholder}
-                className="w-full pl-4 pr-8 py-1.5 sm:py-2 rounded-l-full bg-[#121212] border border-zinc-800 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                className="w-full min-w-0 pl-3 sm:pl-4 pr-2 sm:pr-6 py-1.5 rounded-l-full bg-[#121212] border border-zinc-800 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
               />
             </div>
             <button
               type="button"
               onClick={() => goHome()}
-              className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-r-full bg-zinc-800 hover:bg-zinc-700 border border-l-0 border-zinc-800 text-zinc-200 transition-colors cursor-pointer"
+              className="px-2.5 sm:px-4 py-1.5 rounded-r-full bg-zinc-800 hover:bg-zinc-700 border border-l-0 border-zinc-800 text-zinc-200 transition-colors cursor-pointer shrink-0"
               aria-label="Search"
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
-        {/* Right: 34+ Languages Selector (Auto-detected by Country + Manual Switch) */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="relative flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2.5 py-1.5 hover:border-zinc-700 transition-colors">
-            <Globe className="w-4 h-4 text-zinc-400 mr-1.5 shrink-0 pointer-events-none" />
+        {/* Right: Quick Shorts Button + Language Selector */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => openShortsTab()}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+              viewMode === 'shorts'
+                ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-100'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5 text-red-500" />
+            <span>Shorts</span>
+          </button>
+
+          <div className="relative flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1.5 hover:border-zinc-700 transition-colors">
+            <Globe className="w-3.5 h-3.5 text-zinc-400 mr-1 shrink-0 pointer-events-none" />
             <select
               value={langCode}
               onChange={(e) => handleLanguageChange(e.target.value)}
               aria-label="Select Language"
-              className="bg-transparent text-xs font-medium text-zinc-200 focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-[11px] sm:text-xs font-medium text-zinc-200 focus:outline-none cursor-pointer max-w-[78px] sm:max-w-[130px] truncate"
             >
               {Object.values(LANGUAGES).map((lang) => (
                 <option key={lang.code} value={lang.code} className="bg-zinc-900 text-white">
@@ -878,8 +1172,8 @@ export default function App() {
       </header>
 
       {/* Main Layout */}
-      <div className="flex-1 flex">
-        {/* YouTube Left Sidebar (Only Home & Trending — removed Music/Vlog/Viral/Sports/Travel) */}
+      <div className="flex-1 flex w-full max-w-full overflow-x-hidden">
+        {/* YouTube Left Sidebar (Home, Shorts & Trending) */}
         {viewMode === 'home' && sidebarOpen && (
           <aside className="hidden md:flex flex-col w-52 shrink-0 p-3 space-y-1 border-r border-zinc-900/80 bg-[#0f0f0f]">
             <button
@@ -889,13 +1183,22 @@ export default function App() {
                 goHome();
               }}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                !sortByTrending
+                viewMode === 'home' && !sortByTrending
                   ? 'bg-zinc-800 text-white'
                   : 'text-zinc-300 hover:bg-zinc-900'
               }`}
             >
               <Home className="w-5 h-5" />
               <span>{t.home}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openShortsTab()}
+              className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors cursor-pointer"
+            >
+              <Smartphone className="w-5 h-5 text-red-500" />
+              <span>Shorts</span>
             </button>
 
             <button
@@ -914,18 +1217,51 @@ export default function App() {
         )}
 
         {/* Content Area */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden">
+          {viewMode === 'shorts' && (
+            <ShortsFeed
+              shorts={displayShorts}
+              initialShortId={activeShortId}
+              onBackHome={goHome}
+              onWatchFullVideo={(vidId) => {
+                const found = findMatchingVideo(videos, vidId);
+                if (found) {
+                  userNavigatedRef.current = true;
+                  activeVideoIdRef.current = found.id;
+                  setActiveVideo(found);
+                  setViewMode('watch');
+                  syncUrlWithVideo(found.id);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              onIncrementShortViews={(sid) => {
+                if (shorts.some((s) => s.id === sid)) {
+                  incrementShortViews(sid);
+                } else {
+                  incrementVideoViews(sid);
+                }
+              }}
+              onIncrementShortLikes={(sid) => {
+                if (shorts.some((s) => s.id === sid)) {
+                  incrementShortLikes(sid);
+                } else {
+                  incrementVideoLikes(sid);
+                }
+              }}
+            />
+          )}
+
           {viewMode === 'home' && (
-            <div className="px-4 sm:px-6 py-4 space-y-6 max-w-[1600px] mx-auto">
-              {/* Mobile Home & Trending Bar so phone users can also tap Trending anytime */}
-              <div className="flex md:hidden items-center gap-2">
+            <div className="px-3 sm:px-6 py-4 space-y-6 max-w-[1600px] mx-auto w-full overflow-x-hidden">
+              {/* Mobile Home, Shorts & Trending Bar */}
+              <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                 <button
                   type="button"
                   onClick={() => {
                     setSortByTrending(false);
                     goHome();
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors shrink-0 cursor-pointer ${
                     !sortByTrending
                       ? 'bg-zinc-800 text-white'
                       : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
@@ -936,8 +1272,16 @@ export default function App() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => openShortsTab()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-600/15 border border-red-500/30 text-red-300 hover:bg-red-600/25 transition-colors shrink-0 cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4 text-red-500" />
+                  <span>Shorts</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handleSelectTrending}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors shrink-0 cursor-pointer ${
                     sortByTrending
                       ? 'bg-zinc-800 text-white'
                       : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
@@ -948,10 +1292,10 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Native Banner Ad ONLY on Index */}
+              {/* Native Banner Ad on Index */}
               <NativeBannerAd />
 
-              {/* YouTube Video Grid (Category filter chips removed as requested) */}
+              {/* YouTube Video Grid (Home page displays only regular videos) */}
               {loadingVideos ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -998,7 +1342,7 @@ export default function App() {
 
           {/* Loading state when opening a shared ?v=<videoId> link while Firebase fetches */}
           {viewMode === 'watch' && !activeVideo && loadingVideos && (
-            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-8 space-y-4">
                 <div className="aspect-video rounded-xl bg-zinc-900 animate-pulse" />
                 <div className="h-6 bg-zinc-900 rounded animate-pulse w-2/3" />
@@ -1014,10 +1358,11 @@ export default function App() {
 
           {/* YouTube Watch View */}
           {viewMode === 'watch' && activeVideo && (
-            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
               {/* Primary Column: Player + Info + Below-Video Suggestions */}
-              <div className="lg:col-span-8 space-y-4">
+              <div className="lg:col-span-8 space-y-4 min-w-0">
                 <ProtectedVideoPlayer
+                  key={activeVideo.id}
                   videoId={activeVideo.id}
                   videoUrl={activeVideo.url || activeVideo.videoUrl}
                   title={activeVideo.title}
@@ -1027,17 +1372,17 @@ export default function App() {
 
                 {/* Video Title & Channel Bar */}
                 <div className="space-y-3 pt-1">
-                  <h1 className="text-lg sm:text-xl font-bold text-white leading-snug">
+                  <h1 className="text-base sm:text-xl font-bold text-white leading-snug break-words">
                     {activeVideo.title}
                   </h1>
 
-                  <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-zinc-800/80">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-zinc-800 text-white font-semibold flex items-center justify-center">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 text-white font-semibold flex items-center justify-center shrink-0">
                         {(activeVideo.author || 'B').charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-white">{activeVideo.author}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{activeVideo.author}</p>
                         <p className="text-xs text-zinc-400">
                           {activeVideo.views.toLocaleString()} {t.views}
                         </p>
@@ -1047,13 +1392,17 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          const wasLiked = Boolean(likedVideos[activeVideo.id]);
                           setLikedVideos((prev) => ({
                             ...prev,
-                            [activeVideo.id]: !prev[activeVideo.id],
-                          }))
-                        }
-                        className={`px-4 py-2 rounded-full text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer ${
+                            [activeVideo.id]: !wasLiked,
+                          }));
+                          if (!wasLiked) {
+                            incrementVideoLikes(activeVideo.id);
+                          }
+                        }}
+                        className={`px-3.5 sm:px-4 py-2 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                           likedVideos[activeVideo.id]
                             ? 'bg-white text-black'
                             : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100'
@@ -1066,7 +1415,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => handleShareVideo(activeVideo)}
-                        className="px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                        className="px-3.5 sm:px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <Share2 className="w-4 h-4" />
                         <span>{copiedShare ? t.copied : t.share}</span>
@@ -1076,7 +1425,7 @@ export default function App() {
 
                   {/* Description Box */}
                   {activeVideo.description && (
-                    <div className="p-3.5 rounded-xl bg-zinc-900/90 text-sm text-zinc-300 leading-relaxed">
+                    <div className="p-3.5 rounded-xl bg-zinc-900/90 text-sm text-zinc-300 leading-relaxed break-words">
                       <p>{activeVideo.description}</p>
                     </div>
                   )}
@@ -1103,7 +1452,7 @@ export default function App() {
               </div>
 
               {/* Right Column: Up Next Sidebar + 320x50 Banner */}
-              <div className="lg:col-span-4 space-y-4">
+              <div className="lg:col-span-4 space-y-4 min-w-0">
                 <Banner320x50Ad className="my-0" />
                 <h3 className="text-sm font-semibold text-zinc-200 px-1">{t.upNext}</h3>
                 <div className="space-y-2">
@@ -1125,3 +1474,4 @@ export default function App() {
     </div>
   );
 }
+

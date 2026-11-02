@@ -269,14 +269,20 @@ export const NativeBannerAd: React.FC<{ className?: string }> = ({ className = '
   }, []);
 
   return (
-    <div ref={wrapperRef} className={`w-full my-4 ${className}`}>
-      <div id={NATIVE_BANNER_CONTAINER_ID} className="w-full flex items-center justify-center" />
+    <div
+      ref={wrapperRef}
+      className={`ad-safe-container w-full max-w-full overflow-hidden my-3 px-0 ${className}`}
+    >
+      <div
+        id={NATIVE_BANNER_CONTAINER_ID}
+        className="w-full max-w-full overflow-hidden flex items-center justify-center"
+      />
     </div>
   );
 };
 
 /**
- * 320x50 Iframe Banner Ad
+ * 320x50 Iframe Banner Ad (Responsive & Contained for Telegram Mini App / Mobile)
  */
 export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '' }) => {
   const srcDocContent = `
@@ -284,8 +290,10 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
     <html>
       <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
         <style>
-          body { margin: 0; padding: 0; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          html, body { margin: 0; padding: 0; width: 100%; max-width: 100%; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          iframe, img, div { max-width: 100% !important; }
         </style>
       </head>
       <body>
@@ -304,8 +312,8 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
   `;
 
   return (
-    <div className={`flex items-center justify-center my-2 ${className}`}>
-      <div className="w-[320px] h-[50px] overflow-hidden flex items-center justify-center">
+    <div className={`ad-safe-container w-full max-w-full overflow-hidden flex items-center justify-center my-2 ${className}`}>
+      <div className="w-full max-w-[320px] h-[50px] overflow-hidden flex items-center justify-center mx-auto">
         <iframe
           title="Ad Banner"
           width={320}
@@ -313,7 +321,7 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
           scrolling="no"
           frameBorder={0}
           srcDoc={srcDocContent}
-          className="w-[320px] h-[50px]"
+          className="w-full max-w-[320px] h-[50px] border-0 overflow-hidden"
           sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
         />
       </div>
