@@ -33,6 +33,8 @@ interface ShortsFeedProps {
   onWatchFullVideo?: (videoId: string) => void;
   onIncrementShortViews: (shortId: string) => void;
   onIncrementShortLikes: (shortId: string) => void;
+  onShortWatched?: (short: ShortItem) => void;
+  onShortLiked?: (short: ShortItem) => void;
 }
 
 type FeedSlide =
@@ -46,6 +48,8 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   onWatchFullVideo,
   onIncrementShortViews,
   onIncrementShortLikes,
+  onShortWatched,
+  onShortLiked,
 }) => {
   // Build slides with a Sponsored Ad slide after every 2 Shorts
   const slides: FeedSlide[] = React.useMemo(() => {
@@ -98,14 +102,16 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     }
   }, [initialShortId, slides.length]);
 
-  // Pause non-active videos and play active unlocked video on scroll
+  // Pause non-active videos and auto-play active Short (uploaded Shorts auto-play like YouTube; full videos play once unlocked)
   useEffect(() => {
     slides.forEach((sl, idx) => {
       if (sl.type !== 'short') return;
       const vid = videoRefs.current[sl.item.id];
       if (!vid) return;
 
-      if (idx === activeIndex && unlockedMap[sl.item.id]) {
+      const isItemUnlocked = !sl.item.isLongVideo || Boolean(unlockedMap[sl.item.id]);
+
+      if (idx === activeIndex && isItemUnlocked) {
         vid.muted = isMuted;
         vid
           .play()
@@ -114,6 +120,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
             if (!viewedIdsRef.current.has(sl.item.id)) {
               viewedIdsRef.current.add(sl.item.id);
               onIncrementShortViews(sl.item.id);
+              onShortWatched?.(sl.item);
             }
           })
           .catch(() => {
@@ -123,6 +130,11 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
               .play()
               .then(() => {
                 setPlayingMap((prev) => ({ ...prev, [sl.item.id]: true }));
+                if (!viewedIdsRef.current.has(sl.item.id)) {
+                  viewedIdsRef.current.add(sl.item.id);
+                  onIncrementShortViews(sl.item.id);
+                  onShortWatched?.(sl.item);
+                }
               })
               .catch(() => {});
           });
@@ -154,11 +166,11 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     }
   };
 
-  // 3-Click Ad Gate per Short (triggers Popunder + Smartlink just like main player)
+  // Uploaded Shorts auto-play like YouTube (no 3-click gate); interleaved Full/Long videos keep the 3-Click Ad Gate
   const handleShortTapOrUnlock = (short: ShortItem, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    const isUnlocked = Boolean(unlockedMap[short.id]);
+    const isUnlocked = !short.isLongVideo || Boolean(unlockedMap[short.id]);
     if (!isUnlocked) {
       const currentClicks = adGateClicks[short.id] || 0;
       const nextClicks = currentClicks + 1;
@@ -182,6 +194,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
               if (!viewedIdsRef.current.has(short.id)) {
                 viewedIdsRef.current.add(short.id);
                 onIncrementShortViews(short.id);
+                onShortWatched?.(short);
               }
             })
             .catch(() => {
@@ -194,7 +207,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
       return;
     }
 
-    // Already unlocked: toggle play/pause
+    // Already unlocked (or uploaded Short): toggle play/pause (or unmute if muted)
     const vid = videoRefs.current[short.id];
     if (!vid) return;
     if (vid.paused) {
@@ -217,7 +230,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         const vid = videoRefs.current[short.id];
         if (!vid) return;
         vid.load();
-        if (unlockedMap[short.id]) {
+        if (!short.isLongVideo || unlockedMap[short.id]) {
           vid.play().catch(() => {});
         }
       }, 100);
@@ -260,6 +273,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     if (nextState && !likedCountedRef.current.has(short.id)) {
       likedCountedRef.current.add(short.id);
       onIncrementShortLikes(short.id);
+      onShortLiked?.(short);
     }
   };
 
@@ -380,7 +394,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
           }
 
           const short = slide.item;
-          const isUnlocked = Boolean(unlockedMap[short.id]);
+          const isUnlocked = !short.isLongVideo || Boolean(unlockedMap[short.id]);
           const isPlaying = Boolean(playingMap[short.id]);
           const clicksSoFar = adGateClicks[short.id] || 0;
           const streamUrl = getResolvedShortStreamUrl(short);
@@ -418,20 +432,43 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                   src={streamUrl}
                   poster={thumbUrl || 'https://bdcollection.pages.dev/favicon.png'}
                   playsInline
+                  autoPlay={idx === activeIndex && !short.isLongVideo}
                   loop
                   muted={isMuted}
-                  preload="metadata"
+                  preload="auto"
                   controlsList="nodownload noplaybackrate"
                   disablePictureInPicture
                   onContextMenu={(e) => e.preventDefault()}
+                  onCanPlay={(e) => {
+                    if (idx === activeIndex && (!short.isLongVideo || unlockedMap[short.id])) {
+                      const vid = e.currentTarget;
+                      if (vid.paused) {
+                        vid
+                          .play()
+                          .then(() => {
+                            setPlayingMap((prev) => ({ ...prev, [short.id]: true }));
+                            if (!viewedIdsRef.current.has(short.id)) {
+                              viewedIdsRef.current.add(short.id);
+                              onIncrementShortViews(short.id);
+                              onShortWatched?.(short);
+                            }
+                          })
+                          .catch(() => {
+                            vid.muted = true;
+                            setIsMuted(true);
+                            vid.play().catch(() => {});
+                          });
+                      }
+                    }
+                  }}
                   onError={() => handleVideoStreamError(short)}
                   className={`absolute inset-0 w-full h-full ${
                     short.isLongVideo ? 'object-contain' : 'object-cover'
                   } pointer-events-none`}
                 />
 
-                {/* Thumbnail Poster Overlay before Unlock */}
-                {!isUnlocked && thumbUrl && (
+                {/* Thumbnail Poster Overlay before Unlock (ONLY for interleaved Full/Long videos) */}
+                {short.isLongVideo && !isUnlocked && thumbUrl && (
                   <div className="absolute inset-0 z-10 overflow-hidden bg-black pointer-events-none">
                     <img
                       src={thumbUrl}
@@ -443,22 +480,20 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                       src={thumbUrl}
                       alt={short.title}
                       referrerPolicy="no-referrer"
-                      className={`relative z-10 w-full h-full ${
-                        short.isLongVideo ? 'object-contain' : 'object-cover'
-                      }`}
+                      className="relative z-10 w-full h-full object-contain"
                     />
                   </div>
                 )}
 
-                {/* Center Play / 3-Click Ad Unlock Button */}
-                {(!isUnlocked || !isPlaying) && (
+                {/* Center Play / 3-Click Ad Unlock Button (ONLY on interleaved Full/Long videos; uploaded Shorts have NO play button overlay and play automatically like YouTube) */}
+                {short.isLongVideo && (!isUnlocked || !isPlaying) && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/35 pointer-events-none">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600/95 text-white flex items-center justify-center shadow-2xl border-2 border-white/20">
                       <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-white ml-1" />
                     </div>
                     {!isUnlocked && clicksSoFar > 0 && (
                       <span className="mt-2.5 px-3 py-1 rounded-full bg-black/80 border border-white/15 text-xs font-semibold text-amber-300">
-                        Tap {3 - clicksSoFar} more {3 - clicksSoFar === 1 ? 'time' : 'times'} to Play Short ▶
+                        Tap {3 - clicksSoFar} more {3 - clicksSoFar === 1 ? 'time' : 'times'} to Play Video ▶
                       </span>
                     )}
                   </div>

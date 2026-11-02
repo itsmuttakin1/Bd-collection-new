@@ -143,6 +143,180 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
   });
 };
 
+// ============================================================================
+// YOUTUBE-STYLE PERSONALIZED RECOMMENDATION & TRENDING ALGORITHM ENGINE
+// ============================================================================
+interface UserTasteProfile {
+  tagScores: Record<string, number>;
+  categoryScores: Record<string, number>;
+  watchedHistory: Record<string, { count: number; lastAt: number }>;
+  likedHistory: Record<string, number>;
+}
+
+const ALGO_STORAGE_KEY = 'bd_yt_algo_profile_v1';
+
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'video', 'videos', 'watch', 'new', 'full', 'hd', 'bd', 'collection',
+]);
+
+const extractContentTokens = (item: {
+  title?: string;
+  keywords?: string;
+  hashtags?: string;
+  description?: string;
+  category?: string;
+}): string[] => {
+  const rawText = [
+    item.title || '',
+    item.keywords || '',
+    item.hashtags || '',
+    item.description || '',
+    item.category || '',
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const matches = rawText.match(/[#a-z0-9\u0980-\u09ff]{2,}/gi) || [];
+  const unique = new Set<string>();
+  for (const m of matches) {
+    const clean = m.replace(/^#+/, '').trim();
+    if (clean.length >= 2 && !STOP_WORDS.has(clean)) {
+      unique.add(clean);
+    }
+  }
+  return Array.from(unique);
+};
+
+const loadUserTasteProfile = (): UserTasteProfile => {
+  try {
+    const raw = localStorage.getItem(ALGO_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        tagScores: parsed.tagScores || {},
+        categoryScores: parsed.categoryScores || {},
+        watchedHistory: parsed.watchedHistory || {},
+        likedHistory: parsed.likedHistory || {},
+      };
+    }
+  } catch {}
+  return {
+    tagScores: {},
+    categoryScores: {},
+    watchedHistory: {},
+    likedHistory: {},
+  };
+};
+
+// Computes YouTube-style recommendation score based on:
+// 1. Similarity to what the user is currently watching (`referenceItem`)
+// 2. User's personal watch & like history (`profile.tagScores` & `categoryScores`)
+// 3. Video engagement (`views` + `likes * 6`) & freshness (`createdAt`)
+const computeYouTubeRecommendationScore = (
+  candidate: {
+    id: string;
+    title?: string;
+    keywords?: string;
+    hashtags?: string;
+    description?: string;
+    category?: string;
+    views?: number;
+    likes?: number;
+    createdAt?: number;
+  },
+  profile: UserTasteProfile,
+  referenceItem?: {
+    id: string;
+    title?: string;
+    keywords?: string;
+    hashtags?: string;
+    description?: string;
+    category?: string;
+  } | null
+): number => {
+  const tokens = extractContentTokens(candidate);
+  let score = 0;
+
+  // 1. Personal Interest Affinity (matches what types of videos the user watches/likes)
+  for (const tok of tokens) {
+    if (profile.tagScores[tok]) {
+      score += profile.tagScores[tok] * 14;
+    }
+  }
+
+  const cat = (candidate.category || '').trim().toLowerCase();
+  if (cat && profile.categoryScores[cat]) {
+    score += profile.categoryScores[cat] * 20;
+  }
+
+  // 2. Direct Context Similarity (when watching a video, boost videos with similar keywords/title/category)
+  if (referenceItem && referenceItem.id !== candidate.id) {
+    const refTokens = new Set(extractContentTokens(referenceItem));
+    let sharedCount = 0;
+    for (const tok of tokens) {
+      if (refTokens.has(tok)) {
+        sharedCount++;
+      }
+    }
+    score += sharedCount * 45;
+
+    const refCat = (referenceItem.category || '').trim().toLowerCase();
+    if (cat && refCat && cat === refCat) {
+      score += 60;
+    }
+  }
+
+  // 3. Engagement & Virality Signal (Views + Weighted Likes)
+  const views = Number(candidate.views) || 0;
+  const likes = Number(candidate.likes) || 0;
+  score += Math.log10(1 + views + likes * 6) * 28;
+
+  // 4. Freshness Signal (Newer uploads get a discovery boost like YouTube)
+  const ageHours = Math.max(
+    1,
+    (Date.now() - (Number(candidate.createdAt) || Date.now())) / (1000 * 60 * 60)
+  );
+  score += Math.max(0, 40 - Math.log2(ageHours) * 4);
+
+  // 5. Watch History Novelty Adjustment (boost unwatched matching videos; slightly cool down just-watched video)
+  const watched = profile.watchedHistory[candidate.id];
+  if (!watched) {
+    score += 22; // Unwatched discovery boost
+  } else {
+    const minsSinceWatched = (Date.now() - watched.lastAt) / (1000 * 60);
+    if (minsSinceWatched < 10) {
+      score -= 35; // Recently watched cooldown so new suggestions rise to the top
+    }
+  }
+
+  return score;
+};
+
+// Computes YouTube Trending Velocity Score (Views + Likes velocity + Recency + Personal Affinity)
+const computeYouTubeTrendingScore = (
+  item: {
+    id: string;
+    title?: string;
+    keywords?: string;
+    hashtags?: string;
+    category?: string;
+    views?: number;
+    likes?: number;
+    createdAt?: number;
+  },
+  profile: UserTasteProfile
+): number => {
+  const views = Number(item.views) || 0;
+  const likes = Number(item.likes) || 0;
+  const ageDays = Math.max(
+    0.25,
+    (Date.now() - (Number(item.createdAt) || Date.now())) / (1000 * 60 * 60 * 24)
+  );
+  const engagementVelocity = (views + likes * 8) / Math.pow(ageDays + 1, 0.45);
+  const personalBoost = computeYouTubeRecommendationScore(item, profile, null) * 0.35;
+  return engagementVelocity * 10 + personalBoost;
+};
+
 export default function App() {
   // Read initial `?v=<videoId>`, `?short=<shortId>`, or one-time Telegram `start_param`
   const initialShortId = useMemo(() => getRequestedShortIdFromUrl(true), []);
@@ -160,6 +334,14 @@ export default function App() {
     count: 0,
     ids: [],
   });
+  const homeOrderRef = useRef<{ count: number; profileRev: number; ids: string[] }>({
+    count: 0,
+    profileRev: -1,
+    ids: [],
+  });
+
+  const [tasteProfile, setTasteProfile] = useState<UserTasteProfile>(() => loadUserTasteProfile());
+  const [profileRevision, setProfileRevision] = useState<number>(0);
 
   const [, setSharedVideoId] = useState<string | null>(initialUrlVidId);
   const [activeShortId, setActiveShortId] = useState<string | null>(initialShortId);
@@ -472,7 +654,7 @@ export default function App() {
     pendingSharedIdRef.current = null;
     activeVideoIdRef.current = null;
     setSharedVideoId(null);
-    const targetId = shortId || shorts[0]?.id || null;
+    const targetId = shortId || shorts[0]?.id || videos[0]?.id || null;
     setActiveShortId(targetId);
     setViewMode('shorts');
     syncUrlWithShort(targetId);
@@ -893,7 +1075,65 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 3x Smartlink clicks on any video card before opening Watch page
+  // Record user watch or like signal into the YouTube Recommendation Algorithm Profile
+  const recordAlgorithmInteraction = (
+    item: {
+      id: string;
+      title?: string;
+      keywords?: string;
+      hashtags?: string;
+      description?: string;
+      category?: string;
+    },
+    signalType: 'watch' | 'like'
+  ) => {
+    if (!item || !item.id) return;
+    const weight = signalType === 'like' ? 5 : 2;
+    const tokens = extractContentTokens(item);
+    const cat = (item.category || '').trim().toLowerCase();
+
+    setTasteProfile((prev) => {
+      const nextTags = { ...prev.tagScores };
+      for (const tok of tokens) {
+        nextTags[tok] = Math.min(200, (nextTags[tok] || 0) + weight);
+      }
+
+      const nextCats = { ...prev.categoryScores };
+      if (cat) {
+        nextCats[cat] = Math.min(200, (nextCats[cat] || 0) + weight * 1.5);
+      }
+
+      const prevWatch = prev.watchedHistory[item.id];
+      const nextWatched = {
+        ...prev.watchedHistory,
+        [item.id]: {
+          count: (prevWatch?.count || 0) + (signalType === 'watch' ? 1 : 0),
+          lastAt: Date.now(),
+        },
+      };
+
+      const nextLiked =
+        signalType === 'like'
+          ? { ...prev.likedHistory, [item.id]: Date.now() }
+          : prev.likedHistory;
+
+      const updated: UserTasteProfile = {
+        tagScores: nextTags,
+        categoryScores: nextCats,
+        watchedHistory: nextWatched,
+        likedHistory: nextLiked,
+      };
+
+      try {
+        localStorage.setItem(ALGO_STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    setProfileRevision((r) => r + 1);
+  };
+
+  // 3x Smartlink clicks on any full video card before opening Watch page
   // Uses functional state updater and locks onto the exact clicked `video.id`
   const handleVideoCardClick = (video: VideoItem) => {
     if (adBlockActive || !video) return;
@@ -921,11 +1161,13 @@ export default function App() {
     setViewMode('watch');
     syncUrlWithVideo(video.id);
     incrementVideoViews(video.id);
+    recordAlgorithmInteraction(video, 'watch');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleVideoPlaySuccess = (video: VideoItem) => {
     incrementVideoViews(video.id);
+    recordAlgorithmInteraction(video, 'watch');
   };
 
   // Build and copy direct shareable link for the active video (`https://<origin>/?v=<videoId>`)
@@ -939,45 +1181,71 @@ export default function App() {
     setTimeout(() => setCopiedShare(false), 2000);
   };
 
-  // Fisher-Yates shuffle that guarantees a new random video at the top every time
-  const shuffleVideosRandomly = (items: VideoItem[], prevTopId?: string): VideoItem[] => {
-    const arr = [...items];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    if (arr.length > 1 && prevTopId && arr[0].id === prevTopId) {
-      const swapIdx = 1 + Math.floor(Math.random() * (arr.length - 1));
-      [arr[0], arr[swapIdx]] = [arr[swapIdx], arr[0]];
-    }
-    return arr;
-  };
-
-  // Triggered every time user clicks "Trending" — brings random videos to the top each time
+  // Triggered when user clicks "Trending" — ranks videos by YouTube Trending Velocity + user interest
   const handleSelectTrending = () => {
     const currentTopId =
       (sortByTrending && trendingVideos[0]?.id) || videos[0]?.id || undefined;
-    const freshlyShuffled = shuffleVideosRandomly(videos, currentTopId);
-    setTrendingVideos(freshlyShuffled);
+    const rankedTrending = [...videos].sort((a, b) => {
+      const scoreB =
+        computeYouTubeTrendingScore(b, tasteProfile) + Math.random() * 18;
+      const scoreA =
+        computeYouTubeTrendingScore(a, tasteProfile) + Math.random() * 18;
+      return scoreB - scoreA;
+    });
+    if (rankedTrending.length > 1 && currentTopId && rankedTrending[0].id === currentTopId) {
+      [rankedTrending[0], rankedTrending[1]] = [rankedTrending[1], rankedTrending[0]];
+    }
+    setTrendingVideos(rankedTrending);
     setTrendingSeed((prev) => prev + 1);
     setSortByTrending(true);
     goHome();
   };
 
+  // YouTube-Style Personalized Home & Trending Video Feed
   const filteredVideos = useMemo(() => {
     let sourceList = videos;
+
     if (sortByTrending) {
       if (trendingVideos.length > 0) {
         const videoMap = new Map<string, VideoItem>(videos.map((v) => [v.id, v]));
-        const syncedRandom = trendingVideos
+        const syncedTrending = trendingVideos
           .map((tv) => videoMap.get(tv.id))
           .filter((v): v is VideoItem => Boolean(v));
-        const existingIds = new Set(syncedRandom.map((v) => v.id));
+        const existingIds = new Set(syncedTrending.map((v) => v.id));
         const newOnes = videos.filter((v) => !existingIds.has(v.id));
-        sourceList = [...syncedRandom, ...newOnes];
+        sourceList = [...syncedTrending, ...newOnes];
       } else {
-        sourceList = videos;
+        sourceList = [...videos].sort(
+          (a, b) =>
+            computeYouTubeTrendingScore(b, tasteProfile) -
+            computeYouTubeTrendingScore(a, tasteProfile)
+        );
       }
+    } else if (videos.length > 0) {
+      // Stabilized YouTube Home Feed order (updates when video count or user watch profile changes, never jumps during 3-click ad gate)
+      if (
+        homeOrderRef.current.count !== videos.length ||
+        homeOrderRef.current.profileRev !== profileRevision ||
+        homeOrderRef.current.ids.length === 0
+      ) {
+        const rankedHome = [...videos].sort(
+          (a, b) =>
+            computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
+            computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+        );
+        homeOrderRef.current = {
+          count: videos.length,
+          profileRev: profileRevision,
+          ids: rankedHome.map((v) => v.id),
+        };
+      }
+      const videoMap = new Map<string, VideoItem>(videos.map((v) => [v.id, v]));
+      const ordered = homeOrderRef.current.ids
+        .map((id) => videoMap.get(id))
+        .filter((v): v is VideoItem => Boolean(v));
+      const inOrder = new Set(ordered.map((v) => v.id));
+      const remaining = videos.filter((v) => !inOrder.has(v.id));
+      sourceList = [...ordered, ...remaining];
     }
 
     return sourceList.filter((v) => {
@@ -990,9 +1258,10 @@ export default function App() {
         v.author.toLowerCase().includes(q)
       );
     });
-  }, [videos, searchQuery, sortByTrending, trendingVideos, trendingSeed]);
+  }, [videos, searchQuery, sortByTrending, trendingVideos, trendingSeed, profileRevision]);
 
-  // Stabilized Suggested Videos order so Firebase view increments NEVER reshuffle cards while user is clicking
+  // YouTube-Style Suggested Videos ("Up Next" & "More Videos"):
+  // Recommends videos similar to the currently playing `activeVideo` + the user's watched/liked history
   const suggestedVideos = useMemo(() => {
     const currentVidId = activeVideo?.id || '__none__';
     const others = activeVideo ? videos.filter((v) => v.id !== activeVideo.id) : videos;
@@ -1002,13 +1271,17 @@ export default function App() {
       suggestedOrderRef.current.count !== others.length ||
       suggestedOrderRef.current.ids.length === 0
     ) {
-      const shuffled = shuffleVideosRandomly(others);
+      const rankedSuggestions = [...others].sort(
+        (a, b) =>
+          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
+          computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+      );
       suggestedOrderRef.current = {
         forVideoId: currentVidId,
         count: others.length,
-        ids: shuffled.map((v) => v.id),
+        ids: rankedSuggestions.map((v) => v.id),
       };
-      return shuffled;
+      return rankedSuggestions;
     }
 
     const videoMap = new Map<string, VideoItem>(others.map((v) => [v.id, v]));
@@ -1018,55 +1291,100 @@ export default function App() {
     const inOrder = new Set(ordered.map((v) => v.id));
     const remaining = others.filter((v) => !inOrder.has(v.id));
     return [...ordered, ...remaining];
-  }, [videos, activeVideo?.id]);
+  }, [videos, activeVideo?.id, profileRevision]);
 
-  // Effective Shorts list: shows uploaded `shorts` from Admin Panel and occasionally ("maje maje") interleaves long `videos`
+  // Algorithm-Ranked Uploaded Shorts for the Home Page YouTube Shorts Shelf
+  const recommendedHomeShorts = useMemo<ShortItem[]>(() => {
+    const baseShorts: ShortItem[] =
+      shorts.length > 0
+        ? shorts
+        : videos.slice(0, 8).map((v) => ({
+            id: v.id,
+            title: v.title,
+            hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
+            keywords: v.keywords,
+            videoUrl: v.videoUrl || v.url || '',
+            url: v.url || v.videoUrl || '',
+            r2Key: v.r2Key,
+            thumbnail: v.thumbnail || v.thumbnailUrl || '',
+            thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
+            duration: v.duration || '00:35',
+            views: v.views || 0,
+            likes: v.likes || 0,
+            createdAt: v.createdAt,
+            addedAt: v.addedAt || v.createdAt,
+            author: v.author || 'Bd Collection',
+            isLongVideo: shorts.length === 0,
+          }));
+
+    return [...baseShorts].sort(
+      (a, b) =>
+        computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
+        computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+    );
+  }, [shorts, videos, profileRevision, activeVideo?.id]);
+
+  // Effective Shorts Feed list: Algorithm-ranked uploaded `shorts` + occasionally ("maje maje") interleaved algorithm-matched long `videos`
   const displayShorts = useMemo<ShortItem[]>(() => {
-    const longVideosAsShorts: ShortItem[] = videos.map((v) => ({
-      id: v.id,
-      title: v.title,
-      hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
-      keywords: v.keywords,
-      videoUrl: v.videoUrl || v.url || '',
-      url: v.url || v.videoUrl || '',
-      r2Key: v.r2Key,
-      thumbnail: v.thumbnail || v.thumbnailUrl || '',
-      thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
-      duration: v.duration || '02:30',
-      views: v.views || 0,
-      likes: v.likes || 0,
-      createdAt: v.createdAt,
-      addedAt: v.addedAt || v.createdAt,
-      author: v.author || 'Bd Collection',
-      isLongVideo: true,
-    }));
+    const rankedLongAsShorts: ShortItem[] = [...videos]
+      .sort(
+        (a, b) =>
+          computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
+          computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+      )
+      .map((v) => ({
+        id: v.id,
+        title: v.title,
+        hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
+        keywords: v.keywords,
+        videoUrl: v.videoUrl || v.url || '',
+        url: v.url || v.videoUrl || '',
+        r2Key: v.r2Key,
+        thumbnail: v.thumbnail || v.thumbnailUrl || '',
+        thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
+        duration: v.duration || '02:30',
+        views: v.views || 0,
+        likes: v.likes || 0,
+        createdAt: v.createdAt,
+        addedAt: v.addedAt || v.createdAt,
+        author: v.author || 'Bd Collection',
+        isLongVideo: true,
+      }));
 
     if (shorts.length === 0) {
-      return longVideosAsShorts;
+      return rankedLongAsShorts;
     }
 
-    const usedIds = new Set(shorts.map((s) => s.id));
-    const availableLong = longVideosAsShorts.filter((lv) => !usedIds.has(lv.id));
+    const rankedUploadedShorts = [...shorts].sort(
+      (a, b) =>
+        computeYouTubeRecommendationScore(b, tasteProfile, activeVideo) -
+        computeYouTubeRecommendationScore(a, tasteProfile, activeVideo)
+    );
+
+    const usedIds = new Set(rankedUploadedShorts.map((s) => s.id));
+    const availableLong = rankedLongAsShorts.filter((lv) => !usedIds.has(lv.id));
     const mixed: ShortItem[] = [];
     let longIdx = 0;
 
-    shorts.forEach((s, idx) => {
+    rankedUploadedShorts.forEach((s, idx) => {
       mixed.push(s);
-      // Occasionally ("maje maje"): insert 1 long video after every 2 uploaded Shorts
+      // Occasionally ("maje maje"): insert 1 algorithm-matched long video after every 2 uploaded Shorts
       if ((idx + 1) % 2 === 0 && longIdx < availableLong.length) {
         mixed.push(availableLong[longIdx]);
         longIdx++;
       }
     });
 
-    // If there are only 1-2 uploaded Shorts, still mix in up to 3 occasional long videos after them
-    while (longIdx < availableLong.length && longIdx < Math.max(3, Math.ceil(shorts.length / 2) + 2)) {
+    while (
+      longIdx < availableLong.length &&
+      longIdx < Math.max(3, Math.ceil(rankedUploadedShorts.length / 2) + 2)
+    ) {
       mixed.push(availableLong[longIdx]);
       longIdx++;
     }
 
     return mixed;
-  }, [shorts, videos]);
+  }, [shorts, videos, profileRevision, activeVideo?.id]);
 
   return (
     <div
@@ -1248,6 +1566,12 @@ export default function App() {
                   incrementVideoLikes(sid);
                 }
               }}
+              onShortWatched={(shortItem) => {
+                recordAlgorithmInteraction(shortItem, 'watch');
+              }}
+              onShortLiked={(shortItem) => {
+                recordAlgorithmInteraction(shortItem, 'like');
+              }}
             />
           )}
 
@@ -1295,7 +1619,7 @@ export default function App() {
               {/* Native Banner Ad on Index */}
               <NativeBannerAd />
 
-              {/* YouTube Video Grid (Home page displays only regular videos) */}
+              {/* YouTube Video Grid + YouTube-Style Suggested Shorts Shelf */}
               {loadingVideos ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -1326,15 +1650,100 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                  {filteredVideos.map((video) => (
-                    <VideoCard
-                      key={video.id}
-                      video={video}
-                      onCardClick={handleVideoCardClick}
-                      t={t}
-                    />
-                  ))}
+                <div className="space-y-8">
+                  {/* Top Row of Recommended Videos */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                    {filteredVideos.slice(0, 4).map((video) => (
+                      <VideoCard
+                        key={video.id}
+                        video={video}
+                        onCardClick={handleVideoCardClick}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+
+                  {/* YouTube-Style Suggested Shorts Shelf on Home Page (Clicking any Short opens the Shorts Feed & auto-plays) */}
+                  {recommendedHomeShorts.length > 0 && !searchQuery.trim() && (
+                    <section className="py-4 border-y border-zinc-800/80 space-y-3.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-red-600 flex items-center justify-center shadow-md shadow-red-600/30">
+                            <Smartphone className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-base sm:text-lg font-bold text-white leading-tight">
+                              Shorts
+                            </h2>
+                            <p className="text-[11px] text-zinc-400">
+                              Suggested for you · Click to open Shorts feed
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openShortsTab()}
+                          className="px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-red-400 hover:text-red-300 cursor-pointer transition-colors"
+                        >
+                          View All Shorts →
+                        </button>
+                      </div>
+
+                      <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
+                        {recommendedHomeShorts.slice(0, 10).map((s) => (
+                          <div
+                            key={`home-short-shelf-${s.id}`}
+                            onClick={() => openShortsTab(s.id)}
+                            className="group relative w-36 sm:w-44 aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 hover:border-red-500/60 shrink-0 cursor-pointer shadow-lg transition-all"
+                          >
+                            {s.thumbnail ? (
+                              <img
+                                src={s.thumbnail}
+                                alt={s.title}
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <video
+                                src={`${s.url}#t=2.0`}
+                                preload="metadata"
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover pointer-events-none"
+                              />
+                            )}
+                            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-red-600/90 text-[10px] font-bold text-white flex items-center gap-1 shadow">
+                              <Smartphone className="w-2.5 h-2.5" />
+                              <span>SHORT</span>
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent flex flex-col justify-end p-2.5">
+                              <p className="text-xs font-bold text-white line-clamp-2 leading-snug group-hover:text-red-300 transition-colors">
+                                {s.title}
+                              </p>
+                              <p className="text-[10px] text-zinc-300 mt-1 tabular-nums">
+                                {(s.views || 0).toLocaleString()} {t.views}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Remaining Recommended Videos Grid */}
+                  {filteredVideos.length > 4 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                      {filteredVideos.slice(4).map((video) => (
+                        <VideoCard
+                          key={video.id}
+                          video={video}
+                          onCardClick={handleVideoCardClick}
+                          t={t}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1400,6 +1809,7 @@ export default function App() {
                           }));
                           if (!wasLiked) {
                             incrementVideoLikes(activeVideo.id);
+                            recordAlgorithmInteraction(activeVideo, 'like');
                           }
                         }}
                         className={`px-3.5 sm:px-4 py-2 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
@@ -1434,6 +1844,62 @@ export default function App() {
                 {/* 320x50 Banner Ad & Native Banner below video */}
                 <Banner320x50Ad />
                 <NativeBannerAd />
+
+                {/* YouTube-Style Suggested Shorts Shelf on Watch Page */}
+                {recommendedHomeShorts.length > 0 && (
+                  <div className="pt-3 pb-2 border-y border-zinc-800/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-red-600 flex items-center justify-center">
+                          <Smartphone className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="text-sm font-bold text-white">Shorts · Suggested for you</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openShortsTab()}
+                        className="text-xs font-semibold text-red-400 hover:text-red-300 cursor-pointer"
+                      >
+                        View All Shorts →
+                      </button>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                      {recommendedHomeShorts.slice(0, 8).map((s) => (
+                        <div
+                          key={`watch-short-${s.id}`}
+                          onClick={() => openShortsTab(s.id)}
+                          className="group relative w-32 sm:w-36 aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-red-500/60 shrink-0 cursor-pointer shadow-md"
+                        >
+                          {s.thumbnail ? (
+                            <img
+                              src={s.thumbnail}
+                              alt={s.title}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <video
+                              src={`${s.url}#t=2.0`}
+                              preload="metadata"
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover pointer-events-none"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent flex flex-col justify-end p-2">
+                            <p className="text-[11px] font-bold text-white line-clamp-2 leading-snug">
+                              {s.title}
+                            </p>
+                            <p className="text-[10px] text-zinc-300 mt-0.5 tabular-nums">
+                              {(s.views || 0).toLocaleString()} {t.views}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Suggested Videos Grid directly below the video player */}
                 <div className="pt-4 space-y-4">
