@@ -191,6 +191,43 @@ async function startServer() {
     }
   });
 
+  // Direct Image Download Proxy (/api/download-image) so external thumbnails (ImgBB/PostImg) download cleanly
+  app.get('/api/download-image', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    const rawUrl = String(req.query.url || '').trim();
+    const rawName = String(req.query.filename || 'thumbnail.jpg')
+      .replace(/[^a-zA-Z0-9_\-.]/g, '_')
+      .slice(0, 90);
+    const filename = rawName.endsWith('.jpg') || rawName.endsWith('.png') || rawName.endsWith('.webp')
+      ? rawName
+      : `${rawName}.jpg`;
+
+    if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
+      res.status(400).json({ error: 'Invalid image URL' });
+      return;
+    }
+
+    try {
+      const upstream = await fetch(rawUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        redirect: 'follow',
+      });
+      if (!upstream.ok) {
+        res.status(upstream.status).end();
+        return;
+      }
+      const ct = upstream.headers.get('content-type') || 'image/jpeg';
+      const arrayBuf = await upstream.arrayBuffer();
+      res.setHeader('Content-Type', ct);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(Buffer.from(arrayBuf));
+    } catch (err: any) {
+      res.status(502).json({ error: err?.message || 'Failed to download image' });
+    }
+  });
+
   // High-speed Video Stream Proxy & Codec Transcoder (/api/stream)
   // Fixes playback for pub-*.r2.dev/*.mp4 across all ISPs, browsers, Range requests, and HEVC/AV1 codecs
   app.options('/api/stream', (_req, res) => {

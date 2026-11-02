@@ -82,7 +82,13 @@
           <h3 class="text-base font-bold text-white">Edit Video Details (পুরাতন ভিডিও এডিট করুন)</h3>
           <p id="edit-video-id-label" class="text-[11px] font-mono text-zinc-500 mt-0.5"></p>
         </div>
-        <button id="close-edit-modal-btn" type="button" class="text-zinc-400 hover:text-white text-sm cursor-pointer">✕</button>
+        <div class="flex items-center gap-2">
+          <button id="edit-copy-share-btn" type="button"
+            class="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
+            🔗 Copy Share Link
+          </button>
+          <button id="close-edit-modal-btn" type="button" class="text-zinc-400 hover:text-white text-sm cursor-pointer">✕</button>
+        </div>
       </div>
 
       <form id="edit-video-form" class="space-y-4">
@@ -114,6 +120,10 @@
               <button id="edit-gen-3thumbs-btn" type="button"
                 class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium cursor-pointer transition-colors">
                 🎬 Generate 3 Frames
+              </button>
+              <button id="edit-download-thumb-btn" type="button"
+                class="px-2.5 py-1 rounded-lg bg-sky-950/90 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer transition-colors">
+                ⬇ Download Thumbnail
               </button>
               <label class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer transition-colors">
                 📤 Custom Thumbnail
@@ -523,6 +533,10 @@
                     class="hidden px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium cursor-pointer transition-colors">
                     ↻ নতুন ৩টি থাম্বনেইল নিন (Regenerate 3)
                   </button>
+                  <button id="upload-download-thumb-btn" type="button"
+                    class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer transition-colors">
+                    ⬇ Download Thumbnail
+                  </button>
                   <label class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer transition-colors">
                     🖼️ Upload Custom Thumbnail
                     <input id="custom-thumb-file-input" type="file" accept="image/*" class="hidden" />
@@ -532,9 +546,9 @@
 
               <!-- YouTube-Style 3 Auto-Generated Thumbnails Picker -->
               <div id="auto-thumbs-section" class="hidden p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/90 space-y-2">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-semibold text-emerald-400">🎬 অটো-জেনারেটেড ৩টি থাম্বনেইল (যেটি ভালো লাগে সেটিতে ক্লিক করুন):</span>
-                  <span class="text-[11px] font-mono text-zinc-400">16:9 Auto-Adjusted · ImgBB</span>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs font-semibold text-emerald-400">🎬 অটো-জেনারেটেড ৩টি থাম্বনেইল (সিলেক্ট করুন অথবা ⬇ বাটনে ক্লিক করে ডাউনলোড করুন):</span>
+                  <span class="text-[11px] font-mono text-zinc-400">16:9 Auto-Adjusted · Downloadable</span>
                 </div>
                 <div id="auto-thumbs-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
               </div>
@@ -1936,6 +1950,119 @@ service cloud.firestore {
       });
     };
 
+    // Helper to build the exact Index Watch Share Link (`https://domain/?v=<videoId>`)
+    window.buildVideoShareLink = (videoId) => {
+      const origin = window.location.origin || 'https://bdcollection.pages.dev';
+      return `${origin}/?v=${encodeURIComponent(videoId)}`;
+    };
+
+    // Helper to copy a video's Share Link to clipboard
+    window.copyVideoShareLink = async (videoId, title = '') => {
+      if (!videoId) return;
+      const shareUrl = window.buildVideoShareLink(videoId);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = shareUrl;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showStatus(
+        `Copied Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        'success'
+      );
+      return shareUrl;
+    };
+
+    // Helper to download any thumbnail (DataURL, remote ImgBB/PostImg URL, or auto-extract from video stream URL)
+    window.downloadThumbnailImage = async (imgSrc, filenameBase = 'video-thumbnail', fallbackVideoUrl = '') => {
+      const cleanName =
+        String(filenameBase || 'video-thumbnail')
+          .trim()
+          .replace(/[\\/:*?"<>|]+/g, '_')
+          .replace(/\s+/g, '-')
+          .slice(0, 75) || 'video-thumbnail';
+      const finalFilename = `${cleanName}.jpg`;
+
+      let targetSrc = (imgSrc || '').trim();
+
+      // If no thumbnail image is saved yet for an older video, extract a frame live from its video stream
+      if (!targetSrc && fallbackVideoUrl) {
+        showStatus(`"${filenameBase}"-এর ভিডিও থেকে থাম্বনেইল তৈরি করে ডাউনলোড করা হচ্ছে...`, 'info');
+        const proxied = `/api/stream?url=${encodeURIComponent(fallbackVideoUrl.trim())}`;
+        let extracted = await extractThreeVideoThumbnails(proxied, false, false);
+        if (!extracted.frames || extracted.frames.length === 0) {
+          extracted = await extractThreeVideoThumbnails(
+            `/api/stream?url=${encodeURIComponent(fallbackVideoUrl.trim())}&transcode=1`,
+            false,
+            false
+          );
+        }
+        if (extracted.frames && extracted.frames.length > 0) {
+          targetSrc = extracted.frames[0].dataUrl;
+        }
+      }
+
+      if (!targetSrc) {
+        showStatus('ডাউনলোড করার মতো কোনো থাম্বনেইল পাওয়া যায়নি। প্রথমে ভিডিও সিলেক্ট বা থাম্বনেইল জেনারেট করুন।', 'error');
+        return;
+      }
+
+      // Case 1: Base64 DataURL or Blob URL
+      if (targetSrc.startsWith('data:') || targetSrc.startsWith('blob:')) {
+        const a = document.createElement('a');
+        a.href = targetSrc;
+        a.download = finalFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showStatus(`Downloaded thumbnail "${finalFilename}" ✓`, 'success');
+        return;
+      }
+
+      // Case 2: Remote HTTP/HTTPS URL — use /api/download-image proxy (or direct fetch blob fallback)
+      try {
+        const proxyUrl = `/api/download-image?url=${encodeURIComponent(targetSrc)}&filename=${encodeURIComponent(finalFilename)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('Proxy status ' + res.status);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = finalFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        showStatus(`Downloaded thumbnail "${finalFilename}" ✓`, 'success');
+      } catch {
+        try {
+          const directRes = await fetch(targetSrc);
+          const blob = await directRes.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = finalFilename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+          showStatus(`Downloaded thumbnail "${finalFilename}" ✓`, 'success');
+        } catch {
+          // Final fallback: direct link trigger
+          const a = document.createElement('a');
+          a.href = `/api/download-image?url=${encodeURIComponent(targetSrc)}&filename=${encodeURIComponent(finalFilename)}`;
+          a.download = finalFilename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      }
+    };
+
     // Render the 3-thumbnail selector cards in Upload section
     const renderThreeThumbsPicker = () => {
       const section = document.getElementById('auto-thumbs-section');
@@ -1953,16 +2080,19 @@ service cloud.firestore {
 
       generatedThreeThumbs.forEach((item, idx) => {
         const isSelected = idx === selectedThumbOptionIdx;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `group relative aspect-video w-full rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
+        const card = document.createElement('div');
+        card.className = `group relative aspect-video w-full rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
           isSelected
             ? 'border-emerald-500 ring-2 ring-emerald-500/40 shadow-lg scale-[1.01]'
             : 'border-zinc-800 hover:border-zinc-600 opacity-85 hover:opacity-100'
         }`;
 
-        btn.innerHTML = `
+        card.innerHTML = `
           <img src="${item.hostedUrl || item.dataUrl}" alt="Thumbnail ${idx + 1}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+          <button type="button" data-dl-frame="${idx}" title="Download this thumbnail frame"
+            class="absolute top-1.5 right-1.5 z-20 px-2 py-1 rounded-lg bg-black/80 hover:bg-sky-600 border border-white/15 text-[10px] font-semibold text-white shadow cursor-pointer transition-colors">
+            ⬇ Download
+          </button>
           <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2 flex items-center justify-between">
             <span class="text-[11px] font-semibold ${isSelected ? 'text-emerald-300' : 'text-zinc-200'}">
               ${isSelected ? '✓ Selected' : `Option ${idx + 1}`}
@@ -1971,11 +2101,20 @@ service cloud.firestore {
           </div>
         `;
 
-        btn.addEventListener('click', () => {
+        card.querySelector('[data-dl-frame]').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const titleVal = document.getElementById('video-title').value.trim() || 'video';
+          window.downloadThumbnailImage(
+            item.dataUrl || item.hostedUrl,
+            `${titleVal}-frame-${idx + 1}`
+          );
+        });
+
+        card.addEventListener('click', () => {
           selectGeneratedThumbnailOption(idx);
         });
 
-        grid.appendChild(btn);
+        grid.appendChild(card);
       });
     };
 
@@ -2133,21 +2272,34 @@ service cloud.firestore {
 
       editGeneratedThreeThumbs.forEach((item, idx) => {
         const isSelected = idx === selectedEditThumbIdx;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+        const card = document.createElement('div');
+        card.className = `relative aspect-video w-full rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
           isSelected
             ? 'border-emerald-500 ring-2 ring-emerald-500/40'
             : 'border-zinc-800 hover:border-zinc-600 opacity-85 hover:opacity-100'
         }`;
-        btn.innerHTML = `
+        card.innerHTML = `
           <img src="${item.hostedUrl || item.dataUrl}" alt="Frame ${idx + 1}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+          <button type="button" data-dl-edit-frame="${idx}" title="Download Frame ${idx + 1}"
+            class="absolute top-1 right-1 z-20 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 border border-white/15 text-[10px] font-semibold text-white cursor-pointer">
+            ⬇
+          </button>
           <div class="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5 flex items-center justify-between text-[10px]">
             <span class="${isSelected ? 'text-emerald-300 font-semibold' : 'text-zinc-200'}">${isSelected ? '✓ Selected' : `#${idx + 1}`}</span>
             <span class="font-mono text-zinc-400">${item.timeLabel}</span>
           </div>
         `;
-        btn.addEventListener('click', async () => {
+
+        card.querySelector('[data-dl-edit-frame]').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const titleVal = document.getElementById('edit-vid-title').value.trim() || 'video';
+          window.downloadThumbnailImage(
+            item.dataUrl || item.hostedUrl,
+            `${titleVal}-frame-${idx + 1}`
+          );
+        });
+
+        card.addEventListener('click', async () => {
           selectedEditThumbIdx = idx;
           const statusEl = document.getElementById('edit-thumb-status');
           updateThumbPreviewUI('edit', item.hostedUrl || item.dataUrl);
@@ -2172,9 +2324,51 @@ service cloud.firestore {
             statusEl.textContent = `Selected Frame #${idx + 1} (${item.timeLabel}) ✓`;
           }
         });
-        grid.appendChild(btn);
+        grid.appendChild(card);
       });
     };
+
+    // Download Selected Thumbnail in Upload Form
+    document.getElementById('upload-download-thumb-btn').addEventListener('click', () => {
+      const selectedFrame =
+        selectedThumbOptionIdx >= 0 && generatedThreeThumbs[selectedThumbOptionIdx]
+          ? generatedThreeThumbs[selectedThumbOptionIdx].dataUrl ||
+            generatedThreeThumbs[selectedThumbOptionIdx].hostedUrl
+          : '';
+      const thumbSrc =
+        selectedFrame ||
+        document.getElementById('video-thumb').value.trim() ||
+        autoGeneratedThumbDataUrl ||
+        '';
+      const titleVal = document.getElementById('video-title').value.trim() || 'video-thumbnail';
+      const streamUrl = document.getElementById('video-custom-url').value.trim();
+      window.downloadThumbnailImage(thumbSrc, titleVal, streamUrl);
+    });
+
+    // Download Selected Thumbnail in Edit Modal
+    document.getElementById('edit-download-thumb-btn').addEventListener('click', () => {
+      const selectedFrame =
+        selectedEditThumbIdx >= 0 && editGeneratedThreeThumbs[selectedEditThumbIdx]
+          ? editGeneratedThreeThumbs[selectedEditThumbIdx].dataUrl ||
+            editGeneratedThreeThumbs[selectedEditThumbIdx].hostedUrl
+          : '';
+      const thumbSrc =
+        selectedFrame || document.getElementById('edit-vid-thumb').value.trim() || '';
+      const titleVal = document.getElementById('edit-vid-title').value.trim() || 'video-thumbnail';
+      const streamUrl = document.getElementById('edit-vid-url').value.trim();
+      window.downloadThumbnailImage(thumbSrc, titleVal, streamUrl);
+    });
+
+    // Copy Share Link in Edit Modal
+    document.getElementById('edit-copy-share-btn').addEventListener('click', async (e) => {
+      const vidId = document.getElementById('edit-vid-id').value;
+      const vidTitle = document.getElementById('edit-vid-title').value.trim();
+      if (!vidId) return;
+      await window.copyVideoShareLink(vidId, vidTitle);
+      const btn = e.currentTarget;
+      btn.textContent = '✓ Copied Share Link!';
+      setTimeout(() => (btn.textContent = '🔗 Copy Share Link'), 2000);
+    });
 
     document.getElementById('edit-gen-3thumbs-btn').addEventListener('click', async () => {
       const streamUrl = document.getElementById('edit-vid-url').value.trim();
@@ -2667,19 +2861,27 @@ service cloud.firestore {
       if (totalVideosSubEl) totalVideosSubEl.textContent = `${list.length} Videos`;
 
       list.forEach((v) => {
+        const shareLink = window.buildVideoShareLink ? window.buildVideoShareLink(v.id) : `${window.location.origin}/?v=${encodeURIComponent(v.id)}`;
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-zinc-900/60';
         tr.innerHTML = `
           <td class="py-2.5 px-3">
-            ${
-              v.thumb
-                ? `<img src="${v.thumb}" alt="thumb" referrerpolicy="no-referrer" class="w-20 h-11 object-cover rounded border border-zinc-800" />`
-                : `<div class="w-20 h-11 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Auto Frame</div>`
-            }
+            <div class="relative w-24 h-13 group">
+              ${
+                v.thumb
+                  ? `<img src="${v.thumb}" alt="thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
+                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Auto Frame</div>`
+              }
+              <button data-dl-thumb-img="${v.id}" type="button" title="Download Thumbnail"
+                class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer transition-colors">
+                ⬇
+              </button>
+            </div>
           </td>
           <td class="py-2.5 px-3">
             <p class="font-medium text-white line-clamp-1">${v.title}</p>
             <p class="text-[11px] text-zinc-500">${v.keywords}</p>
+            <p class="text-[10px] font-mono text-emerald-400/90 truncate max-w-xs mt-0.5" title="${shareLink}">🔗 ${shareLink}</p>
           </td>
           <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
             <button type="button" data-play-pub="${v.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to play video">
@@ -2688,6 +2890,14 @@ service cloud.firestore {
           </td>
           <td class="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">${v.views.toLocaleString()}</td>
           <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+            <button data-share-vid="${v.id}" type="button" title="Copy Website Share Link"
+              class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
+              🔗 Share Link
+            </button>
+            <button data-dl-thumb="${v.id}" type="button" title="Download Video Thumbnail"
+              class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer transition-colors">
+              ⬇ Thumb
+            </button>
             <button data-play-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
               ▶ Play
             </button>
@@ -2720,6 +2930,31 @@ service cloud.firestore {
             }
           );
         };
+
+        const handleDownloadPublishedThumb = async (btnEl) => {
+          const origHtml = btnEl.textContent;
+          btnEl.textContent = '⏳...';
+          try {
+            await window.downloadThumbnailImage(v.thumb, v.title || v.id, v.streamUrl);
+          } finally {
+            btnEl.textContent = origHtml;
+          }
+        };
+
+        tr.querySelector('[data-share-vid]').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          await window.copyVideoShareLink(v.id, v.title);
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
+        });
+
+        tr.querySelector('[data-dl-thumb]').addEventListener('click', (e) => {
+          handleDownloadPublishedThumb(e.currentTarget);
+        });
+
+        tr.querySelector('[data-dl-thumb-img]').addEventListener('click', (e) => {
+          handleDownloadPublishedThumb(e.currentTarget);
+        });
 
         tr.querySelector('[data-play-vid]').addEventListener('click', handlePlayPublished);
         tr.querySelector('[data-play-pub]').addEventListener('click', handlePlayPublished);
