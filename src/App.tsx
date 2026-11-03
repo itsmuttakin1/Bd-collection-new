@@ -17,6 +17,7 @@ import {
   buildVideoShareLink,
   buildShortShareLink,
   copyTextToClipboard,
+  sanitizeServerThumbnail,
 } from './firebase';
 import {
   NativeBannerAd,
@@ -26,7 +27,7 @@ import {
   triggerSmartlinkAd,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
-import { VideoCard } from './components/VideoCard';
+import { VideoCard, ShortShelfPreview } from './components/VideoCard';
 import { ShortsFeed } from './components/ShortsFeed';
 import {
   LANGUAGES,
@@ -1053,7 +1054,7 @@ export default function App() {
           if (!val || typeof val !== 'object') return null;
           const resolvedUrl = normalizeShortStreamUrl(val.url || val.videoUrl || '', val.r2Key);
           if (!resolvedUrl) return null;
-          const resolvedThumb = (val.thumbnail || val.thumbnailUrl || '').trim();
+          const resolvedThumb = sanitizeServerThumbnail(val.thumbnail || val.thumbnailUrl || '');
           const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
           const resolvedHashtags =
             (val.hashtags || val.keywords || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl').trim();
@@ -1111,7 +1112,7 @@ export default function App() {
 
     const parseSingleVideoEntry = (key: string, val: any): VideoItem | null => {
       if (!val || typeof val !== 'object') return null;
-      const resolvedThumb = (val.thumbnail || val.thumbnailUrl || val.thumb || '').trim();
+      const resolvedThumb = sanitizeServerThumbnail(val.thumbnail || val.thumbnailUrl || val.thumb || '');
       const resolvedUrl = (val.url || val.videoUrl || val.streamUrl || '').trim();
       const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
       const resolvedKeywords = val.keywords || '';
@@ -1964,23 +1965,7 @@ export default function App() {
                             onClick={() => openShortsTab(s.id)}
                             className="group relative w-36 sm:w-44 aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/80 hover:border-red-500/60 shrink-0 cursor-pointer shadow-lg transition-all"
                           >
-                            {s.thumbnail ? (
-                              <img
-                                src={s.thumbnail}
-                                alt={s.title}
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <video
-                                src={`${s.url}#t=2.0`}
-                                preload="metadata"
-                                muted
-                                playsInline
-                                className="w-full h-full object-cover pointer-events-none"
-                              />
-                            )}
+                            <ShortShelfPreview short={s} />
                             <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-red-600/90 text-[10px] font-bold text-white flex items-center gap-1 shadow">
                               <Smartphone className="w-2.5 h-2.5" />
                               <span>SHORT</span>
@@ -2138,23 +2123,7 @@ export default function App() {
                           onClick={() => openShortsTab(s.id)}
                           className="group relative w-32 sm:w-36 aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-red-500/60 shrink-0 cursor-pointer shadow-md"
                         >
-                          {s.thumbnail ? (
-                            <img
-                              src={s.thumbnail}
-                              alt={s.title}
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <video
-                              src={`${s.url}#t=2.0`}
-                              preload="metadata"
-                              muted
-                              playsInline
-                              className="w-full h-full object-cover pointer-events-none"
-                            />
-                          )}
+                          <ShortShelfPreview short={s} />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent flex flex-col justify-end p-2">
                             <p className="text-[11px] font-bold text-white line-clamp-2 leading-snug">
                               {s.title}

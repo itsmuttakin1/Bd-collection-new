@@ -1,6 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Play, Share2, Check } from 'lucide-react';
-import { VideoItem, buildVideoShareLink, copyTextToClipboard } from '../firebase';
+import {
+  VideoItem,
+  ShortItem,
+  buildVideoShareLink,
+  copyTextToClipboard,
+  sanitizeServerThumbnail,
+  buildVideoStreamCandidates,
+} from '../firebase';
 import { TranslationStrings } from '../i18n';
 
 interface VideoCardProps {
@@ -19,6 +26,89 @@ const CARD_GRADIENTS = [
   'from-emerald-950/80 via-zinc-900 to-zinc-950',
 ];
 
+/**
+ * Live Video or R2 Thumbnail Preview for Shorts Shelf cards on Home & Watch pages.
+ * - Old Shorts/Videos (or any with broken ImgBB thumbnails) render a live frame directly from the video stream.
+ * - Newly uploaded Shorts/Videos with an R2 server thumbnail (`thumbs/...` on R2) display their server thumbnail.
+ */
+export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [streamStage, setStreamStage] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const serverThumb = sanitizeServerThumbnail(short.thumbnail || short.thumbnailUrl);
+  const streamCandidates = React.useMemo(
+    () => buildVideoStreamCandidates(short.url || short.videoUrl, short.r2Key),
+    [short.url, short.videoUrl, short.r2Key]
+  );
+
+  const currentStreamUrl =
+    streamCandidates.length > 0
+      ? streamCandidates[Math.min(streamStage, streamCandidates.length - 1)]
+      : '';
+
+  const streamWithTime = currentStreamUrl
+    ? currentStreamUrl.includes('#t=')
+      ? currentStreamUrl
+      : `${currentStreamUrl}#t=2.5`
+    : '';
+
+  const handleVideoLoadedMetadata = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      const dur = Number(v.duration) || 0;
+      const targetTime =
+        dur > 5
+          ? Math.min(Math.max(dur * 0.25, 2.0), dur - 0.5)
+          : dur > 1.2
+          ? Math.min(dur * 0.45, dur - 0.2)
+          : 0.5;
+      v.currentTime = targetTime;
+    } catch {}
+  };
+
+  if (serverThumb && !imgFailed) {
+    return (
+      <img
+        src={serverThumb}
+        alt={short.title}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onLoad={() => setImgLoaded(true)}
+        onError={() => {
+          setImgFailed(true);
+          setImgLoaded(false);
+        }}
+        className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-300 ${
+          imgLoaded ? 'opacity-100' : 'opacity-90'
+        }`}
+      />
+    );
+  }
+
+  if (!streamWithTime) return null;
+
+  return (
+    <video
+      key={`${short.id}-shelf-${streamStage}`}
+      ref={videoRef}
+      src={streamWithTime}
+      preload="metadata"
+      muted
+      playsInline
+      onLoadedMetadata={handleVideoLoadedMetadata}
+      onError={() => {
+        if (streamStage + 1 < streamCandidates.length) {
+          setStreamStage((s) => s + 1);
+        }
+      }}
+      className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
+    />
+  );
+};
+
 export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   onCardClick,
@@ -27,6 +117,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [streamStage, setStreamStage] = useState(0);
   const [copiedCardLink, setCopiedCardLink] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -62,9 +153,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const handleLoadedMetadata = () => {
     const v = videoRef.current;
     if (!v) return;
+    setVideoReady(true);
     try {
       const dur = Number(v.duration) || 0;
-      // Avoid 0.0s–1.5s where many videos fade in from black; seek to 25% or 3.5s
+      // Avoid 0.0s–1.5s where many videos fade in from black; seek to 25% or 3.0s
       const targetTime =
         dur > 6
           ? Math.min(Math.max(dur * 0.25, 3.0), dur - 1)
@@ -77,12 +169,22 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
-  const thumbSrc = (video.thumbnail || video.thumbnailUrl || '').trim();
-  const streamSrc = (video.url || video.videoUrl || '').trim();
+  // Only use thumbnail if it is hosted on the user's R2 Server (ignores old broken ImgBB thumbnails)
+  const thumbSrc = sanitizeServerThumbnail(video.thumbnail || video.thumbnailUrl);
+  const streamCandidates = React.useMemo(
+    () => buildVideoStreamCandidates(video.url || video.videoUrl, video.r2Key),
+    [video.url, video.videoUrl, video.r2Key]
+  );
+
+  const streamSrc =
+    streamCandidates.length > 0
+      ? streamCandidates[Math.min(streamStage, streamCandidates.length - 1)]
+      : '';
+
   const streamWithFragment = streamSrc
     ? streamSrc.includes('#t=')
       ? streamSrc
-      : `${streamSrc}#t=3.5`
+      : `${streamSrc}#t=3.0`
     : '';
 
   const renderThumbnailMedia = () => (
@@ -99,7 +201,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         </p>
       </div>
 
-      {/* Custom / ImgBB Thumbnail with Smart Aspect Ratio Adjustment */}
+      {/* R2 Server Thumbnail (for newly uploaded videos) with Smart Aspect Ratio Adjustment */}
       {thumbSrc && !imgFailed && (
         <div
           className={`absolute inset-0 z-10 overflow-hidden bg-zinc-950 transition-opacity duration-200 ${
@@ -152,36 +254,37 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         </div>
       )}
 
-      {/* Live Video Frame Preview if no Thumbnail image is set */}
+      {/* Live Video Frame Preview directly from video stream (for all old videos or when no R2 thumbnail is set) */}
       {(!thumbSrc || imgFailed) && streamWithFragment && (
         <video
+          key={`${video.id}-preview-${streamStage}`}
           ref={videoRef}
           src={streamWithFragment}
-          poster="https://xtubeofficial.pages.dev/favicon.png"
           preload="metadata"
           muted
           playsInline
           onLoadedMetadata={handleLoadedMetadata}
           onLoadedData={() => {
+            setVideoReady(true);
             const v = videoRef.current;
             if (v && v.currentTime < 0.2 && v.duration > 1) {
               try {
                 v.currentTime = Math.min(3.0, v.duration * 0.3);
-              } catch {
-                setVideoReady(true);
-              }
-            } else {
-              setVideoReady(true);
+              } catch {}
             }
           }}
+          onCanPlay={() => setVideoReady(true)}
           onSeeked={() => setVideoReady(true)}
+          onError={() => {
+            if (streamStage + 1 < streamCandidates.length) {
+              setStreamStage((s) => s + 1);
+            }
+          }}
           onContextMenu={(e) => e.preventDefault()}
           className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
-            videoReady ? 'opacity-100' : 'opacity-0'
+            videoReady ? 'opacity-100' : 'opacity-95'
           }`}
-        >
-          <source src={streamSrc} type="video/mp4" />
-        </video>
+        />
       )}
 
       {/* Hover Play Overlay */}
@@ -310,3 +413,4 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     </article>
   );
 };
+

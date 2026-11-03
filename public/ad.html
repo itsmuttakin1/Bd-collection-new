@@ -14,10 +14,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    body {
+    html, body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background-color: #09090b;
       color: #f4f4f5;
+      max-width: 100vw;
+      overflow-x: hidden;
     }
     h1, h2, h3, .font-display {
       font-family: 'Outfit', sans-serif;
@@ -26,9 +28,53 @@
       font-family: 'JetBrains Mono', monospace;
       font-variant-numeric: tabular-nums;
     }
+    /* Prevent iOS/Android input zoom & make tables stack cleanly as cards on mobile screens */
+    @media (max-width: 640px) {
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+    }
+    @media (max-width: 768px) {
+      .mobile-card-table thead {
+        display: none;
+      }
+      .mobile-card-table,
+      .mobile-card-table tbody,
+      .mobile-card-table tr,
+      .mobile-card-table td {
+        display: block;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+      }
+      .mobile-card-table tr {
+        padding: 0.75rem !important;
+        margin-bottom: 0.75rem !important;
+        border: 1px solid #27272a !important;
+        border-radius: 0.875rem !important;
+        background: rgba(9, 9, 11, 0.85) !important;
+      }
+      .mobile-card-table td {
+        padding: 0.35rem 0 !important;
+        text-align: left !important;
+        white-space: normal !important;
+        border: none !important;
+      }
+      .mobile-card-table td.mobile-actions-cell {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.4rem !important;
+        padding-top: 0.5rem !important;
+        margin-top: 0.35rem !important;
+        border-top: 1px solid rgba(39, 39, 42, 0.8) !important;
+      }
+      .mobile-card-table td.mobile-actions-cell > * {
+        margin: 0 !important;
+      }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased selection:bg-red-600 selection:text-white">
+<body class="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-zinc-950 text-zinc-100 antialiased selection:bg-red-600 selection:text-white">
 
   <!-- LOGIN VIEW (Firebase Lock) -->
   <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
@@ -75,11 +121,11 @@
   </div>
 
   <!-- OLD VIDEO EDIT MODAL -->
-  <div id="edit-video-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl space-y-5">
-      <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+  <div id="edit-video-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+    <div class="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
         <div>
-          <h3 class="text-base font-bold text-white">Edit Video Details (পুরাতন ভিডিও এডিট করুন)</h3>
+          <h3 class="text-sm sm:text-base font-bold text-white">Edit Video Details (পুরাতন ভিডিও এডিট করুন)</h3>
           <p id="edit-video-id-label" class="text-[11px] font-mono text-zinc-500 mt-0.5"></p>
         </div>
         <div class="flex items-center gap-2">
@@ -87,7 +133,7 @@
             class="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
             🔗 Copy Share Link
           </button>
-          <button id="close-edit-modal-btn" type="button" class="text-zinc-400 hover:text-white text-sm cursor-pointer">✕</button>
+          <button id="close-edit-modal-btn" type="button" class="text-zinc-400 hover:text-white text-sm cursor-pointer p-1">✕</button>
         </div>
       </div>
 
@@ -113,9 +159,9 @@
           </div>
         </div>
 
-        <div class="space-y-2.5 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+        <div class="space-y-2.5 p-3 sm:p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <label class="block text-xs font-medium text-zinc-200">Thumbnail Image (`thumbnail` · YouTube 3-Frame Picker + Custom Upload)</label>
+            <label class="block text-xs font-medium text-zinc-200">Thumbnail Image (`thumbnail` · 3-Frame Picker + Custom)</label>
             <div class="flex flex-wrap items-center gap-1.5">
               <button id="edit-gen-3thumbs-btn" type="button"
                 class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium cursor-pointer transition-colors">
@@ -123,10 +169,10 @@
               </button>
               <button id="edit-download-thumb-btn" type="button"
                 class="px-2.5 py-1 rounded-lg bg-sky-950/90 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer transition-colors">
-                ⬇ Download Thumbnail
+                ⬇ Download
               </button>
               <label class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer transition-colors">
-                📤 Custom Thumbnail
+                📤 Custom
                 <input id="edit-thumb-file-input" type="file" accept="image/*" class="hidden" />
               </label>
             </div>
@@ -134,7 +180,7 @@
 
           <!-- 3 Auto-Generated Thumbnails Grid inside Edit Modal -->
           <div id="edit-auto-thumbs-wrap" class="hidden space-y-1.5 pt-1">
-            <span class="block text-[11px] text-emerald-400 font-medium">পছন্দের থাম্বনেইলটিতে ক্লিক করে সিলেক্ট করুন (Click any of the 3 frames):</span>
+            <span class="block text-[11px] text-emerald-400 font-medium">পছন্দের থাম্বনেইলটিতে ক্লিক করে সিলেক্ট করুন:</span>
             <div id="edit-auto-thumbs-grid" class="grid grid-cols-3 gap-2"></div>
           </div>
 
@@ -189,43 +235,101 @@
     </div>
   </div>
 
-  <!-- DASHBOARD VIEW -->
-  <div id="dashboard-view" class="hidden min-h-screen flex flex-col">
-    <!-- Top Header -->
-    <header class="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-30 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center font-bold text-white">▶</div>
+  <!-- UPLOAD TARGET OPTION MODAL (Shorts, Long Video, or Both) -->
+  <div id="upload-choice-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-2xl border border-red-800/80 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-2 border-b border-zinc-800 pb-3">
         <div>
-          <h1 class="text-lg font-bold text-white leading-none">X Tube Studio · Multi-Server Admin</h1>
-          <div class="flex flex-wrap items-center gap-2 mt-1">
-            <span id="admin-user-email" class="text-xs text-zinc-400 font-mono"></span>
+          <h3 class="text-base sm:text-lg font-bold text-white">🚀 কোথায় ভিডিও আপলোড করবেন?</h3>
+          <p class="text-xs text-zinc-400 mt-0.5">Select Upload Option: Shorts, Long Video, or Both</p>
+        </div>
+        <button id="close-upload-choice-modal" type="button" class="text-zinc-400 hover:text-white text-sm cursor-pointer p-1">✕</button>
+      </div>
+
+      <div class="space-y-2.5">
+        <button type="button" data-confirm-upload-target="shorts"
+          class="w-full p-3.5 rounded-xl border border-red-700/70 bg-red-950/35 hover:bg-red-900/50 text-left flex items-center justify-between gap-3 transition-all cursor-pointer group">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-lg font-bold shrink-0">📱</div>
+            <div>
+              <p class="text-sm font-bold text-white group-hover:text-red-200">১. Shorts Video (শুধু Shorts)</p>
+              <p class="text-[11px] text-zinc-400">শুধুমাত্র YouTube Shorts স্টাইল ভার্টিক্যাল ফিডে আপলোড হবে (`/shorts`)</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-bold shrink-0">Upload →</span>
+        </button>
+
+        <button type="button" data-confirm-upload-target="long"
+          class="w-full p-3.5 rounded-xl border border-sky-700/70 bg-sky-950/30 hover:bg-sky-900/45 text-left flex items-center justify-between gap-3 transition-all cursor-pointer group">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center text-lg font-bold shrink-0">🎬</div>
+            <div>
+              <p class="text-sm font-bold text-white group-hover:text-sky-200">২. Long Video (শুধু Full Video)</p>
+              <p class="text-[11px] text-zinc-400">শুধুমাত্র হোম পেজের মেইন ফুল ভিডিও সেকশনে আপলোড হবে (`/videos`)</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-sky-600 text-white text-xs font-bold shrink-0">Upload →</span>
+        </button>
+
+        <button type="button" data-confirm-upload-target="both"
+          class="w-full p-3.5 rounded-xl border border-emerald-700/80 bg-emerald-950/35 hover:bg-emerald-900/50 text-left flex items-center justify-between gap-3 transition-all cursor-pointer group">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-bold shrink-0">🔥</div>
+            <div>
+              <p class="text-sm font-bold text-white group-hover:text-emerald-200">৩. Both (Shorts + Long দুই জায়গাতেই)</p>
+              <p class="text-[11px] text-zinc-400">একবার সার্ভারে আপলোড হয়ে Home এবং Shorts দুই জায়গাতেই একসাথে পাবলিশ হবে!</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold shrink-0">Upload →</span>
+        </button>
+      </div>
+
+      <div class="pt-2 border-t border-zinc-800 flex justify-end">
+        <button id="cancel-upload-choice-modal" type="button"
+          class="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300 cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashboard-view" class="hidden min-h-screen w-full max-w-[100vw] overflow-x-hidden flex flex-col">
+    <!-- Top Header (Mobile Responsive) -->
+    <header class="border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-30 px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center font-bold text-white shrink-0">▶</div>
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-bold text-white leading-tight truncate">X Tube Studio · Admin Panel</h1>
+          <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+            <span id="admin-user-email" class="text-[11px] text-zinc-400 font-mono truncate max-w-[180px] sm:max-w-none"></span>
             <span class="text-zinc-600">·</span>
-            <span class="text-xs font-mono text-emerald-400">UID: <strong id="admin-user-uid"></strong></span>
-            <button id="copy-uid-btn" type="button" class="text-[11px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 cursor-pointer">Copy UID</button>
+            <span class="text-[11px] font-mono text-emerald-400 truncate max-w-[140px] sm:max-w-none">UID: <strong id="admin-user-uid"></strong></span>
+            <button id="copy-uid-btn" type="button" class="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 cursor-pointer shrink-0">Copy UID</button>
           </div>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2.5">
+      <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
         <button id="toggle-guide-btn" type="button"
-          class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition-colors cursor-pointer">
-          📖 নতুন Storage ও Firebase Rules গাইড (বাংলা)
+          class="px-2.5 sm:px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[11px] sm:text-xs font-semibold text-white transition-colors cursor-pointer text-center truncate">
+          📖 Storage ও Rules গাইড
         </button>
         <button id="refresh-all-storage-btn" type="button"
-          class="px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors cursor-pointer">
-          ↻ Refresh Live Storage
+          class="px-2.5 sm:px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-200 transition-colors cursor-pointer text-center">
+          ↻ Refresh Storage
         </button>
-        <a href="/" class="px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors">
-          View Website
+        <a href="/" class="px-2.5 sm:px-3.5 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] sm:text-xs font-medium text-zinc-200 transition-colors text-center">
+          ← View Website
         </a>
         <button id="logout-btn" type="button"
-          class="px-3.5 py-2 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-900/60 text-xs font-medium text-red-300 transition-colors cursor-pointer">
+          class="px-2.5 sm:px-3.5 py-2 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-900/60 text-[11px] sm:text-xs font-medium text-red-300 transition-colors cursor-pointer text-center">
           Logout
         </button>
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-8">
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-5 sm:space-y-8 overflow-x-hidden">
       <!-- Status Alert -->
       <div id="status-banner" class="hidden p-4 rounded-xl border text-xs flex items-center justify-between">
         <span id="status-text"></span>
@@ -525,163 +629,245 @@
         <div id="storage-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
       </section>
 
-      <!-- SECTION 2: MODERN VIDEO UPLOAD STUDIO & MULTI-SERVER SELECTOR -->
-      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Left 7 Cols: Upload Form -->
-        <div class="lg:col-span-7 p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-5">
-          <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+      <!-- SECTION 2: UNIFIED VIDEO & SHORTS UPLOAD STUDIO (SERVER SELECT + AUTO VIRAL TITLE + AUTO VIDEO FRAME PREVIEW + SHORTS / LONG / BOTH) -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+        <!-- Left 7 Cols: Unified Upload Form -->
+        <div class="lg:col-span-7 p-4 sm:p-6 rounded-2xl border border-red-900/60 bg-gradient-to-b from-zinc-900/70 to-zinc-950 space-y-5 shadow-xl">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-3.5">
             <div>
-              <h2 class="text-base font-bold text-white">Upload New Video</h2>
-              <p class="text-xs text-zinc-400">সার্ভার সিলেক্ট করে নতুন ভিডিও ফাইল ও কাস্টম থাম্বনেইল আপলোড করুন</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-lg bg-red-600 text-white text-xs font-bold">🚀 ALL-IN-ONE UPLOAD</span>
+                <h2 class="text-base sm:text-lg font-bold text-white">Unified Video &amp; Shorts Upload Studio</h2>
+              </div>
+              <p class="text-xs text-zinc-400 mt-1">
+                সার্ভার সিলেক্ট করে ভিডিও দিন — <strong>আলাদা করে কোনো থাম্বনেইল জেনারেট বা আপলোড করতে হবে না</strong> (সরাসরি ভিডিও থেকেই অটোমেটিক থাম্বনেইল শো করবে)। আপলোডে ক্লিক করলে <strong>Shorts, Long অথবা Both</strong> অপশন পাবেন!
+              </p>
             </div>
-            <span class="text-xs font-mono text-red-400 font-semibold" id="active-server-badge"></span>
+            <span class="px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-emerald-400 font-semibold" id="active-server-badge"></span>
           </div>
 
           <form id="upload-form" class="space-y-4">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- 1. Storage Server & R2 Config -->
+            <div class="p-3.5 rounded-xl bg-zinc-950/90 border border-zinc-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Target Storage Server *</label>
+                <label class="block text-xs font-medium text-zinc-300 mb-1">Target Storage Server *</label>
                 <select id="upload-server-select"
-                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-medium text-white focus:outline-none focus:border-red-500"></select>
+                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-medium text-white focus:outline-none focus:border-red-500"></select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Public R2 Stream Domain *</label>
+                <label class="block text-xs font-medium text-zinc-300 mb-1">Public R2 Stream Domain *</label>
                 <input id="upload-public-domain" type="url" placeholder="https://pub-xxxx.r2.dev"
-                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
               </div>
               <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">X-Admin-Key Secret *</label>
+                <label class="block text-xs font-medium text-zinc-300 mb-1">X-Admin-Key Secret *</label>
                 <input id="upload-admin-key" type="password" placeholder="Enter Worker X-Admin-Key"
-                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-zinc-300 mb-1">Folder on R2 (Optional)</label>
+                <input id="video-folder" type="text" value="" placeholder="Empty = auto (/shorts or /videos)"
+                  class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
               </div>
             </div>
 
-            <!-- Drag & Drop / File Picker -->
+            <!-- 2. Video File Picker -->
             <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Video File</label>
-              <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-zinc-800 hover:border-red-500/80 rounded-xl bg-zinc-950/70 cursor-pointer transition-colors p-4 text-center">
-                <div class="w-9 h-9 rounded-full bg-red-600/15 text-red-500 flex items-center justify-center mb-1.5 font-bold">↑</div>
-                <span id="file-chosen-name" class="text-xs font-semibold text-zinc-200">Click to select a video file from your device</span>
-                <span id="file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-1">MP4, WEBM, MKV, MOV supported</span>
+              <label class="block text-xs font-semibold text-zinc-200 mb-1.5">১. Select Video File (Shorts বা Long যেকোনো ভিডিও ফাইল সিলেক্ট করুন — থাম্বনেইল ভিডিও থেকেই অটো শো করবে) *</label>
+              <label class="flex flex-col items-center justify-center w-full h-28 sm:h-32 border-2 border-dashed border-red-800/70 hover:border-red-500 rounded-xl bg-zinc-950/80 cursor-pointer transition-colors p-4 text-center">
+                <div class="w-9 h-9 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-1 font-bold">↑</div>
+                <span id="file-chosen-name" class="text-xs sm:text-sm font-semibold text-zinc-200 break-all line-clamp-1">Click to select a video file from your device</span>
+                <span id="file-chosen-size" class="text-[11px] font-mono text-zinc-400 mt-1">MP4, WEBM, MKV, MOV supported · Auto video frame preview (No thumbnail upload needed)</span>
                 <input id="upload-file-input" type="file" accept="video/*" class="hidden" />
               </label>
             </div>
 
-            <!-- Progress Bar -->
-            <div id="upload-progress-wrap" class="hidden space-y-1.5">
-              <div class="flex justify-between text-xs font-mono">
-                <span id="upload-progress-status" class="text-zinc-300">Uploading to server...</span>
-                <span id="upload-progress-pct" class="text-red-400">0%</span>
+            <!-- Live Upload Progress Bar -->
+            <div id="upload-progress-wrap" class="hidden p-3.5 rounded-xl bg-zinc-950 border border-red-500/50 space-y-1.5">
+              <div class="flex justify-between gap-2 text-xs font-mono">
+                <span id="upload-progress-status" class="text-zinc-200 font-semibold truncate">Uploading video to server...</span>
+                <span id="upload-progress-pct" class="text-red-400 font-bold shrink-0">0%</span>
               </div>
-              <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+              <div class="w-full h-2.5 rounded-full bg-zinc-800 overflow-hidden">
                 <div id="upload-progress-bar" class="h-full bg-red-600 transition-all duration-150" style="width: 0%"></div>
               </div>
             </div>
 
-            <!-- Custom Thumbnail Upload (ImgBB API) + YouTube-Style 3 Auto-Generated Thumbnails Selector -->
-            <div class="p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3.5">
+            <!-- 3. Auto Viral Adult Title & Hashtags / Keywords (Works for both Long & Shorts!) -->
+            <div class="p-3.5 sm:p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <label class="block text-xs font-semibold text-white">Video Thumbnail (YouTube-Style 3 Auto Thumbnails + Custom Upload)</label>
-                  <p id="thumb-upload-status" class="text-[11px] text-zinc-400">ভিডিও সিলেক্ট করলে YouTube-এর মতো অটোমেটিক ৩টি থাম্বনেইল তৈরি হবে—যার মধ্যে যেটা ভালো লাগে সেটি সিলেক্ট করতে পারবেন</p>
+                  <label class="block text-xs font-bold text-white">২. Video Title &amp; Auto Viral Adult Hashtags (Long ও Shorts উভয়ের জন্য) *</label>
+                  <p class="text-[11px] text-zinc-400">অটোমেটিক ভাইরাল অ্যাডাল্ট টাইটেল ও হ্যাশট্যাগ দেওয়া আছে — চাইলে নিজের মতো এডিট বা পরিবর্তন করতে পারবেন</p>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <button id="regenerate-frame-btn" type="button"
-                    class="hidden px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium cursor-pointer transition-colors">
-                    ↻ নতুন ৩টি থাম্বনেইল নিন (Regenerate 3)
-                  </button>
-                  <button id="upload-download-thumb-btn" type="button"
-                    class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer transition-colors">
-                    ⬇ Download Thumbnail
-                  </button>
-                  <label class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer transition-colors">
-                    🖼️ Upload Custom Thumbnail
-                    <input id="custom-thumb-file-input" type="file" accept="image/*" class="hidden" />
-                  </label>
-                </div>
+                <button id="auto-viral-title-btn" type="button"
+                  class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold cursor-pointer transition-colors shrink-0">
+                  🎲 Change Auto Viral Title &amp; Hashtags
+                </button>
               </div>
 
-              <!-- YouTube-Style 3 Auto-Generated Thumbnails Picker -->
-              <div id="auto-thumbs-section" class="hidden p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/90 space-y-2">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span class="text-xs font-semibold text-emerald-400">🎬 অটো-জেনারেটেড ৩টি থাম্বনেইল (সিলেক্ট করুন অথবা ⬇ বাটনে ক্লিক করে ডাউনলোড করুন):</span>
-                  <span class="text-[11px] font-mono text-zinc-400">16:9 Auto-Adjusted · Downloadable</span>
-                </div>
-                <div id="auto-thumbs-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+              <div>
+                <label class="block text-[11px] font-medium text-zinc-300 mb-1">Video / Short Title (`title` - অটো লেখা আছে, চাইলে নিজের টাইটেল লিখুন)</label>
+                <input id="video-title" type="text" required
+                  value="🔥 দেশি ভাইরাল হট ভিডিও 🥵💋 #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl"
+                  placeholder="টাইটেল লিখুন অথবা অটো ভাইরাল টাইটেল ব্যবহার করুন..."
+                  class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                <!-- 16:9 Adjusted Active Preview Box -->
+              <div>
+                <label class="block text-[11px] font-medium text-zinc-300 mb-1">Auto Viral Adult Hashtags &amp; Keywords (`hashtags` / `keywords`)</label>
+                <input id="video-keywords" type="text"
+                  value="#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl #HotBhabi #BanglaViral #Exclusive18 #ViralLink Virallink bdgirl"
+                  placeholder="#Shorts #BdViral #18Plus Virallink bdgirl"
+                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-300 focus:outline-none focus:border-red-500" />
+              </div>
+
+              <!-- Quick 1-Click Viral Adult Hashtag Chips -->
+              <div class="space-y-1">
+                <span class="text-[10px] text-zinc-400">ক্লিক করলে টাইটেল ও হ্যাশট্যাগে যুক্ত হবে (Quick Add Viral Tags):</span>
+                <div id="upload-quick-tags" class="flex flex-wrap gap-1.5">
+                  <button type="button" data-upload-tag="#Shorts" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#Shorts</button>
+                  <button type="button" data-upload-tag="#18Plus" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#18Plus</button>
+                  <button type="button" data-upload-tag="#BdViral" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#BdViral</button>
+                  <button type="button" data-upload-tag="#DesiHot" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#DesiHot</button>
+                  <button type="button" data-upload-tag="#RoomDate" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#RoomDate</button>
+                  <button type="button" data-upload-tag="#HotBhabi" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#HotBhabi</button>
+                  <button type="button" data-upload-tag="#ViralGirl" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#ViralGirl</button>
+                  <button type="button" data-upload-tag="#PrivateLeak" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#PrivateLeak</button>
+                  <button type="button" data-upload-tag="#Uncensored" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#Uncensored</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Auto Video Stream Preview & Duration (No Separate Thumbnail Upload Needed) -->
+            <div class="p-3.5 sm:p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <label class="block text-xs font-bold text-emerald-400">৩. Auto Video Frame Preview &amp; Duration (আলাদা করে থাম্বনেইল জেনারেট বা আপলোড করতে হবে না)</label>
+                  <p id="thumb-upload-status" class="text-[11px] text-zinc-400">ওয়েবসাইটে সব ভিডিও এবং Shorts-এর থাম্বনেইল অটোমেটিক সরাসরি ভিডিও থেকেই শো করবে</p>
+                </div>
+                <span class="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800/80 text-[10px] font-mono text-emerald-300">
+                  ✓ Auto Video Frame Active
+                </span>
+              </div>
+
+              <!-- Hidden legacy elements so existing selectors never error -->
+              <div class="hidden">
+                <button id="regenerate-frame-btn" type="button"></button>
+                <button id="upload-download-thumb-btn" type="button"></button>
+                <input id="custom-thumb-file-input" type="file" accept="image/*" />
+                <div id="auto-thumbs-section"><div id="auto-thumbs-grid"></div></div>
+                <span id="upload-thumb-placeholder"></span>
+                <img id="upload-thumb-preview-bg" src="" alt="" />
+                <img id="upload-thumb-preview-img" src="" alt="" />
+                <input id="video-thumb" type="url" value="" />
+                <button id="upload-gen-from-url-btn" type="button"></button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 items-center">
+                <!-- Live Video Frame Preview Box -->
                 <div class="sm:col-span-5">
-                  <div id="upload-thumb-preview-box" class="relative w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
-                    <span id="upload-thumb-placeholder" class="text-[11px] text-zinc-500 text-center px-2">No Thumbnail Selected Yet</span>
-                    <img id="upload-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-lg scale-125 opacity-75" />
-                    <img id="upload-thumb-preview-img" src="" alt="Thumbnail Preview" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
-                    <span class="absolute bottom-1.5 left-2 z-20 px-2 py-0.5 rounded bg-black/75 border border-white/10 text-[10px] font-mono text-emerald-300">Selected Thumbnail</span>
+                  <div class="relative w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
+                    <span id="upload-video-preview-placeholder" class="text-[11px] text-zinc-500 text-center px-3">
+                      ভিডিও সিলেক্ট করলে এখানে অটো প্রিভিউ দেখাবে
+                    </span>
+                    <video id="upload-live-video-preview" muted playsinline preload="metadata"
+                      class="hidden w-full h-full object-cover bg-black"></video>
+                    <span class="absolute bottom-1.5 left-2 z-20 px-2 py-0.5 rounded bg-black/75 border border-white/10 text-[10px] font-mono text-emerald-300">
+                      Auto Video Frame
+                    </span>
                   </div>
                 </div>
 
-                <!-- Thumbnail URL & Stream URL Inputs -->
-                <div class="sm:col-span-7 space-y-3">
+                <!-- Optional Direct Stream URL & Auto Duration -->
+                <div class="sm:col-span-7 space-y-2.5">
                   <div>
-                    <label class="block text-[11px] font-medium text-zinc-300 mb-1">Thumbnail Image URL (`thumbnail` - Auto-filled by ImgBB)</label>
-                    <input id="video-thumb" type="url" placeholder="https://i.ibb.co/..."
-                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-                  </div>
-                  <div>
-                    <label class="block text-[11px] font-medium text-zinc-300 mb-1">Or Direct Video Stream URL (`url` - Optional)</label>
+                    <label class="block text-[11px] font-medium text-zinc-300 mb-1">Or Direct Video Stream URL (`url` - ফাইল সিলেক্ট করলে অটো বসবে)</label>
                     <input id="video-custom-url" type="url" placeholder="https://pub-xxxx.r2.dev/video.mp4"
                       class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
                   </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-zinc-300 mb-1">Video Duration (`duration` - ফাইল সিলেক্ট করলে অটো ডিটেক্ট হবে)</label>
+                    <input id="video-duration" type="text" value="00:45" placeholder="04:20"
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Video Title (`title`) *</label>
-                <input id="video-title" type="text" required placeholder="কক্সবাজারে নিয়ে গিয়ে..."
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Keywords / Tags (`keywords`)</label>
-                <input id="video-keywords" type="text" value="Virallink bdgirl" placeholder="Virallink bdgirl"
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Folder on R2 (Leave empty for root)</label>
-                <input id="video-folder" type="text" value="" placeholder="Optional folder name"
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">Duration</label>
-                <input id="video-duration" type="text" value="04:20" placeholder="04:20"
-                  class="w-full px-3.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-              </div>
-            </div>
-
-            <div class="pt-2 flex justify-end">
-              <button id="upload-submit-btn" type="submit"
-                class="px-6 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
-                Upload & Publish Video
-              </button>
-            </div>
-
-            <!-- Newly Uploaded Video Index Share Link Banner -->
-            <div id="last-uploaded-share-box" class="hidden p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-700/70 space-y-2">
+            <!-- 5. Upload Destination Selector + Action Bar -->
+            <div class="p-3.5 sm:p-4 rounded-xl bg-zinc-950 border border-red-900/50 space-y-3">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <span class="text-xs font-semibold text-emerald-300">✅ Video Published! Index Share Link:</span>
-                <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-white">৪. কোথায় আপলোড হবে সিলেক্ট করুন (Shorts, Long Video, or Both):</span>
+                <span id="selected-target-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-700/70 text-[11px] font-semibold text-emerald-300">
+                  Selected: Both (Shorts + Long)
+                </span>
+              </div>
+
+              <input type="hidden" id="upload-target-mode" value="both" />
+
+              <!-- 3 Mode Cards (Shorts, Long, Both) -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="upload-mode-cards">
+                <button type="button" data-select-mode="shorts"
+                  class="upload-mode-card p-3 rounded-xl border border-zinc-800 bg-zinc-900/70 hover:border-red-500/70 text-left transition-all cursor-pointer">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white">📱 Shorts Only</span>
+                    <span class="text-[10px] font-mono text-red-400">/shorts</span>
+                  </div>
+                  <p class="text-[11px] text-zinc-400 mt-1">শুধুমাত্র Shorts ফিডে আপলোড হবে</p>
+                </button>
+
+                <button type="button" data-select-mode="long"
+                  class="upload-mode-card p-3 rounded-xl border border-zinc-800 bg-zinc-900/70 hover:border-sky-500/70 text-left transition-all cursor-pointer">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white">🎬 Long Video</span>
+                    <span class="text-[10px] font-mono text-sky-400">/videos</span>
+                  </div>
+                  <p class="text-[11px] text-zinc-400 mt-1">শুধুমাত্র Home ফুল ভিডিওতে আপলোড হবে</p>
+                </button>
+
+                <button type="button" data-select-mode="both"
+                  class="upload-mode-card p-3 rounded-xl border-2 border-emerald-500 bg-emerald-950/30 ring-2 ring-emerald-500/20 text-left transition-all cursor-pointer">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-emerald-300">🔥 Both (Shorts + Long)</span>
+                    <span class="text-[10px] font-mono text-emerald-400">✓ Best</span>
+                  </div>
+                  <p class="text-[11px] text-zinc-300 mt-1">Home এবং Shorts দুই জায়গাতেই আপলোড হবে</p>
+                </button>
+              </div>
+
+              <!-- Main Upload Button (Opens Shorts/Long/Both Option Modal on click) + Direct Quick Upload Buttons -->
+              <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-zinc-800/80">
+                <p id="upload-ready-hint" class="text-xs text-zinc-400">
+                  নিচের <strong>🚀 Upload Video</strong> বাটনে ক্লিক করলে <strong>Shorts, Long বা Both</strong> সিলেক্ট করার অপশন আসবে।
+                </p>
+                <button id="upload-submit-btn" type="button"
+                  class="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-lg shadow-red-600/25 shrink-0">
+                  🚀 Upload &amp; Publish Video (Choose: Shorts / Long / Both)
+                </button>
+              </div>
+            </div>
+
+            <!-- Newly Uploaded Share Link Banner (Supports Long Video Link, Short Link & TG Link) -->
+            <div id="last-uploaded-share-box" class="hidden p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-700/70 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span id="last-uploaded-label" class="text-xs font-semibold text-emerald-300">✅ Video Published! Direct Share Links:</span>
+                <div class="flex flex-wrap items-center gap-1.5">
                   <button id="last-uploaded-copy-btn" type="button"
-                    class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer">
-                    🔗 Copy Share Link
+                    class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
+                    🔗 Copy Video Link
+                  </button>
+                  <button id="last-uploaded-short-copy-btn" type="button"
+                    class="hidden px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer">
+                    📱 Copy Short Link
+                  </button>
+                  <button id="last-uploaded-tg-btn" type="button"
+                    class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold cursor-pointer">
+                    ✈️ Copy TG Link
                   </button>
                   <a id="last-uploaded-open-link" href="/" target="_blank" rel="noopener noreferrer"
-                    class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium">
-                    ↗ Open Video
+                    class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium">
+                    ↗ Open
                   </a>
                 </div>
               </div>
@@ -692,7 +878,7 @@
         </div>
 
         <!-- Right 5 Cols: Selected Server File Explorer (/api/list, Play Preview & /api/delete) -->
-        <div id="server-explorer-panel" class="lg:col-span-5 p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 flex flex-col justify-between space-y-4">
+        <div id="server-explorer-panel" class="lg:col-span-5 p-4 sm:p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 flex flex-col justify-between space-y-4">
           <div class="space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-4">
               <div>
@@ -702,7 +888,7 @@
                     0 files
                   </span>
                 </div>
-                <p id="explorer-server-title" class="text-xs text-zinc-400 mt-0.5">সার্ভার কার্ডে ক্লিক করলে ওই সার্ভারের সব ফাইল ও ভিডিও এখানে দেখাবে</p>
+                <p id="explorer-server-title" class="text-xs text-zinc-400 mt-0.5 break-all">সার্ভার কার্ডে ক্লিক করলে ওই সার্ভারের সব ফাইল ও ভিডিও এখানে দেখাবে</p>
               </div>
               <button id="refresh-files-btn" type="button"
                 class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 cursor-pointer">
@@ -752,271 +938,59 @@
         </div>
       </section>
 
-      <!-- SECTION 2B: YOUTUBE-STYLE SHORTS UPLOAD STUDIO & PUBLISHED SHORTS MANAGER (/shorts) -->
-      <section class="p-6 rounded-2xl border border-red-900/60 bg-gradient-to-b from-zinc-900/70 to-zinc-950 space-y-6 shadow-xl">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4">
+      <!-- SECTION 2B: PUBLISHED WEBSITE SHORTS MANAGER (/shorts) -->
+      <section class="p-4 sm:p-6 rounded-2xl border border-red-900/50 bg-zinc-900/40 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
           <div>
-            <div class="flex items-center gap-2.5">
-              <span class="px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-bold">📱 YT SHORTS</span>
-              <h2 class="text-base sm:text-lg font-bold text-white">YouTube-Style Shorts Upload Studio &amp; Manager (`/shorts`)</h2>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-red-600 text-white text-[11px] font-bold">📱 SHORTS</span>
+              <h2 class="text-sm sm:text-base font-bold text-white">Published Website Shorts (`/shorts` · With Likes &amp; Views)</h2>
             </div>
-            <p class="text-xs text-zinc-400 mt-1">
-              যেকোনো শর্ট ভিডিও সিলেক্ট করে আপলোড করুন — অটোমেটিক <strong>৩টি থাম্বনেইল</strong> তৈরি হবে এবং <strong>Auto Viral Adult Title + Hashtags</strong> অটো লেখা থাকবে (চাইলে নিজের মতো Title এডিট বা পরিবর্তন করতে পারবেন)
-            </p>
+            <p class="text-xs text-zinc-400 mt-0.5">ওয়েবসাইটের Shorts ফিডে থাকা সব শর্ট ভিডিও এবং লাইক/ভিউ কাউন্ট</p>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-mono text-emerald-400 font-semibold" id="short-active-server-badge"></span>
-            <span id="shorts-catalog-count" class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-400">0 shorts</span>
-          </div>
+          <span id="shorts-catalog-count" class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-400">0 shorts</span>
         </div>
 
-        <form id="short-upload-form" class="space-y-4">
-          <!-- Server Selector Row for Shorts (Identical to Full Video Upload) -->
-          <div class="p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Target Storage Server *</label>
-              <select id="short-server-select"
-                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-medium text-white focus:outline-none focus:border-red-500"></select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Public R2 Stream Domain *</label>
-              <input id="short-public-domain" type="url" placeholder="https://pub-xxxx.r2.dev"
-                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1.5">X-Admin-Key Secret *</label>
-              <input id="short-admin-key" type="password" placeholder="Enter Worker X-Admin-Key"
-                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1.5">Folder on R2 (Leave empty for root)</label>
-              <input id="short-folder" type="text" value="" placeholder="Optional folder (empty = root)"
-                class="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            <!-- Left 6 Cols: Video File Picker + Auto Viral Adult Title & Hashtags -->
-            <div class="lg:col-span-6 space-y-4">
-              <div>
-                <label class="block text-xs font-medium text-zinc-300 mb-1.5">১. Select Short Video File (আপলোডের জন্য শর্ট ভিডিও সিলেক্ট করুন) *</label>
-                <label class="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-red-800/70 hover:border-red-500 rounded-xl bg-zinc-950/80 cursor-pointer transition-colors p-4 text-center">
-                  <div class="w-8 h-8 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center mb-1 font-bold">↑</div>
-                  <span id="short-file-chosen-name" class="text-xs font-semibold text-zinc-200">Click to select a Short video file from your device</span>
-                  <span id="short-file-chosen-size" class="text-[11px] font-mono text-zinc-500 mt-0.5">MP4, WEBM, MKV, MOV supported · Auto-generates 3 thumbnails</span>
-                  <input id="short-file-input" type="file" accept="video/*" class="hidden" />
-                </label>
-              </div>
-
-              <!-- Progress Bar for Short Upload -->
-              <div id="short-progress-wrap" class="hidden p-3 rounded-xl bg-zinc-950 border border-red-500/40 space-y-1.5">
-                <div class="flex justify-between text-xs font-mono">
-                  <span id="short-progress-status" class="text-zinc-200 font-semibold">Uploading Short video file to Storage Server...</span>
-                  <span id="short-progress-pct" class="text-red-400 font-bold">0%</span>
-                </div>
-                <div class="w-full h-2.5 rounded-full bg-zinc-800 overflow-hidden">
-                  <div id="short-progress-bar" class="h-full bg-red-600 transition-all duration-150" style="width: 0%"></div>
-                </div>
-              </div>
-
-              <!-- Auto Viral Adult Title & Hashtags Box (Auto-filled + Custom Editable) -->
-              <div class="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <label class="block text-xs font-bold text-white">২. Short Title &amp; Auto Viral Adult Hashtags (চাইলে নিজের মতো Title লিখুন) *</label>
-                    <p class="text-[11px] text-zinc-400">অটোমেটিক ভাইরাল অ্যাডাল্ট টাইটেল ও হ্যাশট্যাগ দেওয়া আছে — আপনি চাইলে এডিট করে নিজের টাইটেল দিতে পারবেন</p>
-                  </div>
-                  <button id="short-auto-viral-btn" type="button"
-                    class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold cursor-pointer transition-colors">
-                    🎲 Change Auto Viral Title &amp; Hashtags
-                  </button>
-                </div>
-
-                <div>
-                  <label class="block text-[11px] font-medium text-zinc-300 mb-1">Short Title (টাইটেল বক্স - অটো লেখা আছে, চাইলে পরিবর্তন করুন)</label>
-                  <input id="short-title" type="text" required
-                    value="🔥 দেশি ভাইরাল হট শর্টস 🥵💋 #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl"
-                    placeholder="টাইটেল লিখুন অথবা অটো ভাইরাল টাইটেল ব্যবহার করুন..."
-                    class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-white focus:outline-none focus:border-red-500" />
-                </div>
-
-                <div>
-                  <label class="block text-[11px] font-medium text-zinc-300 mb-1">Auto Viral Adult Hashtags (`hashtags`)</label>
-                  <input id="short-hashtags" type="text"
-                    value="#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl #HotBhabi #BanglaViral #Exclusive18 #ViralLink"
-                    class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-red-300 focus:outline-none focus:border-red-500" />
-                </div>
-
-                <!-- Quick 1-Click Viral Adult Hashtag Chips -->
-                <div class="space-y-1">
-                  <span class="text-[10px] text-zinc-400">ক্লিক করলে টাইটেল ও হ্যাশট্যাগে যুক্ত হবে (Quick Add Viral Tags):</span>
-                  <div id="short-quick-tags" class="flex flex-wrap gap-1.5">
-                    <button type="button" data-short-tag="#Shorts" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#Shorts</button>
-                    <button type="button" data-short-tag="#18Plus" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#18Plus</button>
-                    <button type="button" data-short-tag="#BdViral" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#BdViral</button>
-                    <button type="button" data-short-tag="#DesiHot" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#DesiHot</button>
-                    <button type="button" data-short-tag="#RoomDate" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#RoomDate</button>
-                    <button type="button" data-short-tag="#HotBhabi" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#HotBhabi</button>
-                    <button type="button" data-short-tag="#ViralGirl" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#ViralGirl</button>
-                    <button type="button" data-short-tag="#PrivateLeak" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#PrivateLeak</button>
-                    <button type="button" data-short-tag="#Uncensored" class="px-2 py-0.5 rounded bg-zinc-900 hover:bg-red-950 border border-zinc-800 text-[11px] text-red-300 cursor-pointer">#Uncensored</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right 6 Cols: 3 Auto-Generated Thumbnails Selector + Preview + Stream URL -->
-            <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3.5 flex flex-col justify-between">
-              <div class="space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <label class="block text-xs font-bold text-white">৩. Short Video 3 Auto Thumbnails (৩টি অটো থাম্বনেইল জেনারেটর)</label>
-                    <p id="short-thumb-status" class="text-[11px] text-zinc-400">শর্ট ভিডিও সিলেক্ট করলে অটোমেটিক ৩টি থাম্বনেইল তৈরি হবে — ক্লিক করে যেকোনোটি সিলেক্ট বা ডাউনলোড করুন</p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <button id="short-regen-3thumbs-btn" type="button"
-                      class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium cursor-pointer">
-                      ↻ নতুন ৩টি ফ্রেম
-                    </button>
-                    <button id="short-dl-thumb-btn" type="button"
-                      class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold cursor-pointer">
-                      ⬇ Download
-                    </button>
-                    <label class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
-                      🖼️ Custom Thumb
-                      <input id="short-custom-thumb-input" type="file" accept="image/*" class="hidden" />
-                    </label>
-                  </div>
-                </div>
-
-                <!-- 3 Thumbnails Grid for Shorts -->
-                <div id="short-auto-thumbs-section" class="hidden p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-2">
-                  <span class="text-[11px] font-semibold text-emerald-400">🎬 অটো-জেনারেটেড ৩টি থাম্বনেইল (যেকোনো একটিতে ক্লিক করে সিলেক্ট করুন):</span>
-                  <div id="short-auto-thumbs-grid" class="grid grid-cols-3 gap-2.5"></div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                  <div class="sm:col-span-5">
-                    <div class="relative w-full aspect-video rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center">
-                      <span id="short-thumb-placeholder" class="text-[10px] text-zinc-500 text-center px-2">3 Thumbnails will appear here</span>
-                      <img id="short-thumb-preview-bg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover blur-md scale-125 opacity-70" />
-                      <img id="short-thumb-preview-img" src="" alt="Short Thumb" referrerpolicy="no-referrer" class="hidden relative z-10 w-full h-full object-contain" />
-                    </div>
-                  </div>
-                  <div class="sm:col-span-7 space-y-2.5">
-                    <div>
-                      <label class="block text-[11px] text-zinc-300 mb-1">Selected Short Thumbnail URL (`thumbnail`)</label>
-                      <input id="short-thumb-url" type="url" placeholder="https://i.ibb.co/..."
-                        class="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-                    </div>
-                    <div>
-                      <label class="block text-[11px] text-zinc-300 mb-1">Or Direct Short Video Stream URL (`url` - Optional)</label>
-                      <div class="flex gap-1.5">
-                        <input id="short-custom-url" type="url" placeholder="https://pub-xxxx.r2.dev/short.mp4"
-                          class="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-                        <button id="short-gen-from-url-btn" type="button" title="Generate 3 Thumbnails from URL"
-                          class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 cursor-pointer shrink-0">
-                          🎬 3 Frames
-                        </button>
-                      </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                      <div>
-                        <label class="block text-[11px] text-zinc-300 mb-1">Duration</label>
-                        <input id="short-duration" type="text" value="00:35"
-                          class="w-full px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-                      </div>
-                      <div class="flex items-end">
-                        <button id="short-submit-btn" type="submit"
-                          class="w-full py-2 px-3 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-lg">
-                          🚀 Upload &amp; Publish Short
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Newly Published Short Share Link Box -->
-              <div id="last-short-share-box" class="hidden p-3 rounded-xl bg-emerald-950/50 border border-emerald-700/70 space-y-1.5">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span class="text-xs font-semibold text-emerald-300">✅ Short Published! Direct Share Link:</span>
-                  <div class="flex items-center gap-1.5">
-                    <button id="last-short-copy-btn" type="button"
-                      class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
-                      🔗 Copy Short Link
-                    </button>
-                    <button id="last-short-tg-btn" type="button"
-                      class="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold cursor-pointer">
-                      ✈️ Copy TG Short Link
-                    </button>
-                  </div>
-                </div>
-                <input id="last-short-share-input" type="text" readonly
-                  class="w-full px-3 py-1 rounded bg-zinc-950 border border-emerald-800/70 text-xs font-mono text-emerald-300 focus:outline-none select-all" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom Submit Bar (Identical to Full Video Upload) -->
-          <div class="pt-3 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
-            <p id="short-upload-ready-hint" class="text-xs text-zinc-400">
-              সার্ভার সিলেক্ট করে শর্ট ভিডিও ফাইল দিন, তারপর ডান পাশের <strong>🚀 Upload &amp; Publish Short to Server</strong> বাটনে ক্লিক করুন।
-            </p>
-            <button id="short-bottom-submit-btn" type="submit"
-              class="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-lg shadow-red-600/25">
-              🚀 Upload &amp; Publish Short to Server
-            </button>
-          </div>
-        </form>
-
-        <!-- Published Shorts List Table -->
-        <div class="pt-4 border-t border-zinc-800/80 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white">Published Website Shorts (`/shorts` · With Ads Active)</h3>
-            <span class="text-[11px] text-zinc-400">ওয়েবসাইটের Shorts সেকশনে থাকা সব শর্ট ভিডিও</span>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
-                  <th class="py-2 px-3">THUMBNAIL</th>
-                  <th class="py-2 px-3">SHORT TITLE &amp; VIRAL HASHTAGS</th>
-                  <th class="py-2 px-3">STREAM URL</th>
-                  <th class="py-2 px-3 text-right">VIEWS / LIKES</th>
-                  <th class="py-2 px-3 text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody id="shorts-table-body" class="divide-y divide-zinc-800/60 text-xs">
-                <tr><td colspan="5" class="py-5 text-center text-zinc-500">No Shorts uploaded yet. Upload your first Short above!</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="w-full overflow-x-auto">
+          <table class="mobile-card-table w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
+                <th class="py-2 px-3">THUMBNAIL</th>
+                <th class="py-2 px-3">SHORT TITLE &amp; VIRAL HASHTAGS</th>
+                <th class="py-2 px-3">STREAM URL</th>
+                <th class="py-2 px-3 text-right">VIEWS / LIKES</th>
+                <th class="py-2 px-3 text-right">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="shorts-table-body" class="divide-y divide-zinc-800/60 text-xs">
+              <tr><td colspan="5" class="py-5 text-center text-zinc-500">No Shorts uploaded yet. Upload your first Short above!</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
       <!-- SECTION 3: PUBLISHED VIDEOS ON WEBSITE + OLD VIDEO EDIT SYSTEM -->
-      <section class="p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-4">
+      <section class="p-4 sm:p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="text-base font-bold text-white">Published Website Videos & Old Video Editor (`/videos`)</h2>
+            <h2 class="text-sm sm:text-base font-bold text-white">Published Website Videos &amp; Old Video Editor (`/videos`)</h2>
             <p class="text-xs text-zinc-400">যেকোনো পুরাতন ভিডিওর Title, Custom Thumbnail, Stream URL বা Views পরিবর্তন করতে <strong>Edit</strong> বাটনে ক্লিক করুন</p>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
             <button id="download-sitemap-btn" type="button"
-              class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors cursor-pointer">
+              class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors cursor-pointer">
               🔍 Download Live sitemap.xml (Google SEO)
             </button>
             <span id="catalog-count" class="text-xs font-mono text-zinc-400">0 videos</span>
           </div>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+        <div class="w-full overflow-x-auto">
+          <table class="mobile-card-table w-full text-left border-collapse">
             <thead>
               <tr class="border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
                 <th class="py-2.5 px-3">THUMBNAIL</th>
-                <th class="py-2.5 px-3">TITLE & KEYWORDS</th>
+                <th class="py-2.5 px-3">TITLE &amp; KEYWORDS</th>
                 <th class="py-2.5 px-3">VIDEO STREAM URL (`url`)</th>
                 <th class="py-2.5 px-3 text-right">VIEWS / LIKES (ADMIN ONLY)</th>
                 <th class="py-2.5 px-3 text-right">ACTIONS (EDIT / DELETE)</th>
@@ -1467,25 +1441,167 @@ service cloud.firestore {
       }
     };
 
-    // Upload an image File or Base64 DataURL to ImgBB (`https://api.imgbb.com/1/upload`)
-    const uploadToImgBB = async (fileOrDataUrl) => {
-      const formData = new FormData();
-      if (typeof fileOrDataUrl === 'string') {
-        const base64Clean = fileOrDataUrl.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
-        formData.append('image', base64Clean);
-      } else {
-        formData.append('image', fileOrDataUrl);
+    // All videos & shorts automatically display live frames directly from the video stream (#t=2.5)
+    // without requiring separate thumbnail generation or upload
+    const isR2ServerThumbUrl = () => false;
+
+    const sanitizeAdminThumbUrl = () => '';
+
+    // Convert a base64 DataURL or File into a clean File object for R2 Server upload
+    const dataUrlOrBlobToFile = (fileOrDataUrl, label = 'thumb') => {
+      const safeLabel = String(label || 'thumb')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .slice(0, 32);
+      const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:')) {
+        const parts = fileOrDataUrl.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+        const bstr = atob(parts[1] || '');
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new File([u8arr], `${safeLabel}_${stamp}.${ext}`, { type: mime });
       }
 
-      const res = await fetch(`${IMGBB_UPLOAD_URL}?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error?.message || 'ImgBB upload failed');
+      if (fileOrDataUrl instanceof File) {
+        const ext = (fileOrDataUrl.name.split('.').pop() || 'jpg').toLowerCase();
+        return new File([fileOrDataUrl], `${safeLabel}_${stamp}.${ext}`, {
+          type: fileOrDataUrl.type || 'image/jpeg'
+        });
       }
-      return data.data.display_url || data.data.url;
+
+      throw new Error('Invalid thumbnail image data');
+    };
+
+    // Resolve the currently selected R2 Storage Server from the Upload Studio dropdown
+    const getSelectedUploadServerContext = () => {
+      const selectedSrvId =
+        document.getElementById('upload-server-select')?.value || activeServerId;
+      const srv =
+        servers.find((s) => s.id === selectedSrvId) ||
+        servers.find((s) => s.id === activeServerId) ||
+        servers[0] ||
+        null;
+      const adminKey =
+        document.getElementById('upload-admin-key')?.value.trim() ||
+        (srv ? (srv.adminKey || '').trim() : '');
+      const publicDomainInput = normalizeBaseUrl(
+        document.getElementById('upload-public-domain')?.value ||
+          (srv ? srv.publicUrl : '')
+      );
+      return { srv, adminKey, publicDomainInput };
+    };
+
+    // Upload a thumbnail image (File or base64 DataURL) directly to the selected R2 Storage Server (`thumbs/` folder)
+    const uploadThumbnailToR2Server = async (fileOrDataUrl, optionLabel = 'thumb') => {
+      const { srv, adminKey, publicDomainInput } = getSelectedUploadServerContext();
+      if (!srv || !srv.workerUrl) {
+        throw new Error('প্রথমে আপনার R2 Storage Server সিলেক্ট করুন');
+      }
+      if (!adminKey) {
+        throw new Error(`সার্ভার "${srv.name}"-এর X-Admin-Key দিন`);
+      }
+
+      const thumbFile = dataUrlOrBlobToFile(fileOrDataUrl, optionLabel);
+      const baseUrl = normalizeBaseUrl(srv.workerUrl);
+      const folder = 'thumbs';
+
+      const formData = new FormData();
+      formData.append('file', thumbFile);
+      formData.append('folder', folder);
+
+      let data;
+      try {
+        const res = await fetch(`${baseUrl}/api/upload`, {
+          method: 'POST',
+          headers: { 'X-Admin-Key': adminKey },
+          body: formData
+        });
+        data = await res.json();
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || `HTTP ${res.status}`);
+        }
+      } catch {
+        const proxyForm = new FormData();
+        proxyForm.append('file', thumbFile);
+        proxyForm.append('folder', folder);
+        const res = await fetch('/api/r2-proxy/upload', {
+          method: 'POST',
+          headers: {
+            'X-Admin-Key': adminKey,
+            'X-Worker-Url': baseUrl
+          },
+          body: proxyForm
+        });
+        data = await res.json();
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || `HTTP ${res.status}`);
+        }
+      }
+
+      const uploadedKey = data.key;
+      const bestUrls = resolveBestPublicUrlForFile(srv, uploadedKey);
+      const encodedKey = uploadedKey.split('/').map(encodeURIComponent).join('/');
+      const hostedUrl =
+        (publicDomainInput && !publicDomainInput.includes('.workers.dev')
+          ? `${publicDomainInput}/${encodedKey}`
+          : bestUrls[0]) || `${publicDomainInput || baseUrl}/${encodedKey}`;
+
+      return {
+        hostedUrl,
+        r2Key: uploadedKey,
+        serverId: srv.id,
+        serverName: srv.name
+      };
+    };
+
+    // Delete an unselected thumbnail from the R2 Storage Server so only the 1 selected thumbnail remains
+    const deleteThumbnailFromR2Server = async (r2Key, serverId = '') => {
+      if (!r2Key) return false;
+      const targetSrv =
+        servers.find((s) => s.id === serverId) ||
+        getSelectedUploadServerContext().srv ||
+        servers[0];
+      if (!targetSrv || !targetSrv.workerUrl) return false;
+
+      const baseUrl = normalizeBaseUrl(targetSrv.workerUrl);
+      const adminKey =
+        (targetSrv.adminKey || '').trim() ||
+        document.getElementById('upload-admin-key')?.value.trim() ||
+        '';
+      if (!adminKey) return false;
+
+      try {
+        const res = await fetch(`${baseUrl}/api/delete`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Key': adminKey
+          },
+          body: JSON.stringify({ key: r2Key })
+        });
+        if (res.ok) return true;
+      } catch {}
+
+      try {
+        const res = await fetch('/api/r2-proxy/delete', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Key': adminKey,
+            'X-Worker-Url': baseUrl
+          },
+          body: JSON.stringify({ key: r2Key })
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
     };
 
     async function fetchServerFileList(server) {
@@ -2134,28 +2250,8 @@ service cloud.firestore {
       renderActiveServerFiles();
     });
 
-    document.getElementById('short-server-select').addEventListener('change', (e) => {
-      activeServerId = e.target.value;
-      renderServerSelect();
-      renderStorageCards();
-      renderActiveServerFiles();
-    });
-
     document.getElementById('upload-admin-key').addEventListener('input', (e) => {
       const val = e.target.value.trim();
-      const shortKeyEl = document.getElementById('short-admin-key');
-      if (shortKeyEl) shortKeyEl.value = val;
-      const activeSrv = servers.find((s) => s.id === activeServerId);
-      if (activeSrv) {
-        activeSrv.adminKey = val;
-        saveServers();
-      }
-    });
-
-    document.getElementById('short-admin-key').addEventListener('input', (e) => {
-      const val = e.target.value.trim();
-      const uploadKeyEl = document.getElementById('upload-admin-key');
-      if (uploadKeyEl) uploadKeyEl.value = val;
       const activeSrv = servers.find((s) => s.id === activeServerId);
       if (activeSrv) {
         activeSrv.adminKey = val;
@@ -2165,19 +2261,6 @@ service cloud.firestore {
 
     document.getElementById('upload-public-domain').addEventListener('input', (e) => {
       const val = normalizeBaseUrl(e.target.value);
-      const shortPubEl = document.getElementById('short-public-domain');
-      if (shortPubEl) shortPubEl.value = val;
-      const activeSrv = servers.find((s) => s.id === activeServerId);
-      if (activeSrv) {
-        activeSrv.publicUrl = val;
-        saveServers();
-      }
-    });
-
-    document.getElementById('short-public-domain').addEventListener('input', (e) => {
-      const val = normalizeBaseUrl(e.target.value);
-      const uploadPubEl = document.getElementById('upload-public-domain');
-      if (uploadPubEl) uploadPubEl.value = val;
       const activeSrv = servers.find((s) => s.id === activeServerId);
       if (activeSrv) {
         activeSrv.publicUrl = val;
@@ -2196,6 +2279,102 @@ service cloud.firestore {
 
     document.getElementById('refresh-all-storage-btn').addEventListener('click', () => {
       refreshAllServers();
+    });
+
+    // Auto Viral Adult Title & Hashtag Presets (Works for Shorts, Long Videos & Both)
+    const AUTO_VIRAL_SHORT_PRESETS = [
+      {
+        title: '🔥 দেশি ভাইরাল হট ভিডিও 🥵💋 #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl',
+        hashtags: 'Virallink bdgirl #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl #HotBhabi #BanglaViral #Exclusive18 #ViralLink'
+      },
+      {
+        title: '🥵 প্রাইভেট রুম ডেট ভাইরাল ফুল ভিডিও 🔥💋 #Shorts #RoomDate #18Plus #BdViral #PrivateLeak #DesiGirl',
+        hashtags: 'Virallink bdgirl #Shorts #RoomDate #18Plus #BdViral #PrivateLeak #DesiGirl #Uncensored #HotVideo #BanglaHot #ViralShorts'
+      },
+      {
+        title: '💋 নতুন দেশি ভাবি হট ভাইরাল ক্লিপ 🔥🥵 #Shorts #HotBhabi #18Plus #DesiHot #BdViral #Uncensored',
+        hashtags: 'Virallink bdgirl #Shorts #HotBhabi #18Plus #DesiHot #BdViral #Uncensored #ExclusiveClip #ViralGirl #NightShow #BdCollection'
+      },
+      {
+        title: '🔞 আনসেন্সরড কলেজ গার্ল ভাইরাল ভিডিও 🔥🥵 #Shorts #18Plus #ViralGirl #BdViral #DesiHot #PrivateLeak',
+        hashtags: 'Virallink bdgirl #Shorts #18Plus #ViralGirl #BdViral #DesiHot #PrivateLeak #RoomDate #HotShorts #BanglaViral #ViralLink'
+      },
+      {
+        title: '🔥 রাতের গোপন ভিডিও ফাঁস HD 🥵💋 #Shorts #PrivateLeak #18Plus #BdViral #RoomDate #HotBhabi',
+        hashtags: 'Virallink bdgirl #Shorts #PrivateLeak #18Plus #BdViral #RoomDate #HotBhabi #DesiHot #Uncensored #Exclusive18 #ViralGirl'
+      }
+    ];
+    let currentViralPresetIdx = 0;
+
+    // Cycle Auto Viral Adult Title & Hashtags button in Unified Upload Studio
+    document.getElementById('auto-viral-title-btn').addEventListener('click', () => {
+      currentViralPresetIdx = (currentViralPresetIdx + 1) % AUTO_VIRAL_SHORT_PRESETS.length;
+      const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx];
+      document.getElementById('video-title').value = preset.title;
+      document.getElementById('video-keywords').value = preset.hashtags;
+      showStatus('Auto Viral Adult Title & Hashtags updated! আপনি চাইলে নিজের মতো এডিট করতে পারেন।', 'info');
+    });
+
+    // Quick-add Hashtag chips in Unified Upload Studio
+    document.querySelectorAll('#upload-quick-tags [data-upload-tag]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.getAttribute('data-upload-tag');
+        if (!tag) return;
+        const hashInput = document.getElementById('video-keywords');
+        const titleInput = document.getElementById('video-title');
+        if (hashInput && !hashInput.value.includes(tag)) {
+          hashInput.value = `${hashInput.value.trim()} ${tag}`.trim();
+        }
+        if (titleInput && !titleInput.value.includes(tag)) {
+          titleInput.value = `${titleInput.value.trim()} ${tag}`.trim();
+        }
+      });
+    });
+
+    // Upload Destination Mode Selector Cards (Shorts / Long / Both)
+    const setUploadTargetModeUI = (mode) => {
+      const cleanMode = mode === 'shorts' || mode === 'long' || mode === 'both' ? mode : 'both';
+      const hiddenInput = document.getElementById('upload-target-mode');
+      const badgeEl = document.getElementById('selected-target-badge');
+      if (hiddenInput) hiddenInput.value = cleanMode;
+
+      if (badgeEl) {
+        if (cleanMode === 'shorts') {
+          badgeEl.textContent = 'Target: 📱 Shorts Only';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full bg-red-950/90 border border-red-700/70 text-[11px] font-mono text-red-300';
+        } else if (cleanMode === 'long') {
+          badgeEl.textContent = 'Target: 🎬 Long Video Only';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full bg-amber-950/90 border border-amber-700/70 text-[11px] font-mono text-amber-300';
+        } else {
+          badgeEl.textContent = 'Target: 🔥 Both (Shorts + Long)';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full bg-emerald-950/90 border border-emerald-700/70 text-[11px] font-mono text-emerald-300';
+        }
+      }
+
+      document.querySelectorAll('[data-select-mode]').forEach((btn) => {
+        const m = btn.getAttribute('data-select-mode');
+        const isSelected = m === cleanMode;
+        if (m === 'shorts') {
+          btn.className = isSelected
+            ? 'p-2.5 rounded-xl border-2 border-red-500 bg-red-950/50 text-left transition-all cursor-pointer ring-2 ring-red-500/30'
+            : 'p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-red-500/60 text-left transition-all cursor-pointer';
+        } else if (m === 'long') {
+          btn.className = isSelected
+            ? 'p-2.5 rounded-xl border-2 border-amber-500 bg-amber-950/50 text-left transition-all cursor-pointer ring-2 ring-amber-500/30'
+            : 'p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-amber-500/60 text-left transition-all cursor-pointer';
+        } else {
+          btn.className = isSelected
+            ? 'p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-950/50 text-left transition-all cursor-pointer ring-2 ring-emerald-500/30'
+            : 'p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/60 text-left transition-all cursor-pointer';
+        }
+      });
+    };
+
+    document.querySelectorAll('[data-select-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const m = btn.getAttribute('data-select-mode');
+        setUploadTargetModeUI(m);
+      });
     });
 
     // Smart Non-Black 3-Thumbnail Video Frame Extractor (YouTube Studio Style) + Aspect Ratio Adjustment (16:9 640x360) + ImgBB Auto-Upload
@@ -2411,7 +2590,6 @@ service cloud.firestore {
     };
 
     // Helper to build the exact Index Watch Share Link (`https://<origin>/?v=<videoId>`)
-    // Matches `buildVideoShareLink` in `src/firebase.ts` 100%
     window.buildVideoShareLink = (videoId) => {
       const cleanId = String(videoId || '').trim();
       const origin =
@@ -2421,7 +2599,6 @@ service cloud.firestore {
       return `${origin}/?v=${encodeURIComponent(cleanId)}`;
     };
 
-    // Reliable clipboard copy helper with offscreen textarea fallback for iframes and all browsers
     window.copyVideoShareLink = async (videoId, title = '') => {
       if (!videoId) return '';
       const shareUrl = window.buildVideoShareLink(videoId);
@@ -2462,7 +2639,6 @@ service cloud.firestore {
       return shareUrl;
     };
 
-    // Build & Copy Telegram Mini App Direct Video Link (https://t.me/BotUser/app?startapp=VIDEO_ID)
     window.getTelegramMiniAppBaseUrl = () => {
       try {
         return (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
@@ -2477,7 +2653,6 @@ service cloud.firestore {
       if (!base) {
         return window.buildVideoShareLink(cleanId);
       }
-      // Telegram start_param supports A-Z, a-z, 0-9, _ and -
       const sep = base.includes('?') ? '&' : '?';
       return `${base}${sep}startapp=${encodeURIComponent(cleanId)}`;
     };
@@ -2518,7 +2693,85 @@ service cloud.firestore {
       return tgUrl;
     };
 
-    // Helper to download any thumbnail (DataURL, remote ImgBB/PostImg URL, or auto-extract from video stream URL)
+    window.buildShortShareLink = (shortId) => {
+      const cleanId = String(shortId || '').trim();
+      const origin =
+        typeof window !== 'undefined' && window.location && window.location.origin
+          ? window.location.origin
+          : 'https://xtubeofficial.pages.dev';
+      return `${origin}/?short=${encodeURIComponent(cleanId)}`;
+    };
+
+    window.copyShortShareLink = async (shortId, title = '') => {
+      if (!shortId) return '';
+      const shareUrl = window.buildShortShareLink(shortId);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = shareUrl;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showStatus(
+        `Copied Short Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        'success'
+      );
+      return shareUrl;
+    };
+
+    window.buildTelegramShortShareLink = (shortId) => {
+      const cleanId = String(shortId || '').trim();
+      const base = window.getTelegramMiniAppBaseUrl().replace(/\/+$/, '');
+      if (!base) {
+        return window.buildShortShareLink(cleanId);
+      }
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}startapp=${encodeURIComponent(`short_${cleanId}`)}`;
+    };
+
+    window.copyTelegramShortShareLink = async (shortId, title = '') => {
+      if (!shortId) return '';
+      const base = window.getTelegramMiniAppBaseUrl();
+      if (!base) {
+        showStatus(
+          'প্রথমে উপরের "Telegram Mini App & Bot Setup" বক্সে আপনার Bot লিংক দিয়ে Save করুন!',
+          'error'
+        );
+        const inputEl = document.getElementById('tg-bot-base-input');
+        if (inputEl) {
+          inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          inputEl.focus();
+        }
+        return '';
+      }
+      const tgUrl = window.buildTelegramShortShareLink(shortId);
+      try {
+        await navigator.clipboard.writeText(tgUrl);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = tgUrl;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      showStatus(
+        `Copied Telegram Short Link${title ? ` for "${title}"` : ''}: ${tgUrl}`,
+        'success'
+      );
+      return tgUrl;
+    };
+
+    // Helper to download any thumbnail
     window.downloadThumbnailImage = async (imgSrc, filenameBase = 'video-thumbnail', fallbackVideoUrl = '') => {
       const cleanName =
         String(filenameBase || 'video-thumbnail')
@@ -2530,7 +2783,6 @@ service cloud.firestore {
 
       let targetSrc = (imgSrc || '').trim();
 
-      // If no thumbnail image is saved yet for an older video, extract a frame live from its video stream
       if (!targetSrc && fallbackVideoUrl) {
         showStatus(`"${filenameBase}"-এর ভিডিও থেকে থাম্বনেইল তৈরি করে ডাউনলোড করা হচ্ছে...`, 'info');
         const proxied = `/api/stream?url=${encodeURIComponent(fallbackVideoUrl.trim())}`;
@@ -2552,7 +2804,6 @@ service cloud.firestore {
         return;
       }
 
-      // Case 1: Base64 DataURL or Blob URL
       if (targetSrc.startsWith('data:') || targetSrc.startsWith('blob:')) {
         const a = document.createElement('a');
         a.href = targetSrc;
@@ -2564,7 +2815,6 @@ service cloud.firestore {
         return;
       }
 
-      // Case 2: Remote HTTP/HTTPS URL — use /api/download-image proxy (or direct fetch blob fallback)
       try {
         const proxyUrl = `/api/download-image?url=${encodeURIComponent(targetSrc)}&filename=${encodeURIComponent(finalFilename)}`;
         const res = await fetch(proxyUrl);
@@ -2593,7 +2843,6 @@ service cloud.firestore {
           setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
           showStatus(`Downloaded thumbnail "${finalFilename}" ✓`, 'success');
         } catch {
-          // Final fallback: direct link trigger
           const a = document.createElement('a');
           a.href = `/api/download-image?url=${encodeURIComponent(targetSrc)}&filename=${encodeURIComponent(finalFilename)}`;
           a.download = finalFilename;
@@ -2604,7 +2853,7 @@ service cloud.firestore {
       }
     };
 
-    // Render the 3-thumbnail selector cards in Upload section
+    // Render the 3-thumbnail selector cards in Unified Upload Studio
     const renderThreeThumbsPicker = () => {
       const section = document.getElementById('auto-thumbs-section');
       const grid = document.getElementById('auto-thumbs-grid');
@@ -2636,7 +2885,7 @@ service cloud.firestore {
           </button>
           <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2 flex items-center justify-between">
             <span class="text-[11px] font-semibold ${isSelected ? 'text-emerald-300' : 'text-zinc-200'}">
-              ${isSelected ? '✓ Selected' : `Option ${idx + 1}`}
+              ${isSelected ? '✓ Selected (R2 Server)' : `Option ${idx + 1} (Unselected)`}
             </span>
             <span class="px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-mono text-zinc-300">${item.timeLabel}</span>
           </div>
@@ -2659,7 +2908,6 @@ service cloud.firestore {
       });
     };
 
-    // Select one of the 3 generated thumbnails and upload to ImgBB if not already uploaded
     const selectGeneratedThumbnailOption = async (idx) => {
       const chosen = generatedThreeThumbs[idx];
       if (!chosen) return;
@@ -2668,69 +2916,115 @@ service cloud.firestore {
       const thumbStatus = document.getElementById('thumb-upload-status');
       const sizeEl = document.getElementById('file-chosen-size');
 
+      // 1. Immediately delete any previously-uploaded R2 thumbnails from the OTHER 2 unselected options!
+      for (let i = 0; i < generatedThreeThumbs.length; i++) {
+        if (i !== idx) {
+          const other = generatedThreeThumbs[i];
+          if (other && other.r2Key) {
+            const keyToDelete = other.r2Key;
+            const srvToDelete = other.serverId;
+            other.r2Key = '';
+            other.hostedUrl = '';
+            deleteThumbnailFromR2Server(keyToDelete, srvToDelete).catch(() => {});
+          }
+        }
+      }
+
       autoGeneratedThumbDataUrl = chosen.hostedUrl || chosen.dataUrl;
       updateThumbPreviewUI('upload', chosen.hostedUrl || chosen.dataUrl);
       renderThreeThumbsPicker();
 
-      if (chosen.hostedUrl) {
+      if (chosen.hostedUrl && chosen.r2Key) {
         document.getElementById('video-thumb').value = chosen.hostedUrl;
-        thumbStatus.textContent = `Thumbnail Option ${idx + 1} (${chosen.timeLabel}) selected ✓ (${chosen.hostedUrl})`;
+        thumbStatus.textContent = `✓ Option ${idx + 1} (${chosen.timeLabel}) R2 সার্ভারে রেডি আছে — বাকি ২টি ডিলিট হবে (${chosen.hostedUrl})`;
         return;
       }
 
       try {
-        thumbStatus.textContent = `Uploading Thumbnail Option ${idx + 1} (${chosen.timeLabel}) to ImgBB...`;
-        const hostedUrl = await uploadToImgBB(chosen.dataUrl);
-        chosen.hostedUrl = hostedUrl;
+        const { srv } = getSelectedUploadServerContext();
+        const srvLabel = srv ? srv.name : 'R2 Server';
+        thumbStatus.textContent = `⏳ Option ${idx + 1} (${chosen.timeLabel}) আপনার "${srvLabel}" সার্ভারে আপলোড হচ্ছে (বাকি ২টি ডিলিট হবে)...`;
+        const uploaded = await uploadThumbnailToR2Server(chosen.dataUrl, `thumb_opt${idx + 1}`);
+        chosen.hostedUrl = uploaded.hostedUrl;
+        chosen.r2Key = uploaded.r2Key;
+        chosen.serverId = uploaded.serverId;
 
-        // If still the selected option, update input and preview
         if (selectedThumbOptionIdx === idx) {
-          document.getElementById('video-thumb').value = hostedUrl;
-          autoGeneratedThumbDataUrl = hostedUrl;
-          updateThumbPreviewUI('upload', hostedUrl);
-          thumbStatus.textContent = `Thumbnail Option ${idx + 1} (${chosen.timeLabel}) uploaded to ImgBB ✓ (${hostedUrl})`;
-          if (selectedVideoFile) {
-            sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · 3 Thumbnails Ready (Option ${idx + 1} Selected) ✓`;
+          document.getElementById('video-thumb').value = uploaded.hostedUrl;
+          autoGeneratedThumbDataUrl = uploaded.hostedUrl;
+          updateThumbPreviewUI('upload', uploaded.hostedUrl);
+          thumbStatus.textContent = `✓ Option ${idx + 1} (${chosen.timeLabel}) "${uploaded.serverName}"-এ আপলোড সম্পন্ন! বাকি ২টি অটো ডিলিট হয়েছে ✓`;
+          if (selectedVideoFile && sizeEl) {
+            sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Option ${idx + 1} Uploaded to R2 Server ✓`;
           }
+        } else {
+          // User clicked another option while this was uploading — delete this unselected one from R2
+          deleteThumbnailFromR2Server(uploaded.r2Key, uploaded.serverId).catch(() => {});
+          chosen.hostedUrl = '';
+          chosen.r2Key = '';
         }
         renderThreeThumbsPicker();
-      } catch {
+      } catch (err) {
         if (selectedThumbOptionIdx === idx) {
-          document.getElementById('video-thumb').value = chosen.dataUrl;
-          thumbStatus.textContent = `Thumbnail Option ${idx + 1} (${chosen.timeLabel}) selected ✓`;
+          document.getElementById('video-thumb').value = '';
+          autoGeneratedThumbDataUrl = chosen.dataUrl;
+          thumbStatus.textContent = `Option ${idx + 1} (${chosen.timeLabel}) সিলেক্ট হয়েছে — ভিডিও আপলোডের সময় আপনার R2 সার্ভারে আপলোড হবে (${err.message})`;
         }
       }
     };
 
-    // Generate 3 thumbnails from selected video file
-    const processVideoFrameThumbnail = async (file, forceRandom = false) => {
+    // Fast metadata-only duration detector & live video preview (No separate thumbnail generation or upload!)
+    let currentPreviewObjectUrl = '';
+    const updateLiveVideoPreviewAndDuration = (fileOrUrl, isFile = true) => {
+      const vidEl = document.getElementById('upload-live-video-preview');
+      const placeholderEl = document.getElementById('upload-video-preview-placeholder');
+      const durInput = document.getElementById('video-duration');
       const sizeEl = document.getElementById('file-chosen-size');
       const thumbStatus = document.getElementById('thumb-upload-status');
-      const regenBtn = document.getElementById('regenerate-frame-btn');
 
-      thumbStatus.textContent = 'ভিডিও থেকে YouTube-এর মতো ৩টি উজ্জ্বল 16:9 থাম্বনেইল তৈরি হচ্ছে...';
-      const extracted = await extractThreeVideoThumbnails(file, forceRandom, true);
+      if (currentPreviewObjectUrl) {
+        try {
+          URL.revokeObjectURL(currentPreviewObjectUrl);
+        } catch {}
+        currentPreviewObjectUrl = '';
+      }
 
-      if (extracted.frames && extracted.frames.length > 0) {
-        generatedThreeThumbs = extracted.frames;
-        regenBtn.classList.remove('hidden');
+      if (!fileOrUrl) {
+        if (vidEl) {
+          vidEl.removeAttribute('src');
+          vidEl.classList.add('hidden');
+        }
+        if (placeholderEl) placeholderEl.classList.remove('hidden');
+        return;
+      }
 
-        // Pick the brightest frame by default so the initial selection is crisp
-        let bestIdx = 0;
-        let maxBright = -1;
-        generatedThreeThumbs.forEach((f, i) => {
-          if (f.brightness > maxBright) {
-            maxBright = f.brightness;
-            bestIdx = i;
+      const srcUrl = isFile ? URL.createObjectURL(fileOrUrl) : String(fileOrUrl).trim();
+      if (isFile) currentPreviewObjectUrl = srcUrl;
+
+      if (vidEl) {
+        vidEl.src = srcUrl;
+        vidEl.classList.remove('hidden');
+        if (placeholderEl) placeholderEl.classList.add('hidden');
+        vidEl.onloadedmetadata = () => {
+          const totalDur = Number(vidEl.duration) || 0;
+          if (totalDur > 0 && isFinite(totalDur)) {
+            const mins = Math.floor(totalDur / 60);
+            const secs = Math.floor(totalDur % 60);
+            const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            if (durInput) durInput.value = formatted;
+            if (isFile && sizeEl) {
+              sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Duration: ${formatted} · Ready to upload ✓`;
+            }
           }
-        });
+          try {
+            vidEl.currentTime = totalDur > 3 ? 2.5 : Math.max(0.2, totalDur * 0.3);
+          } catch {}
+        };
+      }
 
-        await selectGeneratedThumbnailOption(bestIdx);
-      } else {
-        generatedThreeThumbs = [];
-        renderThreeThumbsPicker();
-        sizeEl.textContent = `${formatBytes(file.size)} · Ready to upload`;
-        thumbStatus.textContent = 'Could not auto-extract 3 frames. Please upload a custom thumbnail image.';
+      if (thumbStatus) {
+        thumbStatus.textContent =
+          '✓ ভিডিও রেডি! আলাদা থাম্বনেইল আপলোড লাগবে না — সরাসরি ভিডিও থেকে অটো থাম্বনেইল শো করবে।';
       }
     };
 
@@ -2738,55 +3032,95 @@ service cloud.firestore {
       selectedVideoFile = e.target.files[0] || null;
       autoGeneratedThumbDataUrl = '';
       generatedThreeThumbs = [];
-      renderThreeThumbsPicker();
 
       const nameEl = document.getElementById('file-chosen-name');
       const sizeEl = document.getElementById('file-chosen-size');
       const titleInput = document.getElementById('video-title');
-      const regenBtn = document.getElementById('regenerate-frame-btn');
+      const keywordsInput = document.getElementById('video-keywords');
+      const hintEl = document.getElementById('upload-ready-hint');
 
       if (selectedVideoFile) {
-        nameEl.textContent = selectedVideoFile.name;
-        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Generating 3 YouTube-style thumbnails...`;
-        if (!titleInput.value.trim()) {
-          titleInput.value = selectedVideoFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+        nameEl.textContent = `📁 ${selectedVideoFile.name}`;
+        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Ready to upload ✓`;
+        if (hintEl) {
+          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✓ "${selectedVideoFile.name}" (${formatBytes(selectedVideoFile.size)}) সিলেক্ট হয়েছে! এবার নিচে <strong>🚀 Upload &amp; Publish Video</strong> বাটনে ক্লিক করে <strong>Shorts / Long / Both</strong> অপশন বেছে নিন।</span>`;
         }
-        await processVideoFrameThumbnail(selectedVideoFile, false);
+        // Ensure Auto Viral Adult Title & Hashtags are populated
+        if (!titleInput.value.trim()) {
+          const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
+          titleInput.value = preset.title;
+        }
+        if (!keywordsInput.value.trim()) {
+          const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
+          keywordsInput.value = preset.hashtags;
+        }
+        updateLiveVideoPreviewAndDuration(selectedVideoFile, true);
       } else {
-        nameEl.textContent = 'Click to select a video file from your device';
-        sizeEl.textContent = 'MP4, WEBM, MKV, MOV supported';
-        regenBtn.classList.add('hidden');
+        nameEl.textContent = 'Click to select a video file (Long or Short)';
+        sizeEl.textContent = 'MP4, WEBM, MKV, MOV supported · Auto video frame preview (No thumbnail upload needed)';
+        updateLiveVideoPreviewAndDuration(null, true);
       }
     });
 
-    // "Regenerate 3 Thumbnails" button to grab 3 new non-black timestamps from the selected video
+    // "Regenerate 3 Frames" button
     document.getElementById('regenerate-frame-btn').addEventListener('click', async () => {
-      if (!selectedVideoFile) return;
-      await processVideoFrameThumbnail(selectedVideoFile, true);
+      if (selectedVideoFile) {
+        await processVideoFrameThumbnail(selectedVideoFile, true, true);
+        return;
+      }
+      const streamUrl = document.getElementById('video-custom-url').value.trim();
+      if (streamUrl) {
+        const proxied = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+        await processVideoFrameThumbnail(proxied, true, false);
+      } else {
+        showStatus('প্রথমে একটি ভিডিও ফাইল সিলেক্ট করুন অথবা Stream URL দিন।', 'error');
+      }
     });
 
-    // Custom Thumbnail File Upload in New Video Form (Uploads directly to ImgBB)
+    // "3 Frames from URL" button
+    const genFromUrlBtn = document.getElementById('upload-gen-from-url-btn');
+    if (genFromUrlBtn) {
+      genFromUrlBtn.addEventListener('click', async () => {
+        const streamUrl = document.getElementById('video-custom-url').value.trim();
+        if (!streamUrl) {
+          showStatus('প্রথমে Direct Video Stream URL বক্সে লিংক দিন।', 'error');
+          return;
+        }
+        const proxied = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+        await processVideoFrameThumbnail(proxied, true, false);
+      });
+    }
+
+    // Custom Thumbnail File Upload in Unified Upload Form (Uploads directly to selected R2 Server)
     document.getElementById('custom-thumb-file-input').addEventListener('change', async (e) => {
       const imgFile = e.target.files[0];
       if (!imgFile) return;
 
+      // Delete any previously uploaded auto-generated thumbnails from R2 since custom thumb is chosen
+      for (const item of generatedThreeThumbs) {
+        if (item && item.r2Key) {
+          deleteThumbnailFromR2Server(item.r2Key, item.serverId).catch(() => {});
+          item.r2Key = '';
+          item.hostedUrl = '';
+        }
+      }
       selectedThumbOptionIdx = -1;
       renderThreeThumbsPicker();
 
       const thumbStatus = document.getElementById('thumb-upload-status');
       const localPreview = URL.createObjectURL(imgFile);
       updateThumbPreviewUI('upload', localPreview);
-      thumbStatus.textContent = `Uploading "${imgFile.name}" to ImgBB...`;
+      thumbStatus.textContent = `Uploading "${imgFile.name}" to your R2 Storage Server...`;
 
       try {
-        const hostedUrl = await uploadToImgBB(imgFile);
-        document.getElementById('video-thumb').value = hostedUrl;
-        autoGeneratedThumbDataUrl = hostedUrl;
-        updateThumbPreviewUI('upload', hostedUrl);
-        thumbStatus.textContent = `Custom Thumbnail uploaded to ImgBB ✓ (${hostedUrl})`;
-        showStatus('Custom thumbnail uploaded to ImgBB successfully!', 'success');
+        const uploaded = await uploadThumbnailToR2Server(imgFile, 'custom_thumb');
+        document.getElementById('video-thumb').value = uploaded.hostedUrl;
+        autoGeneratedThumbDataUrl = uploaded.hostedUrl;
+        updateThumbPreviewUI('upload', uploaded.hostedUrl);
+        thumbStatus.textContent = `Custom Thumbnail uploaded to ${uploaded.serverName} ✓ (${uploaded.hostedUrl})`;
+        showStatus(`Custom thumbnail uploaded to ${uploaded.serverName}!`, 'success');
       } catch (err) {
-        thumbStatus.textContent = `ImgBB Upload Error: ${err.message}`;
+        thumbStatus.textContent = `R2 Thumbnail Upload Error: ${err.message}`;
         showStatus(`Thumbnail upload failed: ${err.message}`, 'error');
       }
     });
@@ -2846,23 +3180,36 @@ service cloud.firestore {
           updateThumbPreviewUI('edit', item.hostedUrl || item.dataUrl);
           renderEditThreeThumbsPicker();
 
-          if (item.hostedUrl) {
+          // Delete any previously uploaded R2 thumbnails from the other 2 unselected edit options
+          for (let i = 0; i < editGeneratedThreeThumbs.length; i++) {
+            if (i !== idx) {
+              const other = editGeneratedThreeThumbs[i];
+              if (other && other.r2Key) {
+                deleteThumbnailFromR2Server(other.r2Key, other.serverId).catch(() => {});
+                other.r2Key = '';
+                other.hostedUrl = '';
+              }
+            }
+          }
+
+          if (item.hostedUrl && item.r2Key) {
             document.getElementById('edit-vid-thumb').value = item.hostedUrl;
-            statusEl.textContent = `Selected Frame #${idx + 1} (${item.timeLabel}) ✓`;
+            statusEl.textContent = `Selected Frame #${idx + 1} (${item.timeLabel}) on R2 Server ✓`;
             return;
           }
 
           try {
-            statusEl.textContent = `Uploading Frame #${idx + 1} (${item.timeLabel}) to ImgBB...`;
-            const hostedUrl = await uploadToImgBB(item.dataUrl);
-            item.hostedUrl = hostedUrl;
-            document.getElementById('edit-vid-thumb').value = hostedUrl;
-            updateThumbPreviewUI('edit', hostedUrl);
-            statusEl.textContent = `Uploaded Frame #${idx + 1} to ImgBB ✓ (${hostedUrl})`;
+            statusEl.textContent = `Uploading Frame #${idx + 1} (${item.timeLabel}) to R2 Server...`;
+            const uploaded = await uploadThumbnailToR2Server(item.dataUrl, `edit_opt${idx + 1}`);
+            item.hostedUrl = uploaded.hostedUrl;
+            item.r2Key = uploaded.r2Key;
+            item.serverId = uploaded.serverId;
+            document.getElementById('edit-vid-thumb').value = uploaded.hostedUrl;
+            updateThumbPreviewUI('edit', uploaded.hostedUrl);
+            statusEl.textContent = `Uploaded Frame #${idx + 1} to ${uploaded.serverName} ✓ (Other 2 deleted)`;
             renderEditThreeThumbsPicker();
           } catch (err) {
-            document.getElementById('edit-vid-thumb').value = item.dataUrl;
-            statusEl.textContent = `Selected Frame #${idx + 1} (${item.timeLabel}) ✓`;
+            statusEl.textContent = `R2 Upload Error: ${err.message}`;
           }
         });
         grid.appendChild(card);
@@ -2919,7 +3266,6 @@ service cloud.firestore {
         return;
       }
       statusEl.textContent = 'ভিডিও থেকে ৩টি অটো থাম্বনেইল তৈরি করা হচ্ছে...';
-      // Use /api/stream so canvas extraction works with CORS on any pub-*.r2.dev video
       const proxiedStreamUrl = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
       let extracted = await extractThreeVideoThumbnails(proxiedStreamUrl, true, false);
       if (!extracted.frames || extracted.frames.length === 0) {
@@ -2933,34 +3279,40 @@ service cloud.firestore {
         editGeneratedThreeThumbs = extracted.frames;
         selectedEditThumbIdx = 0;
         renderEditThreeThumbsPicker();
-        // Trigger click on first frame to upload to ImgBB
-        const firstBtn = document.querySelector('#edit-auto-thumbs-grid button');
+        const firstBtn = document.querySelector('#edit-auto-thumbs-grid div');
         if (firstBtn) firstBtn.click();
       } else {
         statusEl.textContent = 'ভিডিও ফরম্যাটের কারণে ফ্রেম নেওয়া যায়নি—Custom Thumbnail আপলোড করুন।';
       }
     });
 
-    // Custom Thumbnail File Upload in Old Video Edit Modal (Uploads directly to ImgBB)
+    // Custom Thumbnail File Upload in Old Video Edit Modal (Uploads to R2 Server)
     document.getElementById('edit-thumb-file-input').addEventListener('change', async (e) => {
       const imgFile = e.target.files[0];
       if (!imgFile) return;
 
+      for (const item of editGeneratedThreeThumbs) {
+        if (item && item.r2Key) {
+          deleteThumbnailFromR2Server(item.r2Key, item.serverId).catch(() => {});
+          item.r2Key = '';
+          item.hostedUrl = '';
+        }
+      }
       selectedEditThumbIdx = -1;
       renderEditThreeThumbsPicker();
 
       const statusEl = document.getElementById('edit-thumb-status');
       const localPreview = URL.createObjectURL(imgFile);
       updateThumbPreviewUI('edit', localPreview);
-      statusEl.textContent = `Uploading "${imgFile.name}" to ImgBB...`;
+      statusEl.textContent = `Uploading "${imgFile.name}" to your R2 Server...`;
 
       try {
-        const hostedUrl = await uploadToImgBB(imgFile);
-        document.getElementById('edit-vid-thumb').value = hostedUrl;
-        updateThumbPreviewUI('edit', hostedUrl);
-        statusEl.textContent = `Uploaded to ImgBB ✓ (${hostedUrl})`;
+        const uploaded = await uploadThumbnailToR2Server(imgFile, 'edit_custom_thumb');
+        document.getElementById('edit-vid-thumb').value = uploaded.hostedUrl;
+        updateThumbPreviewUI('edit', uploaded.hostedUrl);
+        statusEl.textContent = `Uploaded to ${uploaded.serverName} ✓ (${uploaded.hostedUrl})`;
       } catch (err) {
-        statusEl.textContent = `ImgBB Error: ${err.message}`;
+        statusEl.textContent = `R2 Upload Error: ${err.message}`;
       }
     });
 
@@ -2968,28 +3320,114 @@ service cloud.firestore {
       updateThumbPreviewUI('edit', e.target.value.trim());
     });
 
-    // Upload Form Submit
-    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    // Upload helper with real XHR progress + automatic /api/r2-proxy/upload fallback
+    const uploadVideoBlobToR2WithProgress = (endpointUrl, headersObj, formData, onProgress) => {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', endpointUrl, true);
+        Object.entries(headersObj || {}).forEach(([k, v]) => {
+          if (v) xhr.setRequestHeader(k, v);
+        });
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable && typeof onProgress === 'function') {
+            const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100));
+            onProgress(pct, ev.loaded, ev.total);
+          }
+        };
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText || '{}');
+            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+              resolve(json);
+            } else {
+              reject(new Error(json.error || `HTTP ${xhr.status}`));
+            }
+          } catch {
+            reject(new Error(`Invalid server response (${xhr.status})`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network/CORS error'));
+        xhr.send(formData);
+      });
+    };
+
+    // ============================================================================
+    // UNIFIED UPLOAD STUDIO + DESTINATION CHOICE MODAL (SHORTS / LONG / BOTH)
+    // ============================================================================
+    const uploadChoiceModal = document.getElementById('upload-choice-modal');
+    const closeUploadChoiceModal = () => {
+      if (uploadChoiceModal) uploadChoiceModal.classList.add('hidden');
+    };
+    const closeChoiceBtn = document.getElementById('close-upload-choice-modal');
+    if (closeChoiceBtn) {
+      closeChoiceBtn.addEventListener('click', closeUploadChoiceModal);
+    }
+
+    const openUploadChoiceModal = () => {
+      const customUrl = document.getElementById('video-custom-url').value.trim();
+      if (!selectedVideoFile && !customUrl) {
+        showStatus('প্রথমে একটি ভিডিও ফাইল সিলেক্ট করুন অথবা Direct Video Stream URL দিন!', 'error');
+        return;
+      }
+      if (uploadChoiceModal) {
+        uploadChoiceModal.classList.remove('hidden');
+      }
+    };
+
+    // Clicking "🚀 Upload & Publish Video" button opens the Shorts / Long / Both selector modal
+    document.getElementById('upload-submit-btn').addEventListener('click', () => {
+      openUploadChoiceModal();
+    });
+
+    document.getElementById('upload-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
-      const adminKey = document.getElementById('upload-admin-key').value.trim();
+      openUploadChoiceModal();
+    });
+
+    // Execute the Unified Upload to R2 Storage Server and Publish to Shorts, Long, or Both
+    const executeUnifiedUpload = async (targetMode = 'both') => {
+      closeUploadChoiceModal();
+      setUploadTargetModeUI(targetMode);
+
+      const selectedSrvId =
+        document.getElementById('upload-server-select')?.value || activeServerId;
+      const activeSrv =
+        servers.find((s) => s.id === selectedSrvId) ||
+        servers.find((s) => s.id === activeServerId) ||
+        servers[0];
+
+      const adminKey =
+        document.getElementById('upload-admin-key').value.trim() ||
+        (activeSrv ? activeSrv.adminKey : '');
       const publicDomainInput = normalizeBaseUrl(
         document.getElementById('upload-public-domain').value ||
           (activeSrv ? activeSrv.publicUrl : '')
       );
-      const title = document.getElementById('video-title').value.trim();
-      const keywords = document.getElementById('video-keywords').value.trim() || 'Virallink bdgirl';
-      const folder = document.getElementById('video-folder').value.trim().replace(/^\/+|\/+$/g, '');
-      const duration = document.getElementById('video-duration').value.trim() || '04:00';
-      let finalThumb = document.getElementById('video-thumb').value.trim() || autoGeneratedThumbDataUrl || '';
+
+      const rawTitle = document.getElementById('video-title').value.trim();
+      const keywords =
+        document.getElementById('video-keywords').value.trim() ||
+        'Virallink bdgirl #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl';
+      const title =
+        rawTitle ||
+        AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length].title;
+
+      const defaultFolder = targetMode === 'shorts' ? 'shorts' : 'videos';
+      const folderInputVal = document
+        .getElementById('video-folder')
+        .value.trim()
+        .replace(/^\/+|\/+$/g, '');
+      const folder = folderInputVal || defaultFolder;
+
+      const duration =
+        document.getElementById('video-duration').value.trim() ||
+        (targetMode === 'shorts' ? '00:35' : '04:00');
+      let finalThumb =
+        document.getElementById('video-thumb').value.trim() || autoGeneratedThumbDataUrl || '';
       const customUrl = document.getElementById('video-custom-url').value.trim();
 
-      if (!title) {
-        showStatus('Please enter a video title.', 'error');
-        return;
-      }
-
       if (activeSrv) {
+        activeServerId = activeSrv.id;
         if (adminKey) activeSrv.adminKey = adminKey;
         if (publicDomainInput) activeSrv.publicUrl = publicDomainInput;
         saveServers();
@@ -2997,144 +3435,264 @@ service cloud.firestore {
 
       const submitBtn = document.getElementById('upload-submit-btn');
       const progWrap = document.getElementById('upload-progress-wrap');
+      const progStatus = document.getElementById('upload-progress-status');
       const progBar = document.getElementById('upload-progress-bar');
       const progPct = document.getElementById('upload-progress-pct');
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Uploading...';
+      const targetLabel =
+        targetMode === 'shorts'
+          ? 'Shorts'
+          : targetMode === 'long'
+          ? 'Long Videos'
+          : 'Both (Shorts + Long)';
+      submitBtn.textContent = `⏳ Uploading to ${targetLabel}...`;
 
       let finalVideoUrl = customUrl;
       let uploadedKey = '';
 
       try {
-        // If finalThumb is still a base64 data URL, upload it to ImgBB first
-        if (finalThumb.startsWith('data:image/')) {
-          try {
-            finalThumb = await uploadToImgBB(finalThumb);
-          } catch {}
-        }
+        // No separate thumbnail generation or upload needed — website renders live frames directly from video stream
+        finalThumb = '';
 
+        // Upload selected video file once to the chosen Cloudflare R2 Server
         if (selectedVideoFile) {
           if (!activeSrv) {
-            throw new Error('Please add and select a Storage Server first using "+ Add Storage Server".');
+            throw new Error(
+              'প্রথমে "+ Add Storage Server" বাটনে ক্লিক করে আপনার R2 Storage Server যোগ ও সিলেক্ট করুন!'
+            );
           }
           if (!adminKey) {
-            throw new Error('Please enter the X-Admin-Key for the selected server.');
+            throw new Error(
+              `নির্বাচিত সার্ভার "${activeSrv.name}"-এর জন্য X-Admin-Key Secret দিন!`
+            );
           }
 
           progWrap.classList.remove('hidden');
-          progBar.style.width = '35%';
-          progPct.textContent = 'Uploading...';
+          progBar.style.width = '5%';
+          progPct.textContent = '0%';
+          if (progStatus) {
+            progStatus.textContent = `Uploading "${selectedVideoFile.name}" (${formatBytes(selectedVideoFile.size)}) to ${activeSrv.name}...`;
+          }
 
           const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
           const formData = new FormData();
           formData.append('file', selectedVideoFile);
           formData.append('folder', folder);
 
-          let res;
+          const onProgressUpdate = (pct, loadedBytes, totalBytes) => {
+            progBar.style.width = `${Math.max(5, pct)}%`;
+            progPct.textContent = `${pct}%`;
+            if (progStatus) {
+              progStatus.textContent = `Uploading to ${activeSrv.name}: ${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)} (${pct}%)`;
+            }
+          };
+
+          let data;
           try {
-            res = await fetch(`${baseUrl}/api/upload`, {
-              method: 'POST',
-              headers: {
-                'X-Admin-Key': adminKey
-              },
-              body: formData
-            });
+            data = await uploadVideoBlobToR2WithProgress(
+              `${baseUrl}/api/upload`,
+              { 'X-Admin-Key': adminKey },
+              formData,
+              onProgressUpdate
+            );
           } catch {
-            res = await fetch('/api/r2-proxy/upload', {
-              method: 'POST',
-              headers: {
+            const proxyFormData = new FormData();
+            proxyFormData.append('file', selectedVideoFile);
+            proxyFormData.append('folder', folder);
+            data = await uploadVideoBlobToR2WithProgress(
+              '/api/r2-proxy/upload',
+              {
                 'X-Admin-Key': adminKey,
                 'X-Worker-Url': baseUrl
               },
-              body: formData
-            });
+              proxyFormData,
+              onProgressUpdate
+            );
           }
 
-          const data = await res.json();
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || `Upload failed (${res.status})`);
+          if (!data || !data.success || !data.key) {
+            throw new Error(data?.error || 'Video upload to R2 server failed');
           }
 
           progBar.style.width = '100%';
           progPct.textContent = '100%';
+          if (progStatus) {
+            progStatus.textContent = `✓ Uploaded "${data.key}" to ${activeSrv.name}! Saving to Firebase (${targetLabel})...`;
+          }
 
           uploadedKey = data.key;
-          finalVideoUrl = `${publicDomainInput}/${uploadedKey}`;
+          const bestUrls = resolveBestPublicUrlForFile(activeSrv, uploadedKey);
+          const encodedKey = uploadedKey.split('/').map(encodeURIComponent).join('/');
+          finalVideoUrl =
+            (publicDomainInput && !publicDomainInput.includes('.workers.dev')
+              ? `${publicDomainInput}/${encodedKey}`
+              : bestUrls[0]) || `${publicDomainInput}/${encodedKey}`;
+
+          document.getElementById('video-custom-url').value = finalVideoUrl;
         }
 
         if (!finalVideoUrl) {
-          throw new Error('Select a video file to upload or provide a direct video stream URL.');
+          throw new Error(
+            'অনুগ্রহ করে একটি ভিডিও ফাইল সিলেক্ট করুন অথবা Direct Video Stream URL দিন!'
+          );
         }
 
         const now = Date.now();
-        const newVideoRef = push(ref(db, 'videos'));
-        await set(newVideoRef, {
-          addedAt: now,
-          createdAt: now,
-          keywords,
-          title,
-          thumbnail: finalThumb,
-          thumbnailUrl: finalThumb,
-          url: finalVideoUrl,
-          videoUrl: finalVideoUrl,
-          r2Key: uploadedKey || null,
-          duration,
-          views: 0,
-          author: 'X Tube'
-        });
+        let createdLongId = '';
+        let createdShortId = '';
+
+        // 3A. Publish to `videos` (Long Videos) if targetMode is 'long' or 'both'
+        if (targetMode === 'long' || targetMode === 'both') {
+          const newVideoRef = push(ref(db, 'videos'));
+          createdLongId = newVideoRef.key;
+          await set(newVideoRef, {
+            addedAt: now,
+            createdAt: now,
+            keywords,
+            title,
+            thumbnail: finalThumb,
+            thumbnailUrl: finalThumb,
+            url: finalVideoUrl,
+            videoUrl: finalVideoUrl,
+            r2Key: uploadedKey || null,
+            duration,
+            views: 0,
+            likes: 0,
+            author: 'X Tube'
+          });
+        }
+
+        // 3B. Publish to `shorts` (Shorts Feed) if targetMode is 'shorts' or 'both'
+        if (targetMode === 'shorts' || targetMode === 'both') {
+          const newShortRef = push(ref(db, 'shorts'));
+          createdShortId = newShortRef.key;
+          await set(newShortRef, {
+            addedAt: now,
+            createdAt: now,
+            title,
+            hashtags: keywords,
+            keywords: `Shorts Virallink bdgirl ${keywords}`,
+            thumbnail: finalThumb,
+            thumbnailUrl: finalThumb,
+            url: finalVideoUrl,
+            videoUrl: finalVideoUrl,
+            r2Key: uploadedKey || null,
+            duration,
+            views: 0,
+            likes: 0,
+            author: 'X Tube'
+          });
+        }
+
         fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
 
-        const generatedShareLink = window.buildVideoShareLink(newVideoRef.key);
+        // 4. Populate Share Link Box for Long, Short, and Telegram Mini App
+        const primaryShareLink = createdLongId
+          ? window.buildVideoShareLink(createdLongId)
+          : window.buildShortShareLink(createdShortId);
+
         const shareBox = document.getElementById('last-uploaded-share-box');
         const shareInput = document.getElementById('last-uploaded-share-input');
         const openLink = document.getElementById('last-uploaded-open-link');
         const copyBtn = document.getElementById('last-uploaded-copy-btn');
+        const shortCopyBtn = document.getElementById('last-uploaded-short-copy-btn');
+        const tgBtn = document.getElementById('last-uploaded-tg-btn');
+
         if (shareBox && shareInput && openLink && copyBtn) {
-          shareInput.value = generatedShareLink;
-          openLink.href = generatedShareLink;
+          shareInput.value = primaryShareLink;
+          openLink.href = primaryShareLink;
           shareBox.classList.remove('hidden');
+
           copyBtn.onclick = async () => {
-            await window.copyVideoShareLink(newVideoRef.key, title);
+            if (createdLongId) {
+              await window.copyVideoShareLink(createdLongId, title);
+            } else if (createdShortId) {
+              await window.copyShortShareLink(createdShortId, title);
+            }
             copyBtn.textContent = '✓ Copied!';
-            setTimeout(() => (copyBtn.textContent = '🔗 Copy Share Link'), 2000);
+            setTimeout(() => (copyBtn.textContent = '🔗 Copy Video Link'), 2000);
           };
+
+          if (shortCopyBtn) {
+            if (createdShortId) {
+              shortCopyBtn.classList.remove('hidden');
+              shortCopyBtn.onclick = async () => {
+                await window.copyShortShareLink(createdShortId, title);
+                shortCopyBtn.textContent = '✓ Short Link Copied!';
+                setTimeout(() => (shortCopyBtn.textContent = '📱 Copy Short Link'), 2000);
+              };
+            } else {
+              shortCopyBtn.classList.add('hidden');
+            }
+          }
+
+          if (tgBtn) {
+            tgBtn.onclick = async () => {
+              if (createdLongId) {
+                await window.copyTelegramVideoShareLink(createdLongId, title);
+              } else if (createdShortId) {
+                await window.copyTelegramShortShareLink(createdShortId, title);
+              }
+            };
+          }
         }
 
         showStatus(
           uploadedKey
-            ? `Uploaded "${uploadedKey}" to ${activeSrv.name} & Published! Share Link: ${generatedShareLink}`
-            : `Published "${title}"! Share Link: ${generatedShareLink}`,
+            ? `✅ Uploaded "${uploadedKey}" to ${activeSrv.name} & Published to ${targetLabel}! Share Link: ${primaryShareLink}`
+            : `✅ Published "${title}" to ${targetLabel}! Share Link: ${primaryShareLink}`,
           'success'
         );
 
+        // Reset form and pre-fill next Auto Viral Adult Title & Hashtags
         selectedVideoFile = null;
         autoGeneratedThumbDataUrl = '';
         generatedThreeThumbs = [];
-        renderThreeThumbsPicker();
         document.getElementById('upload-file-input').value = '';
         document.getElementById('custom-thumb-file-input').value = '';
-        document.getElementById('regenerate-frame-btn').classList.add('hidden');
-        document.getElementById('file-chosen-name').textContent = 'Click to select a video file from your device';
-        document.getElementById('file-chosen-size').textContent = 'MP4, WEBM, MKV, MOV supported';
-        document.getElementById('video-title').value = '';
+        document.getElementById('file-chosen-name').textContent =
+          'Click to select a video file (Long or Short)';
+        document.getElementById('file-chosen-size').textContent =
+          'MP4, WEBM, MKV, MOV supported · Auto video frame preview (No thumbnail upload needed)';
         document.getElementById('video-thumb').value = '';
         document.getElementById('video-custom-url').value = '';
-        updateThumbPreviewUI('upload', '');
+        updateLiveVideoPreviewAndDuration(null, true);
 
-        await fetchServerFileList(activeSrv);
-        renderStorageCards();
-        renderActiveServerFiles();
+        const hintEl = document.getElementById('upload-ready-hint');
+        if (hintEl) {
+          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✅ ভিডিও সফলভাবে সার্ভারে আপলোড ও ${targetLabel}-এ পাবলিশ হয়েছে!</span>`;
+        }
+
+        // Advance to next Auto Viral Adult Title & Hashtags preset for next upload
+        currentViralPresetIdx = (currentViralPresetIdx + 1) % AUTO_VIRAL_SHORT_PRESETS.length;
+        const nextPreset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx];
+        document.getElementById('video-title').value = nextPreset.title;
+        document.getElementById('video-keywords').value = nextPreset.hashtags;
+
+        if (activeSrv && uploadedKey) {
+          await fetchServerFileList(activeSrv);
+          renderStorageCards();
+          renderActiveServerFiles();
+        }
       } catch (err) {
         showStatus(
-          `${err.message || 'Upload failed.'} (If PERMISSION_DENIED, copy the Fixed Firebase Rules above and publish them in Firebase Console)`,
+          `${err.message || 'Upload failed.'} (If PERMISSION_DENIED, copy the Updated Firebase Rules above and publish them in Firebase Console)`,
           'error'
         );
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Upload & Publish Video';
-        setTimeout(() => progWrap.classList.add('hidden'), 1500);
+        submitBtn.textContent = '🚀 Upload & Publish Video (Choose Shorts / Long / Both)';
+        setTimeout(() => progWrap.classList.add('hidden'), 2000);
       }
+    };
+
+    // Wire up the 3 option buttons inside the popup modal (#upload-choice-modal)
+    document.querySelectorAll('[data-confirm-upload-target]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-confirm-upload-target') || 'both';
+        executeUnifiedUpload(target);
+      });
     });
 
     // OLD VIDEO EDIT MODAL LOGIC
@@ -3147,7 +3705,7 @@ service cloud.firestore {
       const item = rawVideosMap[id];
       if (!item) return;
 
-      const currentThumb = item.thumbnail || item.thumbnailUrl || '';
+      const currentThumb = sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || '');
       editGeneratedThreeThumbs = [];
       selectedEditThumbIdx = -1;
       renderEditThreeThumbsPicker();
@@ -3178,7 +3736,8 @@ service cloud.firestore {
       const updatedTitle = document.getElementById('edit-vid-title').value.trim();
       const updatedKeywords = document.getElementById('edit-vid-keywords').value.trim();
       const updatedAuthor = document.getElementById('edit-vid-author').value.trim() || 'X Tube';
-      const updatedThumb = document.getElementById('edit-vid-thumb').value.trim();
+      const rawEditThumb = document.getElementById('edit-vid-thumb').value.trim();
+      const updatedThumb = sanitizeAdminThumbUrl(rawEditThumb);
       const updatedUrl = document.getElementById('edit-vid-url').value.trim();
       const updatedViews = Number(document.getElementById('edit-vid-views').value) || 0;
       const updatedDuration = document.getElementById('edit-vid-duration').value.trim();
@@ -3257,7 +3816,6 @@ service cloud.firestore {
       const now = Date.now();
       const activeIds = new Set();
 
-      // Count active Firebase RTDB presence entries (lastSeen within 65 seconds)
       Object.entries(fbPresenceMap || {}).forEach(([vid, info]) => {
         if (!info || typeof info !== 'object') return;
         const lastSeen = Number(info.lastSeen) || 0;
@@ -3266,7 +3824,6 @@ service cloud.firestore {
         }
       });
 
-      // Merge active visitor IDs from server heartbeat
       (serverOnlineIds || []).forEach((id) => activeIds.add(id));
 
       const onlineCount = activeIds.size;
@@ -3288,7 +3845,6 @@ service cloud.firestore {
 
       const badgeEl = document.getElementById('user-rules-status-badge');
 
-      // 1. Load Admin-backed backup counter from `settings/visitorStats`
       get(ref(db, 'settings/visitorStats'))
         .then((snap) => {
           if (snap.exists() && snap.val()) {
@@ -3298,7 +3854,6 @@ service cloud.firestore {
         })
         .catch(() => {});
 
-      // 2. Listen to Firebase RTDB `stats` (`totalUsers` & `totalVisits`)
       onValue(
         ref(db, 'stats'),
         (snap) => {
@@ -3310,7 +3865,6 @@ service cloud.firestore {
         () => {}
       );
 
-      // 3. Listen to Firebase RTDB `presence` (All live online users)
       onValue(
         ref(db, 'presence'),
         (snap) => {
@@ -3331,7 +3885,6 @@ service cloud.firestore {
         }
       );
 
-      // 4. Poll server `/api/visitor-stats` & prune stale presence every 4 seconds
       const pollServerStats = async () => {
         try {
           const res = await fetch('/api/visitor-stats');
@@ -3356,6 +3909,46 @@ service cloud.firestore {
       setInterval(pollServerStats, 4000);
     };
 
+    // Automatically purge old broken ImgBB thumbnails from Firebase RTDB (`videos` & `shorts`)
+    // so all old videos show live video frames directly, while new R2 Server thumbnails stay intact
+    let legacyThumbCleanupRan = false;
+    const cleanupLegacyImgbbThumbnailsInFirebase = async () => {
+      if (legacyThumbCleanupRan || !currentUser || currentUser.uid !== ADMIN_UID) return;
+      legacyThumbCleanupRan = true;
+      try {
+        const [vidSnap, shortSnap] = await Promise.all([
+          get(ref(db, 'videos')),
+          get(ref(db, 'shorts'))
+        ]);
+        const updates = {};
+        if (vidSnap.exists()) {
+          Object.entries(vidSnap.val() || {}).forEach(([id, v]) => {
+            if (!v || typeof v !== 'object') return;
+            const t1 = v.thumbnail || '';
+            const t2 = v.thumbnailUrl || '';
+            if ((t1 && !isR2ServerThumbUrl(t1)) || (t2 && !isR2ServerThumbUrl(t2))) {
+              updates[`videos/${id}/thumbnail`] = '';
+              updates[`videos/${id}/thumbnailUrl`] = '';
+            }
+          });
+        }
+        if (shortSnap.exists()) {
+          Object.entries(shortSnap.val() || {}).forEach(([id, s]) => {
+            if (!s || typeof s !== 'object') return;
+            const t1 = s.thumbnail || '';
+            const t2 = s.thumbnailUrl || '';
+            if ((t1 && !isR2ServerThumbUrl(t1)) || (t2 && !isR2ServerThumbUrl(t2))) {
+              updates[`shorts/${id}/thumbnail`] = '';
+              updates[`shorts/${id}/thumbnailUrl`] = '';
+            }
+          });
+        }
+        if (Object.keys(updates).length > 0) {
+          await update(ref(db), updates);
+        }
+      } catch {}
+    };
+
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         if (user.uid !== ADMIN_UID) {
@@ -3377,6 +3970,7 @@ service cloud.firestore {
         renderServerSelect();
         await loadAdminServersFromFirebase();
         refreshAllServers();
+        cleanupLegacyImgbbThumbnailsInFirebase();
       } else {
         currentUser = null;
         document.getElementById('dashboard-view').classList.add('hidden');
@@ -3408,7 +4002,7 @@ service cloud.firestore {
         id,
         title: item.title || 'Untitled',
         keywords: item.keywords || item.category || '',
-        thumb: item.thumbnail || item.thumbnailUrl || '',
+        thumb: sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || ''),
         streamUrl: item.url || item.videoUrl || '',
         views: Number(item.views) || 0,
         likes: Number(item.likes) || 0,
@@ -3431,7 +4025,9 @@ service cloud.firestore {
               ${
                 v.thumb
                   ? `<img src="${v.thumb}" alt="thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
-                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Auto Frame</div>`
+                  : v.streamUrl
+                  ? `<video src="${v.streamUrl}#t=2.5" muted playsinline preload="metadata" class="w-24 h-13 object-cover rounded border border-zinc-800 bg-black"></video>`
+                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Video Frame</div>`
               }
               <button data-dl-thumb-img="${v.id}" type="button" title="Download Thumbnail"
                 class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer transition-colors">
@@ -3441,10 +4037,10 @@ service cloud.firestore {
           </td>
           <td class="py-2.5 px-3">
             <p class="font-medium text-white line-clamp-1">${v.title}</p>
-            <p class="text-[11px] text-zinc-500">${v.keywords}</p>
+            <p class="text-[11px] text-zinc-500 line-clamp-1">${v.keywords}</p>
             <div class="flex items-center gap-1.5 mt-1">
               <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
-                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[230px]"
+                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]"
                 title="Open Index Watch Share Link in New Tab">
                 ${shareLink}
               </a>
@@ -3464,7 +4060,7 @@ service cloud.firestore {
             <span class="text-zinc-500"> / </span>
             <span class="text-red-400 font-semibold">♥ ${v.likes.toLocaleString()}</span>
           </td>
-          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
             <button data-share-vid="${v.id}" type="button" title="Copy Index Share Link"
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
               🔗 Share Link
@@ -3575,6 +4171,8 @@ service cloud.firestore {
     });
 
     // 1-Click Live Google Video + Shorts Sitemap Generator for X Tube (https://xtubeofficial.pages.dev)
+    let rawShortsMap = {};
+
     document.getElementById('download-sitemap-btn').addEventListener('click', () => {
       fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
       const siteOrigin = 'https://xtubeofficial.pages.dev';
@@ -3616,7 +4214,6 @@ service cloud.firestore {
       xml += `    <priority>0.95</priority>\n`;
       xml += `  </url>\n`;
 
-      // 1. All Published Full Videos
       Object.entries(rawVideosMap || {}).forEach(([id, v]) => {
         if (!v || typeof v !== 'object') return;
         const title = (v.title || 'X Tube Official Viral Video').trim();
@@ -3660,7 +4257,6 @@ service cloud.firestore {
         xml += `  </url>\n`;
       });
 
-      // 2. All Published Shorts
       Object.entries(rawShortsMap || {}).forEach(([id, s]) => {
         if (!s || typeof s !== 'object') return;
         const title = (s.title || 'X Tube Official Viral Short').trim();
@@ -3763,689 +4359,6 @@ service cloud.firestore {
       }
     })();
 
-    // ============================================================================
-    // SECTION 2B: YOUTUBE-STYLE SHORTS UPLOAD STUDIO & PUBLISHED SHORTS MANAGER
-    // ============================================================================
-    let selectedShortFile = null;
-    let shortGeneratedThreeThumbs = [];
-    let selectedShortThumbIdx = 0;
-    let shortAutoThumbUrl = '';
-    let rawShortsMap = {};
-
-    const AUTO_VIRAL_SHORT_PRESETS = [
-      {
-        title: '🔥 দেশি ভাইরাল হট শর্টস 🥵💋 #Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl',
-        hashtags: '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl #HotBhabi #BanglaViral #Exclusive18 #ViralLink'
-      },
-      {
-        title: '🥵 প্রাইভেট রুম ডেট ভাইরাল শর্টস 🔥💋 #Shorts #RoomDate #18Plus #BdViral #PrivateLeak #DesiGirl',
-        hashtags: '#Shorts #RoomDate #18Plus #BdViral #PrivateLeak #DesiGirl #Uncensored #HotVideo #BanglaHot #ViralShorts'
-      },
-      {
-        title: '💋 নতুন দেশি ভাবি হট ভাইরাল ক্লিপ 🔥🥵 #Shorts #HotBhabi #18Plus #DesiHot #BdViral #Uncensored',
-        hashtags: '#Shorts #HotBhabi #18Plus #DesiHot #BdViral #Uncensored #ExclusiveClip #ViralGirl #NightShow #BdCollection'
-      },
-      {
-        title: '🔞 আনসেন্সরড কলেজ গার্ল ভাইরাল শর্টস 🔥🥵 #Shorts #18Plus #ViralGirl #BdViral #DesiHot #PrivateLeak',
-        hashtags: '#Shorts #18Plus #ViralGirl #BdViral #DesiHot #PrivateLeak #RoomDate #HotShorts #BanglaViral #ViralLink'
-      },
-      {
-        title: '🔥 রাতের গোপন ভিডিও ফাঁস শর্টস 🥵💋 #Shorts #PrivateLeak #18Plus #BdViral #RoomDate #HotBhabi',
-        hashtags: '#Shorts #PrivateLeak #18Plus #BdViral #RoomDate #HotBhabi #DesiHot #Uncensored #Exclusive18 #ViralGirl'
-      }
-    ];
-    let currentViralPresetIdx = 0;
-
-    window.buildShortShareLink = (shortId) => {
-      const cleanId = String(shortId || '').trim();
-      const origin =
-        typeof window !== 'undefined' && window.location && window.location.origin
-          ? window.location.origin
-          : 'https://xtubeofficial.pages.dev';
-      return `${origin}/?short=${encodeURIComponent(cleanId)}`;
-    };
-
-    window.copyShortShareLink = async (shortId, title = '') => {
-      if (!shortId) return '';
-      const shareUrl = window.buildShortShareLink(shortId);
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-      } catch {
-        const ta = document.createElement('textarea');
-        ta.value = shareUrl;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      showStatus(
-        `Copied Short Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
-        'success'
-      );
-      return shareUrl;
-    };
-
-    window.buildTelegramShortShareLink = (shortId) => {
-      const cleanId = String(shortId || '').trim();
-      const base = window.getTelegramMiniAppBaseUrl().replace(/\/+$/, '');
-      if (!base) {
-        return window.buildShortShareLink(cleanId);
-      }
-      const sep = base.includes('?') ? '&' : '?';
-      return `${base}${sep}startapp=${encodeURIComponent(`short_${cleanId}`)}`;
-    };
-
-    window.copyTelegramShortShareLink = async (shortId, title = '') => {
-      if (!shortId) return '';
-      const base = window.getTelegramMiniAppBaseUrl();
-      if (!base) {
-        showStatus(
-          'প্রথমে উপরের "Telegram Mini App & Bot Setup" বক্সে আপনার Bot লিংক দিয়ে Save করুন!',
-          'error'
-        );
-        const inputEl = document.getElementById('tg-bot-base-input');
-        if (inputEl) {
-          inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          inputEl.focus();
-        }
-        return '';
-      }
-      const tgUrl = window.buildTelegramShortShareLink(shortId);
-      try {
-        await navigator.clipboard.writeText(tgUrl);
-      } catch {
-        const ta = document.createElement('textarea');
-        ta.value = tgUrl;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      showStatus(
-        `Copied Telegram Short Link${title ? ` for "${title}"` : ''}: ${tgUrl}`,
-        'success'
-      );
-      return tgUrl;
-    };
-
-    const updateShortThumbPreviewUI = (src) => {
-      const img = document.getElementById('short-thumb-preview-img');
-      const bg = document.getElementById('short-thumb-preview-bg');
-      const placeholder = document.getElementById('short-thumb-placeholder');
-      if (!img || !placeholder) return;
-      if (src) {
-        img.src = src;
-        img.classList.remove('hidden');
-        if (bg) {
-          bg.src = src;
-          bg.classList.remove('hidden');
-        }
-        placeholder.classList.add('hidden');
-      } else {
-        img.src = '';
-        img.classList.add('hidden');
-        if (bg) {
-          bg.src = '';
-          bg.classList.add('hidden');
-        }
-        placeholder.classList.remove('hidden');
-      }
-    };
-
-    const renderShortThreeThumbsPicker = () => {
-      const section = document.getElementById('short-auto-thumbs-section');
-      const grid = document.getElementById('short-auto-thumbs-grid');
-      if (!section || !grid) return;
-
-      if (!shortGeneratedThreeThumbs || shortGeneratedThreeThumbs.length === 0) {
-        section.classList.add('hidden');
-        grid.innerHTML = '';
-        return;
-      }
-
-      section.classList.remove('hidden');
-      grid.innerHTML = '';
-
-      shortGeneratedThreeThumbs.forEach((item, idx) => {
-        const isSelected = idx === selectedShortThumbIdx;
-        const card = document.createElement('div');
-        card.className = `group relative aspect-video w-full rounded-xl overflow-hidden border-2 transition-all cursor-pointer text-left ${
-          isSelected
-            ? 'border-red-500 ring-2 ring-red-500/40 shadow-lg scale-[1.01]'
-            : 'border-zinc-800 hover:border-zinc-600 opacity-85 hover:opacity-100'
-        }`;
-
-        card.innerHTML = `
-          <img src="${item.hostedUrl || item.dataUrl}" alt="Short Thumb ${idx + 1}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
-          <button type="button" data-dl-short-frame="${idx}" title="Download this Short thumbnail frame"
-            class="absolute top-1.5 right-1.5 z-20 px-2 py-0.5 rounded-lg bg-black/80 hover:bg-sky-600 border border-white/15 text-[10px] font-semibold text-white shadow cursor-pointer transition-colors">
-            ⬇
-          </button>
-          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-1.5 flex items-center justify-between">
-            <span class="text-[10px] font-semibold ${isSelected ? 'text-red-300' : 'text-zinc-200'}">
-              ${isSelected ? '✓ Selected' : `Frame ${idx + 1}`}
-            </span>
-            <span class="px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-mono text-zinc-300">${item.timeLabel}</span>
-          </div>
-        `;
-
-        card.querySelector('[data-dl-short-frame]').addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          const titleVal = document.getElementById('short-title').value.trim() || 'short';
-          window.downloadThumbnailImage(
-            item.dataUrl || item.hostedUrl,
-            `${titleVal}-short-frame-${idx + 1}`
-          );
-        });
-
-        card.addEventListener('click', () => {
-          selectShortGeneratedThumbnailOption(idx);
-        });
-
-        grid.appendChild(card);
-      });
-    };
-
-    const selectShortGeneratedThumbnailOption = async (idx) => {
-      const chosen = shortGeneratedThreeThumbs[idx];
-      if (!chosen) return;
-
-      selectedShortThumbIdx = idx;
-      const statusEl = document.getElementById('short-thumb-status');
-      const sizeEl = document.getElementById('short-file-chosen-size');
-
-      shortAutoThumbUrl = chosen.hostedUrl || chosen.dataUrl;
-      updateShortThumbPreviewUI(shortAutoThumbUrl);
-      renderShortThreeThumbsPicker();
-
-      if (chosen.hostedUrl) {
-        document.getElementById('short-thumb-url').value = chosen.hostedUrl;
-        statusEl.textContent = `Short Thumbnail Frame ${idx + 1} (${chosen.timeLabel}) selected ✓ (${chosen.hostedUrl})`;
-        return;
-      }
-
-      try {
-        statusEl.textContent = `Uploading Short Thumbnail Frame ${idx + 1} (${chosen.timeLabel}) to ImgBB...`;
-        const hostedUrl = await uploadToImgBB(chosen.dataUrl);
-        chosen.hostedUrl = hostedUrl;
-
-        if (selectedShortThumbIdx === idx) {
-          document.getElementById('short-thumb-url').value = hostedUrl;
-          shortAutoThumbUrl = hostedUrl;
-          updateShortThumbPreviewUI(hostedUrl);
-          statusEl.textContent = `Short Thumbnail Frame ${idx + 1} uploaded to ImgBB ✓ (${hostedUrl})`;
-          if (selectedShortFile && sizeEl) {
-            sizeEl.textContent = `${formatBytes(selectedShortFile.size)} · 3 Thumbnails Ready (Frame ${idx + 1} Selected) ✓`;
-          }
-        }
-        renderShortThreeThumbsPicker();
-      } catch {
-        if (selectedShortThumbIdx === idx) {
-          document.getElementById('short-thumb-url').value = chosen.dataUrl;
-          statusEl.textContent = `Short Thumbnail Frame ${idx + 1} (${chosen.timeLabel}) selected ✓`;
-        }
-      }
-    };
-
-    const processShortVideoThreeThumbnails = async (fileOrUrl, forceRandom = false, isFile = true) => {
-      const statusEl = document.getElementById('short-thumb-status');
-      const sizeEl = document.getElementById('short-file-chosen-size');
-      const durInput = document.getElementById('short-duration');
-
-      statusEl.textContent = 'শর্ট ভিডিও থেকে ৩টি উজ্জ্বল থাম্বনেইল তৈরি হচ্ছে...';
-      // Pass false for updateDurationInput so it does not overwrite #video-duration in the other form
-      const extracted = await extractThreeVideoThumbnails(fileOrUrl, forceRandom, false);
-
-      // Compute duration for the Short video separately
-      if (isFile && fileOrUrl) {
-        try {
-          const tempUrl = URL.createObjectURL(fileOrUrl);
-          const tempVid = document.createElement('video');
-          tempVid.preload = 'metadata';
-          tempVid.src = tempUrl;
-          tempVid.onloadedmetadata = () => {
-            const d = Number(tempVid.duration) || 0;
-            if (d > 0 && durInput) {
-              const m = Math.floor(d / 60);
-              const s = Math.floor(d % 60);
-              durInput.value = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            }
-            URL.revokeObjectURL(tempUrl);
-          };
-        } catch {}
-      }
-
-      if (extracted.frames && extracted.frames.length > 0) {
-        shortGeneratedThreeThumbs = extracted.frames;
-        let bestIdx = 0;
-        let maxBright = -1;
-        shortGeneratedThreeThumbs.forEach((f, i) => {
-          if (f.brightness > maxBright) {
-            maxBright = f.brightness;
-            bestIdx = i;
-          }
-        });
-        await selectShortGeneratedThumbnailOption(bestIdx);
-      } else {
-        shortGeneratedThreeThumbs = [];
-        renderShortThreeThumbsPicker();
-        if (isFile && fileOrUrl && sizeEl) {
-          sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Ready to upload to server`;
-        }
-        statusEl.textContent = '৩টি ফ্রেম নেওয়া যায়নি—Custom Thumb বাটনে ক্লিক করে ইমেজ দিন।';
-      }
-    };
-
-    // Short video file input change -> Auto-generate 3 thumbnails + keep Auto Viral Title & Hashtags ready
-    document.getElementById('short-file-input').addEventListener('change', async (e) => {
-      selectedShortFile = e.target.files[0] || null;
-      shortAutoThumbUrl = '';
-      shortGeneratedThreeThumbs = [];
-      renderShortThreeThumbsPicker();
-
-      const nameEl = document.getElementById('short-file-chosen-name');
-      const sizeEl = document.getElementById('short-file-chosen-size');
-      const titleInput = document.getElementById('short-title');
-      const hashtagsInput = document.getElementById('short-hashtags');
-      const hintEl = document.getElementById('short-upload-ready-hint');
-
-      if (selectedShortFile) {
-        nameEl.textContent = `📁 ${selectedShortFile.name}`;
-        sizeEl.textContent = `${formatBytes(selectedShortFile.size)} · Generating 3 Short thumbnails...`;
-        if (hintEl) {
-          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✓ "${selectedShortFile.name}" (${formatBytes(selectedShortFile.size)}) সিলেক্ট হয়েছে! এবার ডান পাশের <strong>🚀 Upload &amp; Publish Short to Server</strong> বাটনে ক্লিক করলে নির্বাচিত সার্ভারে ভিডিওটি আপলোড হবে।</span>`;
-        }
-        if (!titleInput.value.trim()) {
-          const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
-          titleInput.value = preset.title;
-        }
-        if (!hashtagsInput.value.trim()) {
-          const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx % AUTO_VIRAL_SHORT_PRESETS.length];
-          hashtagsInput.value = preset.hashtags;
-        }
-        await processShortVideoThreeThumbnails(selectedShortFile, false, true);
-      } else {
-        nameEl.textContent = 'Click to select a Short video file from your device';
-        sizeEl.textContent = 'MP4, WEBM, MKV, MOV supported · Auto-generates 3 thumbnails';
-      }
-    });
-
-    // Cycle Auto Viral Adult Title & Hashtags button
-    document.getElementById('short-auto-viral-btn').addEventListener('click', () => {
-      currentViralPresetIdx = (currentViralPresetIdx + 1) % AUTO_VIRAL_SHORT_PRESETS.length;
-      const preset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx];
-      document.getElementById('short-title').value = preset.title;
-      document.getElementById('short-hashtags').value = preset.hashtags;
-      showStatus('Auto Viral Adult Title & Hashtags updated! আপনি চাইলে নিজের মতো এডিট করতে পারেন।', 'info');
-    });
-
-    // Quick-add Hashtag chips
-    document.querySelectorAll('#short-quick-tags [data-short-tag]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tag = btn.getAttribute('data-short-tag');
-        if (!tag) return;
-        const hashInput = document.getElementById('short-hashtags');
-        const titleInput = document.getElementById('short-title');
-        if (hashInput && !hashInput.value.includes(tag)) {
-          hashInput.value = `${hashInput.value.trim()} ${tag}`.trim();
-        }
-        if (titleInput && !titleInput.value.includes(tag)) {
-          titleInput.value = `${titleInput.value.trim()} ${tag}`.trim();
-        }
-      });
-    });
-
-    // Regenerate 3 frames for Short
-    document.getElementById('short-regen-3thumbs-btn').addEventListener('click', async () => {
-      if (selectedShortFile) {
-        await processShortVideoThreeThumbnails(selectedShortFile, true, true);
-        return;
-      }
-      const streamUrl = document.getElementById('short-custom-url').value.trim();
-      if (streamUrl) {
-        const proxied = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
-        await processShortVideoThreeThumbnails(proxied, true, false);
-      } else {
-        showStatus('প্রথমে একটি শর্ট ভিডিও ফাইল সিলেক্ট করুন অথবা Stream URL দিন।', 'error');
-      }
-    });
-
-    // Generate 3 frames from direct Short stream URL
-    document.getElementById('short-gen-from-url-btn').addEventListener('click', async () => {
-      const streamUrl = document.getElementById('short-custom-url').value.trim();
-      if (!streamUrl) {
-        showStatus('প্রথমে Direct Short Video Stream URL দিন।', 'error');
-        return;
-      }
-      const proxied = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
-      await processShortVideoThreeThumbnails(proxied, true, false);
-    });
-
-    // Download Selected Short Thumbnail
-    document.getElementById('short-dl-thumb-btn').addEventListener('click', () => {
-      const selectedFrame =
-        selectedShortThumbIdx >= 0 && shortGeneratedThreeThumbs[selectedShortThumbIdx]
-          ? shortGeneratedThreeThumbs[selectedShortThumbIdx].dataUrl ||
-            shortGeneratedThreeThumbs[selectedShortThumbIdx].hostedUrl
-          : '';
-      const thumbSrc =
-        selectedFrame ||
-        document.getElementById('short-thumb-url').value.trim() ||
-        shortAutoThumbUrl ||
-        '';
-      const titleVal = document.getElementById('short-title').value.trim() || 'short-thumbnail';
-      const streamUrl = document.getElementById('short-custom-url').value.trim();
-      window.downloadThumbnailImage(thumbSrc, titleVal, streamUrl);
-    });
-
-    // Custom Thumbnail upload for Short
-    document.getElementById('short-custom-thumb-input').addEventListener('change', async (e) => {
-      const imgFile = e.target.files[0];
-      if (!imgFile) return;
-
-      selectedShortThumbIdx = -1;
-      renderShortThreeThumbsPicker();
-
-      const statusEl = document.getElementById('short-thumb-status');
-      const localPreview = URL.createObjectURL(imgFile);
-      updateShortThumbPreviewUI(localPreview);
-      statusEl.textContent = `Uploading "${imgFile.name}" to ImgBB...`;
-
-      try {
-        const hostedUrl = await uploadToImgBB(imgFile);
-        document.getElementById('short-thumb-url').value = hostedUrl;
-        shortAutoThumbUrl = hostedUrl;
-        updateShortThumbPreviewUI(hostedUrl);
-        statusEl.textContent = `Custom Short Thumbnail uploaded to ImgBB ✓ (${hostedUrl})`;
-      } catch (err) {
-        statusEl.textContent = `ImgBB Upload Error: ${err.message}`;
-      }
-    });
-
-    document.getElementById('short-thumb-url').addEventListener('input', (e) => {
-      updateShortThumbPreviewUI(e.target.value.trim());
-    });
-
-    // Upload helper with real XHR progress + automatic /api/r2-proxy/upload fallback
-    const uploadVideoBlobToR2WithProgress = (endpointUrl, headersObj, formData, onProgress) => {
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', endpointUrl, true);
-        Object.entries(headersObj || {}).forEach(([k, v]) => {
-          if (v) xhr.setRequestHeader(k, v);
-        });
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable && typeof onProgress === 'function') {
-            const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100));
-            onProgress(pct, ev.loaded, ev.total);
-          }
-        };
-        xhr.onload = () => {
-          try {
-            const json = JSON.parse(xhr.responseText || '{}');
-            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
-              resolve(json);
-            } else {
-              reject(new Error(json.error || `HTTP ${xhr.status}`));
-            }
-          } catch {
-            reject(new Error(`Invalid server response (${xhr.status})`));
-          }
-        };
-        xhr.onerror = () => reject(new Error('Network/CORS error'));
-        xhr.send(formData);
-      });
-    };
-
-    // Submit Short Upload Form -> Upload Short Video File to Selected Storage Server & Save to Firebase `shorts` node
-    document.getElementById('short-upload-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const selectedSrvId =
-        document.getElementById('short-server-select')?.value || activeServerId;
-      const activeSrv =
-        servers.find((s) => s.id === selectedSrvId) ||
-        servers.find((s) => s.id === activeServerId) ||
-        servers[0];
-
-      const adminKey =
-        document.getElementById('short-admin-key')?.value.trim() ||
-        document.getElementById('upload-admin-key')?.value.trim() ||
-        (activeSrv ? activeSrv.adminKey : '');
-
-      const publicDomainInput = normalizeBaseUrl(
-        document.getElementById('short-public-domain')?.value ||
-          document.getElementById('upload-public-domain')?.value ||
-          (activeSrv ? activeSrv.publicUrl : '')
-      );
-
-      const folder = (document.getElementById('short-folder')?.value || '')
-        .trim()
-        .replace(/^\/+|\/+$/g, '');
-
-      const rawTitle = document.getElementById('short-title').value.trim();
-      const hashtags =
-        document.getElementById('short-hashtags').value.trim() ||
-        '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl';
-      const title = rawTitle || `🔥 দেশি ভাইরাল হট শর্টস 🥵💋 ${hashtags}`;
-      const duration = document.getElementById('short-duration').value.trim() || '00:35';
-      let finalThumb =
-        document.getElementById('short-thumb-url').value.trim() || shortAutoThumbUrl || '';
-      const customUrl = document.getElementById('short-custom-url').value.trim();
-
-      if (activeSrv) {
-        activeServerId = activeSrv.id;
-        if (adminKey) activeSrv.adminKey = adminKey;
-        if (publicDomainInput) activeSrv.publicUrl = publicDomainInput;
-        saveServers();
-      }
-
-      const submitBtn = document.getElementById('short-submit-btn');
-      const bottomSubmitBtn = document.getElementById('short-bottom-submit-btn');
-      const progWrap = document.getElementById('short-progress-wrap');
-      const progStatus = document.getElementById('short-progress-status');
-      const progBar = document.getElementById('short-progress-bar');
-      const progPct = document.getElementById('short-progress-pct');
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Uploading Short Video...';
-      if (bottomSubmitBtn) {
-        bottomSubmitBtn.disabled = true;
-        bottomSubmitBtn.textContent = '⏳ Uploading Short Video to Server...';
-      }
-
-      let finalVideoUrl = customUrl;
-      let uploadedKey = '';
-
-      try {
-        // 1. Ensure thumbnail is hosted on ImgBB if it is still a base64 data URL
-        if (finalThumb.startsWith('data:image/')) {
-          try {
-            finalThumb = await uploadToImgBB(finalThumb);
-          } catch {}
-        }
-
-        // 2. Upload the selected Short video file (`selectedShortFile`) to the selected Cloudflare R2 Storage Server
-        if (selectedShortFile) {
-          if (!activeSrv) {
-            throw new Error(
-              'প্রথমে "+ Add Storage Server" বাটনে ক্লিক করে আপনার R2 Storage Server যোগ ও সিলেক্ট করুন!'
-            );
-          }
-          if (!adminKey) {
-            throw new Error(
-              `নির্বাচিত সার্ভার "${activeSrv.name}"-এর জন্য X-Admin-Key Secret দিন!`
-            );
-          }
-
-          progWrap.classList.remove('hidden');
-          progBar.style.width = '5%';
-          progPct.textContent = '0%';
-          if (progStatus) {
-            progStatus.textContent = `Uploading "${selectedShortFile.name}" (${formatBytes(selectedShortFile.size)}) to ${activeSrv.name}...`;
-          }
-
-          const baseUrl = normalizeBaseUrl(activeSrv.workerUrl);
-          const formData = new FormData();
-          formData.append('file', selectedShortFile);
-          formData.append('folder', folder);
-
-          const onProgressUpdate = (pct, loadedBytes, totalBytes) => {
-            progBar.style.width = `${Math.max(5, pct)}%`;
-            progPct.textContent = `${pct}%`;
-            if (progStatus) {
-              progStatus.textContent = `Uploading to ${activeSrv.name}: ${formatBytes(loadedBytes)} / ${formatBytes(totalBytes)} (${pct}%)`;
-            }
-          };
-
-          let data;
-          try {
-            data = await uploadVideoBlobToR2WithProgress(
-              `${baseUrl}/api/upload`,
-              { 'X-Admin-Key': adminKey },
-              formData,
-              onProgressUpdate
-            );
-          } catch {
-            // Fallback to server-side R2 proxy if browser CORS blocks direct Worker upload
-            const proxyFormData = new FormData();
-            proxyFormData.append('file', selectedShortFile);
-            proxyFormData.append('folder', folder);
-            data = await uploadVideoBlobToR2WithProgress(
-              '/api/r2-proxy/upload',
-              {
-                'X-Admin-Key': adminKey,
-                'X-Worker-Url': baseUrl
-              },
-              proxyFormData,
-              onProgressUpdate
-            );
-          }
-
-          if (!data || !data.success || !data.key) {
-            throw new Error(data?.error || 'Short video upload to R2 failed');
-          }
-
-          progBar.style.width = '100%';
-          progPct.textContent = '100%';
-          if (progStatus) {
-            progStatus.textContent = `✓ Uploaded "${data.key}" to ${activeSrv.name}! Saving to Firebase...`;
-          }
-
-          uploadedKey = data.key;
-          const bestUrls = resolveBestPublicUrlForFile(activeSrv, uploadedKey);
-          const encodedKey = uploadedKey.split('/').map(encodeURIComponent).join('/');
-          finalVideoUrl =
-            (publicDomainInput && !publicDomainInput.includes('.workers.dev')
-              ? `${publicDomainInput}/${encodedKey}`
-              : bestUrls[0]) || `${publicDomainInput}/${encodedKey}`;
-
-          document.getElementById('short-custom-url').value = finalVideoUrl;
-        }
-
-        if (!finalVideoUrl) {
-          throw new Error(
-            'অনুগ্রহ করে একটি শর্ট ভিডিও ফাইল সিলেক্ট করুন অথবা Direct Short Video Stream URL দিন!'
-          );
-        }
-
-        const now = Date.now();
-        const newShortRef = push(ref(db, 'shorts'));
-        await set(newShortRef, {
-          addedAt: now,
-          createdAt: now,
-          title,
-          hashtags,
-          keywords: `Shorts Virallink bdgirl ${hashtags}`,
-          thumbnail: finalThumb,
-          thumbnailUrl: finalThumb,
-          url: finalVideoUrl,
-          videoUrl: finalVideoUrl,
-          r2Key: uploadedKey || null,
-          duration,
-          views: 0,
-          likes: 0,
-          author: 'X Tube'
-        });
-        fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
-
-        const shortShareLink = window.buildShortShareLink(newShortRef.key);
-        const shareBox = document.getElementById('last-short-share-box');
-        const shareInput = document.getElementById('last-short-share-input');
-        const copyBtn = document.getElementById('last-short-copy-btn');
-        const tgBtn = document.getElementById('last-short-tg-btn');
-
-        if (shareBox && shareInput && copyBtn && tgBtn) {
-          shareInput.value = shortShareLink;
-          shareBox.classList.remove('hidden');
-          copyBtn.onclick = async () => {
-            await window.copyShortShareLink(newShortRef.key, title);
-            copyBtn.textContent = '✓ Copied!';
-            setTimeout(() => (copyBtn.textContent = '🔗 Copy Short Link'), 2000);
-          };
-          tgBtn.onclick = async () => {
-            await window.copyTelegramShortShareLink(newShortRef.key, title);
-          };
-        }
-
-        showStatus(
-          uploadedKey
-            ? `Uploaded Short "${uploadedKey}" to ${activeSrv.name} & Published! Share Link: ${shortShareLink}`
-            : `Published Short "${title}"! Share Link: ${shortShareLink}`,
-          'success'
-        );
-
-        selectedShortFile = null;
-        shortAutoThumbUrl = '';
-        shortGeneratedThreeThumbs = [];
-        renderShortThreeThumbsPicker();
-        document.getElementById('short-file-input').value = '';
-        document.getElementById('short-custom-thumb-input').value = '';
-        document.getElementById('short-file-chosen-name').textContent =
-          'Click to select a Short video file from your device';
-        document.getElementById('short-file-chosen-size').textContent =
-          'MP4, WEBM, MKV, MOV supported · Auto-generates 3 thumbnails';
-        document.getElementById('short-thumb-url').value = '';
-        document.getElementById('short-custom-url').value = '';
-        const hintEl = document.getElementById('short-upload-ready-hint');
-        if (hintEl) {
-          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✅ শর্ট ভিডিও সফলভাবে সার্ভারে আপলোড ও পাবলিশ হয়েছে!</span>`;
-        }
-        updateShortThumbPreviewUI('');
-
-        // Advance to next Auto Viral Adult Title & Hashtag preset ready for next upload
-        currentViralPresetIdx = (currentViralPresetIdx + 1) % AUTO_VIRAL_SHORT_PRESETS.length;
-        const nextPreset = AUTO_VIRAL_SHORT_PRESETS[currentViralPresetIdx];
-        document.getElementById('short-title').value = nextPreset.title;
-        document.getElementById('short-hashtags').value = nextPreset.hashtags;
-
-        if (activeSrv && uploadedKey) {
-          await fetchServerFileList(activeSrv);
-          renderStorageCards();
-          renderActiveServerFiles();
-        }
-      } catch (err) {
-        showStatus(
-          `${err.message || 'Short upload failed.'} (If PERMISSION_DENIED, copy the Updated Firebase Rules above and publish them in Firebase Console)`,
-          'error'
-        );
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '🚀 Upload & Publish Short';
-        if (bottomSubmitBtn) {
-          bottomSubmitBtn.disabled = false;
-          bottomSubmitBtn.textContent = '🚀 Upload & Publish Short to Server';
-        }
-        setTimeout(() => progWrap.classList.add('hidden'), 2000);
-      }
-    });
-
     // Listen to Published Shorts in Firebase RTDB (`shorts`)
     onValue(ref(db, 'shorts'), (snapshot) => {
       const tbody = document.getElementById('shorts-table-body');
@@ -4467,7 +4380,7 @@ service cloud.firestore {
         id,
         title: item.title || 'Viral Short 🔥',
         hashtags: item.hashtags || '#Shorts #BdViral #18Plus',
-        thumb: item.thumbnail || item.thumbnailUrl || '',
+        thumb: sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || ''),
         streamUrl: item.url || item.videoUrl || '',
         views: Number(item.views) || 0,
         likes: Number(item.likes) || 0,
@@ -4486,7 +4399,9 @@ service cloud.firestore {
               ${
                 s.thumb
                   ? `<img src="${s.thumb}" alt="short thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
-                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Short</div>`
+                  : s.streamUrl
+                  ? `<video src="${s.streamUrl}#t=2.5" muted playsinline preload="metadata" class="w-24 h-13 object-cover rounded border border-zinc-800 bg-black"></video>`
+                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Short Frame</div>`
               }
               <button data-dl-short-thumb-img="${s.id}" type="button" title="Download Short Thumbnail"
                 class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer">
@@ -4499,7 +4414,7 @@ service cloud.firestore {
             <p class="text-[11px] text-red-400 font-mono line-clamp-1">${s.hashtags}</p>
             <div class="flex items-center gap-1.5 mt-1">
               <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
-                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[230px]">
+                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]">
                 ${shareLink}
               </a>
               <button data-copy-short-inline="${s.id}" type="button"
@@ -4518,7 +4433,7 @@ service cloud.firestore {
             <span class="text-zinc-500"> / </span>
             <span class="text-red-400 font-semibold">♥ ${s.likes.toLocaleString()}</span>
           </td>
-          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
             <button data-share-short="${s.id}" type="button"
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
               🔗 Share Link

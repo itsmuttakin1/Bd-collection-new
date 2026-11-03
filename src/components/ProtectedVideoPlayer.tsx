@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize } from 'lucide-react';
 import { triggerPopunderAd, triggerSmartlinkAd } from './AdUnits';
+import { sanitizeServerThumbnail } from '../firebase';
+
 
 interface ProtectedVideoPlayerProps {
   videoId: string;
@@ -220,7 +222,12 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
-  const hasValidPoster = Boolean(poster && poster.trim() && !posterFailed);
+  const cleanPoster = sanitizeServerThumbnail(poster);
+  const hasValidPoster = Boolean(cleanPoster && !posterFailed);
+  const videoSrcForElement =
+    !isUnlocked && !hasValidPoster && resolvedVideoSrc && !resolvedVideoSrc.includes('#t=')
+      ? `${resolvedVideoSrc}#t=3.0`
+      : resolvedVideoSrc;
 
   return (
     <div
@@ -234,8 +241,8 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       <video
         key={`${videoId}-${streamStage}`}
         ref={videoRef}
-        src={resolvedVideoSrc}
-        poster={poster && poster.trim() ? poster.trim() : 'https://xtubeofficial.pages.dev/favicon.png'}
+        src={videoSrcForElement}
+        poster={hasValidPoster ? cleanPoster : undefined}
         title={title}
         playsInline
         preload="metadata"
@@ -258,7 +265,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           if (vid.duration && isFinite(vid.duration)) {
             setDuration(vid.duration);
           }
-          // If there is no poster image and video hasn't started yet, seek to 3s so player isn't black
+          // If there is no poster image and video hasn't started yet, seek to 3s so player shows a live video frame
           if (!hasValidPoster && !isUnlocked && vid.duration > 1.5) {
             try {
               vid.currentTime = Math.min(3.0, vid.duration * 0.25);
@@ -278,18 +285,18 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         className="w-full h-full object-contain pointer-events-none"
       />
 
-      {/* Smart Adjusted Thumbnail Overlay before video is unlocked */}
+      {/* Smart Adjusted R2 Server Thumbnail Overlay before video is unlocked */}
       {!isUnlocked && hasValidPoster && (
         <div className="absolute inset-0 z-10 overflow-hidden bg-zinc-950 pointer-events-none">
           <img
-            src={poster}
+            src={cleanPoster}
             alt=""
             aria-hidden="true"
             referrerPolicy="no-referrer"
             className="absolute inset-0 w-full h-full object-cover object-center blur-xl scale-125 opacity-70"
           />
           <img
-            src={poster}
+            src={cleanPoster}
             alt=""
             referrerPolicy="no-referrer"
             onLoad={(e) => {

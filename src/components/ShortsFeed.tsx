@@ -18,6 +18,7 @@ import {
   ShortItem,
   buildShortShareLink,
   copyTextToClipboard,
+  sanitizeServerThumbnail,
 } from '../firebase';
 import {
   Banner320x50Ad,
@@ -648,7 +649,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
           const isPlaying = Boolean(playingMap[instanceKey]);
           const clicksSoFar = adGateClicks[short.id] || 0;
           const streamUrl = getResolvedShortStreamUrl(short);
-          const thumbUrl = (short.thumbnail || short.thumbnailUrl || '').trim();
+          const thumbUrl = sanitizeServerThumbnail(short.thumbnail || short.thumbnailUrl);
           const hashtagsList = (short.hashtags || short.keywords || '#Shorts #BdViral #18Plus #DesiHot')
             .split(/\s+/)
             .filter(Boolean)
@@ -680,8 +681,12 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     ref={(el) => {
                       videoRefs.current[instanceKey] = el;
                     }}
-                    src={streamUrl}
-                    poster={thumbUrl || 'https://xtubeofficial.pages.dev/favicon.png'}
+                    src={
+                      short.isLongVideo && !isUnlocked && !thumbUrl && streamUrl && !streamUrl.includes('#t=')
+                        ? `${streamUrl}#t=2.5`
+                        : streamUrl
+                    }
+                    poster={thumbUrl || undefined}
                     playsInline
                     autoPlay={idx === activeIndex && !short.isLongVideo}
                     loop
@@ -690,6 +695,16 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     controlsList="nodownload noplaybackrate"
                     disablePictureInPicture
                     onContextMenu={(e) => e.preventDefault()}
+                    onLoadedMetadata={(e) => {
+                      if (short.isLongVideo && !isUnlocked && !thumbUrl) {
+                        const v = e.currentTarget;
+                        if (v.duration > 1.5 && v.currentTime < 0.2) {
+                          try {
+                            v.currentTime = Math.min(2.5, v.duration * 0.25);
+                          } catch {}
+                        }
+                      }
+                    }}
                     onPlay={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }))}
                     onPlaying={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }))}
                     onPause={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: false }))}

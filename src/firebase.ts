@@ -137,5 +137,70 @@ export const BANNER_320x50_KEY = "3b1a924db6016b5bf4ddfe098d957940";
 export const BANNER_320x50_SCRIPT_SRC = "https://brijmohan.org/22/3b1a924db6016b5bf4ddfe098d957940";
 export const SOCIAL_BAR_SCRIPT_SRC = "https://brijmohan.org/14/4c4a8e781dbd7fa6718915694148d8d9";
 
+export const KNOWN_R2_PUBLIC_DOMAINS = [
+  'https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev',
+  'https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev',
+  'https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev',
+  'https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev',
+];
+
+/**
+ * All videos and shorts automatically render live frames directly from the video stream (#t=2.5),
+ * so no separate thumbnail image URL is needed.
+ */
+export const isR2ServerThumbnail = (_rawThumb?: string): boolean => {
+  return false;
+};
+
+export const sanitizeServerThumbnail = (_rawThumb?: string): string => {
+  return '';
+};
+
+/**
+ * Builds an ordered list of candidate video stream URLs (across R2 public domains + /api/stream proxy)
+ * so live video frame previews on cards and players work 100% reliably.
+ */
+export const buildVideoStreamCandidates = (rawUrl?: string, r2Key?: string): string[] => {
+  let clean = String(rawUrl || '').trim();
+  if (!clean && r2Key) {
+    clean = `https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev/${String(r2Key).replace(/^\/+/, '')}`;
+  }
+  if (!clean) return [];
+  if (!/^https?:\/\//i.test(clean) && !clean.startsWith('/')) {
+    clean = `https://${clean}`;
+  }
+  if (clean.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
+    clean = clean.replace(
+      'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
+      'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
+    );
+  }
+
+  const list: string[] = [clean];
+  try {
+    const parsed = new URL(clean);
+    if (parsed.hostname.endsWith('.r2.dev')) {
+      const pathPart = parsed.pathname + parsed.search;
+      for (const dom of KNOWN_R2_PUBLIC_DOMAINS) {
+        const alt = `${dom}${pathPart}`;
+        if (!list.includes(alt)) list.push(alt);
+      }
+      if (parsed.pathname.startsWith('/shorts/')) {
+        const rootPath = parsed.pathname.replace(/^\/shorts\//, '/');
+        for (const dom of KNOWN_R2_PUBLIC_DOMAINS) {
+          const rootAlt = `${dom}${rootPath}${parsed.search}`;
+          if (!list.includes(rootAlt)) list.push(rootAlt);
+        }
+      }
+    }
+  } catch {}
+
+  const streamProxy = `/api/stream?url=${encodeURIComponent(clean)}`;
+  if (!list.includes(streamProxy)) list.push(streamProxy);
+
+  return list;
+};
+
 export { ref, onValue, push, set, remove, get, update, runTransaction, onDisconnect, serverTimestamp };
+
 
