@@ -293,6 +293,93 @@
     </div>
   </div>
 
+  <!-- AUTOMATIC UPLOADED VIDEO SHARE LINK POPUP MODAL -->
+  <div id="upload-share-link-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl border-2 border-emerald-500/80 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-3 border-b border-zinc-800 pb-3.5">
+        <div class="space-y-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold">
+              ✅ UPLOAD COMPLETE
+            </span>
+            <span id="modal-auto-copied-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-600/70 text-[11px] font-mono text-emerald-300">
+              ✓ Auto-Copied to Clipboard!
+            </span>
+          </div>
+          <h3 class="text-base sm:text-lg font-bold text-white">🔗 আপনার আপলোড করা ভিডিওর Share Link রেডি!</h3>
+          <p id="modal-uploaded-video-title" class="text-xs text-zinc-300 font-medium line-clamp-2"></p>
+        </div>
+        <button id="close-upload-share-modal" type="button"
+          class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white text-sm cursor-pointer shrink-0">
+          ✕
+        </button>
+      </div>
+
+      <!-- 1. Primary Video Share Link -->
+      <div class="p-3.5 rounded-xl bg-emerald-950/35 border border-emerald-700/70 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span id="modal-primary-link-label" class="text-xs font-bold text-emerald-300">🎬 Direct Video Share Link:</span>
+          <span class="text-[11px] font-mono text-emerald-400">Click button to Copy</span>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input id="modal-primary-share-input" type="text" readonly
+            class="flex-1 px-3 py-2.5 rounded-xl bg-zinc-950 border border-emerald-700/80 text-xs sm:text-sm font-mono text-emerald-300 focus:outline-none select-all" />
+          <button id="modal-primary-copy-btn" type="button"
+            class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold cursor-pointer shadow-lg shadow-emerald-600/25 shrink-0 transition-colors">
+            📋 Copy Share Link
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Short Video Share Link (Shown when uploaded to Shorts or Both) -->
+      <div id="modal-short-share-wrap" class="hidden p-3.5 rounded-xl bg-red-950/30 border border-red-800/70 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-bold text-red-300">📱 Direct Shorts Feed Link (`/?short=`):</span>
+          <span class="text-[10px] font-mono text-red-400">Shorts Share Link</span>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input id="modal-short-share-input" type="text" readonly
+            class="flex-1 px-3 py-2 rounded-xl bg-zinc-950 border border-red-800/80 text-xs font-mono text-red-300 focus:outline-none select-all" />
+          <button id="modal-short-copy-btn" type="button"
+            class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer shrink-0 transition-colors">
+            📱 Copy Short Link
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Ready Social Post (Title + Share Link Together) -->
+      <div class="p-3.5 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-bold text-amber-300">🔥 Ready Post (Title + Share Link একসাথে কপি করুন):</span>
+          <button id="modal-caption-copy-btn" type="button"
+            class="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer transition-colors">
+            📝 Copy Title + Link
+          </button>
+        </div>
+        <textarea id="modal-caption-share-input" rows="2" readonly
+          class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-200 focus:outline-none select-all resize-none"></textarea>
+      </div>
+
+      <!-- Bottom Quick Actions -->
+      <div class="pt-2 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="modal-tg-share-btn" type="button"
+            class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer transition-colors">
+            ✈️ Copy Telegram Bot Link
+          </button>
+          <a id="modal-open-share-link" href="/" target="_blank" rel="noopener noreferrer"
+            class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-semibold transition-colors">
+            ↗ Open Video
+          </a>
+        </div>
+        <button id="done-upload-share-modal" type="button"
+          class="px-5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold cursor-pointer">
+          Done (বন্ধ করুন)
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- DASHBOARD VIEW -->
   <div id="dashboard-view" class="hidden min-h-screen w-full max-w-[100vw] overflow-x-hidden flex flex-col">
     <!-- Top Header (Mobile Responsive) -->
@@ -940,31 +1027,44 @@
               </div>
             </div>
 
-            <!-- Newly Uploaded Share Link Banner (Supports Long Video Link, Short Link & TG Link) -->
-            <div id="last-uploaded-share-box" class="hidden p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-700/70 space-y-2.5">
+            <!-- Newly Uploaded Share Link Banner (Auto-Appears After Upload + Recent Session History) -->
+            <div id="last-uploaded-share-box" class="hidden p-4 rounded-xl bg-emerald-950/50 border-2 border-emerald-600/80 space-y-3 shadow-lg">
               <div class="flex flex-wrap items-center justify-between gap-2">
-                <span id="last-uploaded-label" class="text-xs font-semibold text-emerald-300">✅ Video Published! Direct Share Links:</span>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold">AUTO LINK</span>
+                  <span id="last-uploaded-label" class="text-xs sm:text-sm font-bold text-emerald-300">✅ সদ্য আপলোড করা ভিডিওর Share Link:</span>
+                </div>
                 <div class="flex flex-wrap items-center gap-1.5">
                   <button id="last-uploaded-copy-btn" type="button"
-                    class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold cursor-pointer">
-                    🔗 Copy Video Link
+                    class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow">
+                    📋 Copy Share Link
+                  </button>
+                  <button id="last-uploaded-caption-copy-btn" type="button"
+                    class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer">
+                    📝 Copy Title + Link
                   </button>
                   <button id="last-uploaded-short-copy-btn" type="button"
-                    class="hidden px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-semibold cursor-pointer">
+                    class="hidden px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer">
                     📱 Copy Short Link
                   </button>
                   <button id="last-uploaded-tg-btn" type="button"
-                    class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold cursor-pointer">
+                    class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer">
                     ✈️ Copy TG Link
                   </button>
                   <a id="last-uploaded-open-link" href="/" target="_blank" rel="noopener noreferrer"
-                    class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-medium">
+                    class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium">
                     ↗ Open
                   </a>
                 </div>
               </div>
               <input id="last-uploaded-share-input" type="text" readonly
-                class="w-full px-3 py-1.5 rounded-lg bg-zinc-950 border border-emerald-800/70 text-xs font-mono text-emerald-300 focus:outline-none select-all" />
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-emerald-700 text-xs sm:text-sm font-mono text-emerald-300 focus:outline-none select-all" />
+
+              <!-- Session Uploaded Video Share Links History -->
+              <div id="recent-uploaded-links-wrap" class="hidden pt-2 border-t border-emerald-800/60 space-y-1.5">
+                <span class="block text-[11px] font-semibold text-emerald-300/90">📂 এই সেশনে আপলোড করা সব ভিডিওর Share Link লিস্ট:</span>
+                <div id="recent-uploaded-links-list" class="space-y-1.5 max-h-40 overflow-y-auto pr-1"></div>
+              </div>
             </div>
           </form>
         </div>
@@ -2082,7 +2182,14 @@ service cloud.firestore {
           createdAt: now,
           author: 'Bd Collection'
         });
-        if (copyShareAfter && window.copyVideoShareLink) {
+        if (window.presentUploadedVideoShareLinks) {
+          await window.presentUploadedVideoShareLinks({
+            title,
+            longId: newRef.key,
+            shortId: '',
+            targetLabel: 'Long Videos',
+          });
+        } else if (copyShareAfter && window.copyVideoShareLink) {
           await window.copyVideoShareLink(newRef.key, title);
         } else {
           showStatus(`Published "${title}" to Firebase database!`, 'success');
@@ -2920,6 +3027,305 @@ service cloud.firestore {
         'success'
       );
       return tgUrl;
+    };
+
+    // ============================================================================
+    // AUTOMATIC UPLOADED VIDEO SHARE LINK POPUP MODAL + AUTO-COPY + SESSION LIST
+    // ============================================================================
+    const sessionUploadedShareHistory = [];
+
+    const copyRawTextHelper = async (textToCopy) => {
+      if (!textToCopy) return false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(textToCopy);
+          return true;
+        }
+      } catch {}
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = textToCopy;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '0';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const closeUploadShareModal = () => {
+      const modal = document.getElementById('upload-share-link-modal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    const closeShareModalBtn = document.getElementById('close-upload-share-modal');
+    const doneShareModalBtn = document.getElementById('done-upload-share-modal');
+    if (closeShareModalBtn) closeShareModalBtn.addEventListener('click', closeUploadShareModal);
+    if (doneShareModalBtn) doneShareModalBtn.addEventListener('click', closeUploadShareModal);
+
+    const renderSessionUploadedHistory = () => {
+      const wrap = document.getElementById('recent-uploaded-links-wrap');
+      const listEl = document.getElementById('recent-uploaded-links-list');
+      if (!wrap || !listEl) return;
+
+      if (sessionUploadedShareHistory.length === 0) {
+        wrap.classList.add('hidden');
+        listEl.innerHTML = '';
+        return;
+      }
+
+      wrap.classList.remove('hidden');
+      listEl.innerHTML = '';
+
+      sessionUploadedShareHistory.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className =
+          'p-2 rounded-lg bg-zinc-950/90 border border-emerald-800/50 flex flex-wrap items-center justify-between gap-2 text-xs';
+        row.innerHTML = `
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-white truncate">${idx + 1}. ${item.title}</p>
+            <p class="font-mono text-[11px] text-emerald-400 truncate select-all">${item.primaryLink}</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" data-hist-copy-link="${idx}"
+              class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer">
+              📋 Copy Link
+            </button>
+            <button type="button" data-hist-copy-post="${idx}"
+              class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer">
+              📝 Title+Link
+            </button>
+          </div>
+        `;
+
+        row.querySelector('[data-hist-copy-link]').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
+          await copyRawTextHelper(item.primaryLink);
+          btn.textContent = '✓ Copied!';
+          showStatus(`Copied Share Link: ${item.primaryLink}`, 'success');
+          setTimeout(() => (btn.textContent = '📋 Copy Link'), 2000);
+        });
+
+        row.querySelector('[data-hist-copy-post]').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
+          await copyRawTextHelper(item.captionText);
+          btn.textContent = '✓ Copied!';
+          showStatus(`Copied Title + Link for "${item.title}"!`, 'success');
+          setTimeout(() => (btn.textContent = '📝 Title+Link'), 2000);
+        });
+
+        listEl.appendChild(row);
+      });
+    };
+
+    window.presentUploadedVideoShareLinks = async ({
+      title = 'Viral Video',
+      longId = '',
+      shortId = '',
+      targetLabel = 'Both',
+      serverName = '',
+      uploadedKey = '',
+    }) => {
+      const longShareLink = longId ? window.buildVideoShareLink(longId) : '';
+      const shortShareLink = shortId ? window.buildShortShareLink(shortId) : '';
+      const primaryLink = longShareLink || shortShareLink;
+      if (!primaryLink) return;
+
+      const captionText = `${title}\n👉 Watch Full HD Video: ${primaryLink}`;
+
+      // 1. Auto-copy primary share link to clipboard immediately
+      const autoCopied = await copyRawTextHelper(primaryLink);
+
+      // 2. Save to current session history list
+      sessionUploadedShareHistory.unshift({
+        title,
+        longId,
+        shortId,
+        primaryLink,
+        shortShareLink,
+        captionText,
+        time: Date.now(),
+      });
+      renderSessionUploadedHistory();
+
+      // 3. Update Inline Share Box inside Upload Form
+      const shareBox = document.getElementById('last-uploaded-share-box');
+      const shareInput = document.getElementById('last-uploaded-share-input');
+      const openLink = document.getElementById('last-uploaded-open-link');
+      const copyBtn = document.getElementById('last-uploaded-copy-btn');
+      const captionCopyBtn = document.getElementById('last-uploaded-caption-copy-btn');
+      const shortCopyBtn = document.getElementById('last-uploaded-short-copy-btn');
+      const tgBtn = document.getElementById('last-uploaded-tg-btn');
+
+      if (shareBox && shareInput && openLink && copyBtn) {
+        shareInput.value = primaryLink;
+        openLink.href = primaryLink;
+        shareBox.classList.remove('hidden');
+
+        copyBtn.onclick = async () => {
+          await copyRawTextHelper(primaryLink);
+          copyBtn.textContent = '✓ Copied!';
+          showStatus(`Copied Share Link: ${primaryLink}`, 'success');
+          setTimeout(() => (copyBtn.textContent = '📋 Copy Share Link'), 2000);
+        };
+
+        if (captionCopyBtn) {
+          captionCopyBtn.onclick = async () => {
+            await copyRawTextHelper(captionText);
+            captionCopyBtn.textContent = '✓ Copied Title+Link!';
+            showStatus('Copied Title + Share Link!', 'success');
+            setTimeout(() => (captionCopyBtn.textContent = '📝 Copy Title + Link'), 2000);
+          };
+        }
+
+        if (shortCopyBtn) {
+          if (shortShareLink) {
+            shortCopyBtn.classList.remove('hidden');
+            shortCopyBtn.onclick = async () => {
+              await copyRawTextHelper(shortShareLink);
+              shortCopyBtn.textContent = '✓ Short Copied!';
+              showStatus(`Copied Short Link: ${shortShareLink}`, 'success');
+              setTimeout(() => (shortCopyBtn.textContent = '📱 Copy Short Link'), 2000);
+            };
+          } else {
+            shortCopyBtn.classList.add('hidden');
+          }
+        }
+
+        if (tgBtn) {
+          tgBtn.onclick = async () => {
+            if (longId) {
+              await window.copyTelegramVideoShareLink(longId, title);
+            } else if (shortId) {
+              await window.copyTelegramShortShareLink(shortId, title);
+            }
+          };
+        }
+      }
+
+      // 4. Populate & Open the Automatic Share Link Popup Modal (#upload-share-link-modal)
+      const modal = document.getElementById('upload-share-link-modal');
+      const modalTitle = document.getElementById('modal-uploaded-video-title');
+      const modalBadge = document.getElementById('modal-auto-copied-badge');
+      const modalPrimaryLabel = document.getElementById('modal-primary-link-label');
+      const modalPrimaryInput = document.getElementById('modal-primary-share-input');
+      const modalPrimaryCopyBtn = document.getElementById('modal-primary-copy-btn');
+      const modalShortWrap = document.getElementById('modal-short-share-wrap');
+      const modalShortInput = document.getElementById('modal-short-share-input');
+      const modalShortCopyBtn = document.getElementById('modal-short-copy-btn');
+      const modalCaptionInput = document.getElementById('modal-caption-share-input');
+      const modalCaptionCopyBtn = document.getElementById('modal-caption-copy-btn');
+      const modalTgBtn = document.getElementById('modal-tg-share-btn');
+      const modalOpenLink = document.getElementById('modal-open-share-link');
+
+      if (modal) {
+        if (modalTitle) modalTitle.textContent = `🎬 ${title}`;
+        if (modalBadge) {
+          modalBadge.textContent = autoCopied
+            ? '✓ Share Link Auto-Copied!'
+            : '⚡ Ready to Copy';
+        }
+        if (modalPrimaryLabel) {
+          modalPrimaryLabel.textContent = longShareLink
+            ? '🎬 Direct Video Share Link (/?v=):'
+            : '📱 Direct Short Share Link (/?short=):';
+        }
+        if (modalPrimaryInput) {
+          modalPrimaryInput.value = primaryLink;
+        }
+        if (modalPrimaryCopyBtn) {
+          modalPrimaryCopyBtn.textContent = autoCopied
+            ? '✓ কপি হয়েছে! (Copy Again)'
+            : '📋 Copy Share Link';
+          modalPrimaryCopyBtn.onclick = async () => {
+            await copyRawTextHelper(primaryLink);
+            if (modalPrimaryInput) {
+              modalPrimaryInput.focus();
+              modalPrimaryInput.select();
+            }
+            modalPrimaryCopyBtn.textContent = '✓ Copied to Clipboard!';
+            showStatus(`Copied Share Link: ${primaryLink}`, 'success');
+            setTimeout(() => {
+              modalPrimaryCopyBtn.textContent = '📋 Copy Share Link';
+            }, 2200);
+          };
+        }
+
+        if (modalShortWrap && modalShortInput && modalShortCopyBtn) {
+          if (shortShareLink && longShareLink) {
+            modalShortWrap.classList.remove('hidden');
+            modalShortInput.value = shortShareLink;
+            modalShortCopyBtn.onclick = async () => {
+              await copyRawTextHelper(shortShareLink);
+              modalShortInput.focus();
+              modalShortInput.select();
+              modalShortCopyBtn.textContent = '✓ Short Link Copied!';
+              showStatus(`Copied Short Share Link: ${shortShareLink}`, 'success');
+              setTimeout(() => {
+                modalShortCopyBtn.textContent = '📱 Copy Short Link';
+              }, 2200);
+            };
+          } else {
+            modalShortWrap.classList.add('hidden');
+          }
+        }
+
+        if (modalCaptionInput) {
+          modalCaptionInput.value = captionText;
+        }
+        if (modalCaptionCopyBtn) {
+          modalCaptionCopyBtn.onclick = async () => {
+            await copyRawTextHelper(captionText);
+            if (modalCaptionInput) {
+              modalCaptionInput.focus();
+              modalCaptionInput.select();
+            }
+            modalCaptionCopyBtn.textContent = '✓ Copied Title + Link!';
+            showStatus('Copied Title + Share Link together!', 'success');
+            setTimeout(() => {
+              modalCaptionCopyBtn.textContent = '📝 Copy Title + Link';
+            }, 2200);
+          };
+        }
+
+        if (modalTgBtn) {
+          modalTgBtn.onclick = async () => {
+            if (longId) {
+              await window.copyTelegramVideoShareLink(longId, title);
+            } else if (shortId) {
+              await window.copyTelegramShortShareLink(shortId, title);
+            }
+          };
+        }
+
+        if (modalOpenLink) {
+          modalOpenLink.href = primaryLink;
+        }
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          if (modalPrimaryInput) {
+            modalPrimaryInput.focus();
+            modalPrimaryInput.select();
+          }
+        }, 80);
+      }
+
+      showStatus(
+        uploadedKey
+          ? `✅ Uploaded "${uploadedKey}"${serverName ? ` to ${serverName}` : ''} & Auto-Copied Share Link: ${primaryLink}`
+          : `✅ Published "${title}" to ${targetLabel} & Auto-Copied Share Link: ${primaryLink}`,
+        'success'
+      );
     };
 
     // Helper to download any thumbnail
@@ -3760,63 +4166,17 @@ service cloud.firestore {
 
         fetch('/api/refresh-sitemap', { method: 'POST' }).catch(() => {});
 
-        // 4. Populate Share Link Box for Long, Short, and Telegram Mini App
-        const primaryShareLink = createdLongId
-          ? window.buildVideoShareLink(createdLongId)
-          : window.buildShortShareLink(createdShortId);
-
-        const shareBox = document.getElementById('last-uploaded-share-box');
-        const shareInput = document.getElementById('last-uploaded-share-input');
-        const openLink = document.getElementById('last-uploaded-open-link');
-        const copyBtn = document.getElementById('last-uploaded-copy-btn');
-        const shortCopyBtn = document.getElementById('last-uploaded-short-copy-btn');
-        const tgBtn = document.getElementById('last-uploaded-tg-btn');
-
-        if (shareBox && shareInput && openLink && copyBtn) {
-          shareInput.value = primaryShareLink;
-          openLink.href = primaryShareLink;
-          shareBox.classList.remove('hidden');
-
-          copyBtn.onclick = async () => {
-            if (createdLongId) {
-              await window.copyVideoShareLink(createdLongId, title);
-            } else if (createdShortId) {
-              await window.copyShortShareLink(createdShortId, title);
-            }
-            copyBtn.textContent = '✓ Copied!';
-            setTimeout(() => (copyBtn.textContent = '🔗 Copy Video Link'), 2000);
-          };
-
-          if (shortCopyBtn) {
-            if (createdShortId) {
-              shortCopyBtn.classList.remove('hidden');
-              shortCopyBtn.onclick = async () => {
-                await window.copyShortShareLink(createdShortId, title);
-                shortCopyBtn.textContent = '✓ Short Link Copied!';
-                setTimeout(() => (shortCopyBtn.textContent = '📱 Copy Short Link'), 2000);
-              };
-            } else {
-              shortCopyBtn.classList.add('hidden');
-            }
-          }
-
-          if (tgBtn) {
-            tgBtn.onclick = async () => {
-              if (createdLongId) {
-                await window.copyTelegramVideoShareLink(createdLongId, title);
-              } else if (createdShortId) {
-                await window.copyTelegramShortShareLink(createdShortId, title);
-              }
-            };
-          }
+        // 4. Automatically Present & Auto-Copy Share Link in Popup Modal + Inline Box + Session History
+        if (window.presentUploadedVideoShareLinks) {
+          await window.presentUploadedVideoShareLinks({
+            title,
+            longId: createdLongId,
+            shortId: createdShortId,
+            targetLabel,
+            serverName: activeSrv?.name || '',
+            uploadedKey: uploadedKey || '',
+          });
         }
-
-        showStatus(
-          uploadedKey
-            ? `✅ Uploaded "${uploadedKey}" to ${activeSrv.name} & Published to ${targetLabel}! Share Link: ${primaryShareLink}`
-            : `✅ Published "${title}" to ${targetLabel}! Share Link: ${primaryShareLink}`,
-          'success'
-        );
 
         // Reset form and pre-fill next Auto Viral Adult Title & Hashtags
         selectedVideoFile = null;
