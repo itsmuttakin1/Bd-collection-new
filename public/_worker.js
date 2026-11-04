@@ -1,7 +1,7 @@
 // Cloudflare Pages Advanced Edge Worker (_worker.js) for https://xtubeofficial.pages.dev
 // 1. Auto-updates /sitemap.xml, /sitemap-videos.xml, and /sitemap-shorts.xml in real-time from Firebase RTDB
-// 2. Server-Side Renders (SSR) dynamic SEO <title>, <meta>, OpenGraph, and VideoObject JSON-LD for /?v= and /?short=
-// 3. Provides /api/refresh-sitemap and /api/stream Edge endpoints so Googlebot ranks every video & Short fast.
+// 2. Auto-handles Google Search Console verification (/google*.html + <meta name="google-site-verification">) & IndexNow
+// 3. Server-Side Renders (SSR) dynamic SEO <title>, <meta>, OpenGraph, VideoObject JSON-LD & crawlable video links on /, /?v=, and /?short=
 
 const CANONICAL_SITE_URL = 'https://xtubeofficial.pages.dev';
 const DEFAULT_THUMB_URL = 'https://xtubeofficial.pages.dev/favicon.png';
@@ -10,8 +10,8 @@ const FIREBASE_RTDB_BASE =
 
 const SEO_CORE_TAGS = [
   'X Tube',
-  'X tube official',
-  'xxx',
+  'X Tube Official',
+  'xtubeofficial',
   'xtube',
   'x tube video',
   'x tube shorts',
@@ -80,21 +80,34 @@ const normalizeShortStreamUrl = (rawUrl, r2Key) => {
   return clean;
 };
 
+const extractGoogleVerificationToken = (raw) => {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const metaMatch = s.match(/content=["']([^"']+)["']/i);
+  if (metaMatch && metaMatch[1]) return metaMatch[1].trim();
+  return s.replace(/^google-site-verification[=:\s]*/i, '').replace(/\.html$/i, '').trim();
+};
+
 async function fetchFirebaseData() {
-  const [videosRes, shortsRes] = await Promise.all([
+  const [videosRes, shortsRes, seoRes] = await Promise.all([
     fetch(`${FIREBASE_RTDB_BASE}/videos.json`, {
       cf: { cacheTtl: 60, cacheEverything: true },
     }).catch(() => null),
     fetch(`${FIREBASE_RTDB_BASE}/shorts.json`, {
       cf: { cacheTtl: 60, cacheEverything: true },
     }).catch(() => null),
+    fetch(`${FIREBASE_RTDB_BASE}/seoConfig.json`, {
+      cf: { cacheTtl: 30, cacheEverything: true },
+    }).catch(() => null),
   ]);
 
   const videosData = videosRes && videosRes.ok ? await videosRes.json() : {};
   const shortsData = shortsRes && shortsRes.ok ? await shortsRes.json() : {};
+  const seoData = seoRes && seoRes.ok ? await seoRes.json() : {};
   return {
     videosData: videosData && typeof videosData === 'object' ? videosData : {},
     shortsData: shortsData && typeof shortsData === 'object' ? shortsData : {},
+    seoData: seoData && typeof seoData === 'object' ? seoData : {},
   };
 }
 
@@ -140,7 +153,7 @@ async function generateLiveSitemapXml(mode = 'all') {
         : `${rawTitle} | X Tube Official`;
       const desc = String(
         rawVal.description ||
-          `${rawTitle} - Watch exclusive HD viral video on X Tube (X Tube Official, xxx, Bangladeshi viral stream).`
+          `${rawTitle} - Watch exclusive HD viral video on X Tube Official (xtubeofficial.pages.dev, Bangladeshi viral stream).`
       ).trim();
       const thumb = resolveValidSeoThumb(rawVal.thumbnail || rawVal.thumbnailUrl);
       const contentLoc = String(rawVal.url || rawVal.videoUrl || '').trim();
@@ -203,7 +216,7 @@ async function generateLiveSitemapXml(mode = 'all') {
       const hashtags = String(
         rawVal.hashtags || rawVal.keywords || '#Shorts #XTube #BdViral #18Plus'
       ).trim();
-      const desc = `${rawTitle} ${hashtags} - Watch viral Short video in HD on X Tube Official (X Tube Shorts, xxx, xtube).`;
+      const desc = `${rawTitle} ${hashtags} - Watch viral Short video in HD on X Tube Official (X Tube Shorts, xtubeofficial).`;
       const thumb = resolveValidSeoThumb(rawVal.thumbnail || rawVal.thumbnailUrl);
       const contentLoc = normalizeShortStreamUrl(rawVal.url || rawVal.videoUrl || '', rawVal.r2Key);
       if (!contentLoc || BROKEN_FILES.some((b) => contentLoc.includes(b))) continue;
@@ -260,6 +273,28 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // 0. Automatic Google Search Console HTML File Verification (/googleXXXX.html) & IndexNow Key
+    if (/^\/google[a-zA-Z0-9_-]+\.html$/i.test(path)) {
+      const fileName = path.replace(/^\/+/, '');
+      return new Response(`google-site-verification: ${fileName}`, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    if (path === '/xtubeofficial2026.txt') {
+      return new Response('xtubeofficial2026', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
+    }
+
     // 1. Dynamic Auto-Updating Google Video + Shorts Sitemaps
     if (
       path === '/sitemap.xml' ||
@@ -291,7 +326,7 @@ export default {
     if (path === '/robots.txt') {
       const robots = [
         '# X Tube Official - Search Engine Crawler Rules',
-        '# Keywords: X Tube, X tube official, xxx, xtube, viral videos, shorts',
+        '# Keywords: X Tube, X Tube Official, xtubeofficial, xtube, viral videos, shorts',
         'User-agent: *',
         'Allow: /',
         'Allow: /?v=',
@@ -325,7 +360,7 @@ export default {
         return new Response(
           JSON.stringify({
             ok: true,
-            site: 'X Tube',
+            site: 'X Tube Official',
             sitemapUrl: `${CANONICAL_SITE_URL}/sitemap.xml`,
             videoCount,
             shortCount,
@@ -348,7 +383,7 @@ export default {
     }
 
     // 4. Dynamic Edge SSR for Homepage (/), Video Watch (/?v=...), and Shorts (/?short=...)
-    // So Googlebot sees the exact video title, description, canonical link & VideoObject JSON-LD immediately!
+    // So Googlebot sees the Google verification meta tag, exact video title, VideoObject JSON-LD & crawlable video links immediately!
     if (path === '/' || path === '/index.html') {
       const assetRes = await env.ASSETS.fetch(request);
       const contentType = assetRes.headers.get('content-type') || '';
@@ -361,122 +396,221 @@ export default {
 
       try {
         let html = await assetRes.text();
+        const { videosData, shortsData, seoData } = await fetchFirebaseData();
 
-        if (vidParam) {
-          const itemRes = await fetch(
-            `${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(vidParam)}.json`
-          );
-          const v = itemRes.ok ? await itemRes.json() : null;
-          if (v && typeof v === 'object') {
-            const rawTitle = String(v.title || 'Viral Video').trim();
-            const fullTitle = `${rawTitle} | X Tube Official`;
-            const desc = String(
-              v.description ||
-                `${rawTitle} - Watch exclusive Bangladeshi viral video in HD on X Tube Official (xxx, xtube).`
-            ).trim();
-            const pageUrl = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(vidParam)}`;
+        // Inject Google Search Console verification meta tag if configured in Admin Panel (`seoConfig/googleVerification`)
+        const googleToken = extractGoogleVerificationToken(seoData?.googleVerification);
+        if (googleToken) {
+          const gscMeta = `<meta name="google-site-verification" content="${escapeXml(googleToken)}" />`;
+          html = html.replace('</head>', `${gscMeta}\n  </head>`);
+        }
+
+        if (vidParam && videosData[vidParam]) {
+          const v = videosData[vidParam];
+          const rawTitle = String(v.title || 'Viral Video').trim();
+          const fullTitle = `${rawTitle} | X Tube Official`;
+          const desc = String(
+            v.description ||
+              `${rawTitle} - Watch exclusive Bangladeshi viral video in HD on X Tube Official (xtubeofficial.pages.dev).`
+          ).trim();
+          const pageUrl = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(vidParam)}`;
+          const streamUrl = String(v.url || v.videoUrl || '').trim();
+          const thumbUrl = resolveValidSeoThumb(v.thumbnail || v.thumbnailUrl);
+          const durSec = parseDurationSec(v.duration, 210);
+          const pubIso = new Date(
+            Number(v.addedAt || v.createdAt) || Date.now()
+          ).toISOString();
+
+          const videoJsonLd = JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'VideoObject',
+            '@id': `${pageUrl}#video`,
+            url: pageUrl,
+            name: fullTitle,
+            description: desc,
+            thumbnailUrl: [thumbUrl],
+            uploadDate: pubIso,
+            duration: secondsToIsoDuration(durSec),
+            contentUrl: streamUrl,
+            embedUrl: pageUrl,
+            isFamilyFriendly: true,
+            interactionStatistic: {
+              '@type': 'InteractionCounter',
+              interactionType: { '@type': 'WatchAction' },
+              userInteractionCount: Number(v.views) || 1,
+            },
+          });
+
+          html = html
+            .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeXml(fullTitle)}</title>`)
+            .replace(
+              /<meta\s+name="description"[\s\S]*?>/i,
+              `<meta name="description" content="${escapeXml(desc)}" />`
+            )
+            .replace(
+              /<link rel="canonical"[^>]*>/i,
+              `<link rel="canonical" id="canonical-link" href="${escapeXml(pageUrl)}" />`
+            )
+            .replace(
+              /<meta property="og:title"[^>]*>/i,
+              `<meta property="og:title" id="og-title" content="${escapeXml(fullTitle)}" />`
+            )
+            .replace(
+              /<meta property="og:url"[^>]*>/i,
+              `<meta property="og:url" id="og-url" content="${escapeXml(pageUrl)}" />`
+            )
+            .replace(
+              '</head>',
+              `<script type="application/ld+json">${videoJsonLd}</script></head>`
+            );
+        } else if (shortParam && shortParam !== 'feed' && shortsData[shortParam]) {
+          const s = shortsData[shortParam];
+          const rawTitle = String(s.title || 'Viral Short').trim();
+          const fullTitle = `${rawTitle} | X Tube Shorts`;
+          const hashtags = String(s.hashtags || s.keywords || '#Shorts #XTube').trim();
+          const desc = `${rawTitle} ${hashtags} - Watch viral Short video in HD on X Tube Official.`;
+          const pageUrl = `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(shortParam)}`;
+          const streamUrl = normalizeShortStreamUrl(s.url || s.videoUrl || '', s.r2Key);
+          const thumbUrl = resolveValidSeoThumb(s.thumbnail || s.thumbnailUrl);
+          const durSec = parseDurationSec(s.duration, 35);
+          const pubIso = new Date(
+            Number(s.addedAt || s.createdAt) || Date.now()
+          ).toISOString();
+
+          const shortJsonLd = JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'VideoObject',
+            '@id': `${pageUrl}#video`,
+            url: pageUrl,
+            name: fullTitle,
+            description: desc,
+            thumbnailUrl: [thumbUrl],
+            uploadDate: pubIso,
+            duration: secondsToIsoDuration(durSec),
+            contentUrl: streamUrl,
+            embedUrl: pageUrl,
+            isFamilyFriendly: true,
+            interactionStatistic: {
+              '@type': 'InteractionCounter',
+              interactionType: { '@type': 'WatchAction' },
+              userInteractionCount: Number(s.views) || 1,
+            },
+          });
+
+          html = html
+            .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeXml(fullTitle)}</title>`)
+            .replace(
+              /<meta\s+name="description"[\s\S]*?>/i,
+              `<meta name="description" content="${escapeXml(desc)}" />`
+            )
+            .replace(
+              /<link rel="canonical"[^>]*>/i,
+              `<link rel="canonical" id="canonical-link" href="${escapeXml(pageUrl)}" />`
+            )
+            .replace(
+              /<meta property="og:title"[^>]*>/i,
+              `<meta property="og:title" id="og-title" content="${escapeXml(fullTitle)}" />`
+            )
+            .replace(
+              /<meta property="og:url"[^>]*>/i,
+              `<meta property="og:url" id="og-url" content="${escapeXml(pageUrl)}" />`
+            )
+            .replace(
+              '</head>',
+              `<script type="application/ld+json">${shortJsonLd}</script></head>`
+            );
+        } else {
+          // Root Homepage (/): Inject live ItemList JSON-LD + crawlable <a> links for all videos & shorts
+          const videoEntries = Object.entries(videosData)
+            .sort(
+              (a, b) =>
+                (Number(b[1]?.addedAt || b[1]?.createdAt) || 0) -
+                (Number(a[1]?.addedAt || a[1]?.createdAt) || 0)
+            )
+            .slice(0, 30);
+
+          const shortEntries = Object.entries(shortsData)
+            .sort(
+              (a, b) =>
+                (Number(b[1]?.addedAt || b[1]?.createdAt) || 0) -
+                (Number(a[1]?.addedAt || a[1]?.createdAt) || 0)
+            )
+            .slice(0, 20);
+
+          const itemListElement = [];
+          const crawlerLinks = [];
+          let pos = 1;
+
+          for (const [id, v] of videoEntries) {
+            if (!v || typeof v !== 'object') continue;
             const streamUrl = String(v.url || v.videoUrl || '').trim();
-            const thumbUrl = resolveValidSeoThumb(v.thumbnail || v.thumbnailUrl);
+            if (!streamUrl || BROKEN_FILES.some((b) => streamUrl.includes(b))) continue;
+            const rawTitle = String(v.title || 'X Tube Official Viral Video').trim();
+            const pageUrl = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(id)}`;
+            const pubIso = new Date(Number(v.addedAt || v.createdAt) || Date.now()).toISOString();
             const durSec = parseDurationSec(v.duration, 210);
-            const pubIso = new Date(
-              Number(v.addedAt || v.createdAt) || Date.now()
-            ).toISOString();
-
-            const videoJsonLd = JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'VideoObject',
-              '@id': `${pageUrl}#video`,
+            itemListElement.push({
+              '@type': 'ListItem',
+              position: pos++,
               url: pageUrl,
-              name: fullTitle,
-              description: desc,
-              thumbnailUrl: [thumbUrl],
-              uploadDate: pubIso,
-              duration: secondsToIsoDuration(durSec),
-              contentUrl: streamUrl,
-              embedUrl: pageUrl,
-              isFamilyFriendly: true,
-              interactionStatistic: {
-                '@type': 'InteractionCounter',
-                interactionType: { '@type': 'WatchAction' },
-                userInteractionCount: Number(v.views) || 1,
+              item: {
+                '@type': 'VideoObject',
+                '@id': `${pageUrl}#video`,
+                url: pageUrl,
+                name: `${rawTitle} | X Tube Official`,
+                description: String(
+                  v.description || `${rawTitle} - Watch exclusive HD viral video on X Tube Official.`
+                ).trim(),
+                thumbnailUrl: [resolveValidSeoThumb(v.thumbnail || v.thumbnailUrl)],
+                uploadDate: pubIso,
+                duration: secondsToIsoDuration(durSec),
+                contentUrl: streamUrl,
+                embedUrl: pageUrl,
+                isFamilyFriendly: true,
               },
             });
-
-            html = html
-              .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeXml(fullTitle)}</title>`)
-              .replace(
-                /<link rel="canonical"[^>]*>/i,
-                `<link rel="canonical" id="canonical-link" href="${escapeXml(pageUrl)}" />`
-              )
-              .replace(
-                /<meta property="og:title"[^>]*>/i,
-                `<meta property="og:title" id="og-title" content="${escapeXml(fullTitle)}" />`
-              )
-              .replace(
-                /<meta property="og:url"[^>]*>/i,
-                `<meta property="og:url" id="og-url" content="${escapeXml(pageUrl)}" />`
-              )
-              .replace(
-                '</head>',
-                `<script type="application/ld+json">${videoJsonLd}</script></head>`
-              );
+            crawlerLinks.push(`<a href="${escapeXml(pageUrl)}">${escapeXml(rawTitle)} | X Tube Official</a>`);
           }
-        } else if (shortParam && shortParam !== 'feed') {
-          const itemRes = await fetch(
-            `${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(shortParam)}.json`
-          );
-          const s = itemRes.ok ? await itemRes.json() : null;
-          if (s && typeof s === 'object') {
-            const rawTitle = String(s.title || 'Viral Short').trim();
-            const fullTitle = `${rawTitle} | X Tube Shorts`;
-            const hashtags = String(s.hashtags || s.keywords || '#Shorts #XTube').trim();
-            const desc = `${rawTitle} ${hashtags} - Watch viral Short video in HD on X Tube Official.`;
-            const pageUrl = `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(shortParam)}`;
+
+          for (const [id, s] of shortEntries) {
+            if (!s || typeof s !== 'object') continue;
             const streamUrl = normalizeShortStreamUrl(s.url || s.videoUrl || '', s.r2Key);
-            const thumbUrl = resolveValidSeoThumb(s.thumbnail || s.thumbnailUrl);
-            const durSec = parseDurationSec(s.duration, 35);
-            const pubIso = new Date(
-              Number(s.addedAt || s.createdAt) || Date.now()
-            ).toISOString();
+            if (!streamUrl || BROKEN_FILES.some((b) => streamUrl.includes(b))) continue;
+            const rawTitle = String(s.title || 'X Tube Official Viral Short').trim();
+            const pageUrl = `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(id)}`;
+            crawlerLinks.push(`<a href="${escapeXml(pageUrl)}">${escapeXml(rawTitle)} | X Tube Shorts</a>`);
+          }
 
-            const shortJsonLd = JSON.stringify({
+          if (itemListElement.length > 0) {
+            const firstItem = itemListElement[0].item;
+            const featuredRootVideo = {
+              ...firstItem,
+              '@id': `${CANONICAL_SITE_URL}/#featured-video`,
+              url: `${CANONICAL_SITE_URL}/`,
+              embedUrl: `${CANONICAL_SITE_URL}/`,
+            };
+            const liveListJson = JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'VideoObject',
-              '@id': `${pageUrl}#video`,
-              url: pageUrl,
-              name: fullTitle,
-              description: desc,
-              thumbnailUrl: [thumbUrl],
-              uploadDate: pubIso,
-              duration: secondsToIsoDuration(durSec),
-              contentUrl: streamUrl,
-              embedUrl: pageUrl,
-              isFamilyFriendly: true,
-              interactionStatistic: {
-                '@type': 'InteractionCounter',
-                interactionType: { '@type': 'WatchAction' },
-                userInteractionCount: Number(s.views) || 1,
-              },
+              '@graph': [
+                featuredRootVideo,
+                {
+                  '@type': 'ItemList',
+                  '@id': `${CANONICAL_SITE_URL}/#videolist`,
+                  name: 'X Tube Official Trending & Viral Videos',
+                  numberOfItems: itemListElement.length,
+                  itemListElement,
+                },
+              ],
             });
+            html = html.replace(
+              /<script id="dynamic-video-jsonld" type="application\/ld\+json">[\s\S]*?<\/script>/i,
+              `<script id="dynamic-video-jsonld" type="application/ld+json">${liveListJson}</script>`
+            );
+          }
 
-            html = html
-              .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeXml(fullTitle)}</title>`)
-              .replace(
-                /<link rel="canonical"[^>]*>/i,
-                `<link rel="canonical" id="canonical-link" href="${escapeXml(pageUrl)}" />`
-              )
-              .replace(
-                /<meta property="og:title"[^>]*>/i,
-                `<meta property="og:title" id="og-title" content="${escapeXml(fullTitle)}" />`
-              )
-              .replace(
-                /<meta property="og:url"[^>]*>/i,
-                `<meta property="og:url" id="og-url" content="${escapeXml(pageUrl)}" />`
-              )
-              .replace(
-                '</head>',
-                `<script type="application/ld+json">${shortJsonLd}</script></head>`
-              );
+          if (crawlerLinks.length > 0) {
+            const seoNav = `<nav id="seo-crawler-links" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" aria-label="X Tube Official Video Directory"><h2>X Tube Official Viral Videos &amp; Shorts</h2>${crawlerLinks.join(' | ')}</nav>`;
+            html = html.replace('</body>', `${seoNav}\n  </body>`);
           }
         }
 

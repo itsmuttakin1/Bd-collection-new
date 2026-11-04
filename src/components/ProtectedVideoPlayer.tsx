@@ -242,7 +242,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         key={`${videoId}-${streamStage}`}
         ref={videoRef}
         src={videoSrcForElement}
-        poster={hasValidPoster ? cleanPoster : undefined}
+        poster={hasValidPoster ? cleanPoster : 'https://xtubeofficial.pages.dev/favicon.png'}
         title={title}
         playsInline
         preload="metadata"

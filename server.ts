@@ -371,6 +371,19 @@ async function startServer() {
     generateLiveSitemapXml('all').catch(() => {});
   }, 5 * 60 * 1000);
 
+  // Automatic Google Search Console HTML File Verification (/googleXXXX.html) & IndexNow Key
+  app.get(/^\/google[a-zA-Z0-9_-]+\.html$/i, (req, res) => {
+    const fileName = req.path.replace(/^\/+/, '');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).send(`google-site-verification: ${fileName}`);
+  });
+
+  app.get('/xtubeofficial2026.txt', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.status(200).send('xtubeofficial2026');
+  });
+
   // Dynamic Google Video + Shorts Sitemap (/sitemap.xml) synced live with Firebase Realtime Database
   app.get('/sitemap.xml', async (_req, res) => {
     try {

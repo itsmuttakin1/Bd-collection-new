@@ -512,7 +512,11 @@ export default function App() {
         v.keywords ||
         `Watch "${vTitle}" in HD on X Tube Official. Bangladeshi viral video stream.`
       ).trim();
-      const vThumb = (v.thumbnail || v.thumbnailUrl || defaultImg).trim();
+      const rawVThumb = (v.thumbnail || v.thumbnailUrl || '').trim();
+      const vThumb =
+        rawVThumb && !rawVThumb.includes('ibb.co') && !rawVThumb.includes('imgbb.com')
+          ? rawVThumb
+          : defaultImg;
       const vStream = (v.url || v.videoUrl || '').trim();
       const vWatchUrl = `${SITE_ORIGIN}/?v=${encodeURIComponent(v.id)}`;
       const vUploadIso = new Date(
@@ -523,7 +527,7 @@ export default function App() {
         '@type': 'VideoObject',
         '@id': `${vWatchUrl}#video`,
         url: vWatchUrl,
-        name: `${vTitle} | X Tube`,
+        name: `${vTitle} | X Tube Official`,
         description: vDesc,
         keywords: `${v.keywords || ''}, ${BASE_KEYWORDS}`.replace(/^,\s*/, ''),
         thumbnailUrl: [vThumb],
@@ -544,8 +548,8 @@ export default function App() {
         },
         publisher: {
           '@type': 'Organization',
-          name: 'X Tube',
-          alternateName: 'X Tube Official',
+          name: 'X Tube Official',
+          alternateName: 'X Tube',
           url: SITE_ORIGIN,
           logo: {
             '@type': 'ImageObject',
@@ -562,7 +566,11 @@ export default function App() {
         s.keywords ||
         `Watch "${sTitle}" viral Short video on X Tube Official (X Tube Shorts).`
       ).trim();
-      const sThumb = (s.thumbnail || s.thumbnailUrl || defaultImg).trim();
+      const rawSThumb = (s.thumbnail || s.thumbnailUrl || '').trim();
+      const sThumb =
+        rawSThumb && !rawSThumb.includes('ibb.co') && !rawSThumb.includes('imgbb.com')
+          ? rawSThumb
+          : defaultImg;
       const sStream = (s.url || s.videoUrl || '').trim();
       const sWatchUrl = `${SITE_ORIGIN}/?short=${encodeURIComponent(s.id)}`;
       const sUploadIso = new Date(
@@ -594,8 +602,8 @@ export default function App() {
         },
         publisher: {
           '@type': 'Organization',
-          name: 'X Tube',
-          alternateName: 'X Tube Official',
+          name: 'X Tube Official',
+          alternateName: 'X Tube',
           url: SITE_ORIGIN,
           logo: {
             '@type': 'ImageObject',
@@ -612,7 +620,11 @@ export default function App() {
         activeVideo.keywords ||
         `Watch "${activeVideo.title}" in HD on X Tube (X Tube Official). Bangladeshi viral video stream.`;
       const vidKeywords = `${activeVideo.title}, ${activeVideo.keywords || ''}, ${BASE_KEYWORDS}`;
-      const vidThumb = activeVideo.thumbnail || activeVideo.thumbnailUrl || defaultImg;
+      const rawVidThumb = (activeVideo.thumbnail || activeVideo.thumbnailUrl || '').trim();
+      const vidThumb =
+        rawVidThumb && !rawVidThumb.includes('ibb.co') && !rawVidThumb.includes('imgbb.com')
+          ? rawVidThumb
+          : defaultImg;
       const vidStream = activeVideo.url || activeVideo.videoUrl || '';
       const vidPageUrl = `${SITE_ORIGIN}/?v=${encodeURIComponent(activeVideo.id)}`;
 
@@ -650,7 +662,11 @@ export default function App() {
       const shortKeywords = currentShort
         ? `${currentShort.title}, ${currentShort.hashtags || ''}, ${BASE_KEYWORDS}`
         : `X Tube Shorts, viral shorts, ${BASE_KEYWORDS}`;
-      const shortThumb = currentShort?.thumbnail || videos[0]?.thumbnail || defaultImg;
+      const rawShortThumb = (currentShort?.thumbnail || videos[0]?.thumbnail || '').trim();
+      const shortThumb =
+        rawShortThumb && !rawShortThumb.includes('ibb.co') && !rawShortThumb.includes('imgbb.com')
+          ? rawShortThumb
+          : defaultImg;
       const shortPageUrl = currentShort
         ? `${SITE_ORIGIN}/?short=${encodeURIComponent(currentShort.id)}`
         : `${SITE_ORIGIN}/?short=feed`;
@@ -697,13 +713,18 @@ export default function App() {
         jsonLdEl.textContent = JSON.stringify(shortsGraph);
       }
     } else {
+      const rawHomeThumb = (videos[0]?.thumbnail || '').trim();
+      const homeThumb =
+        rawHomeThumb && !rawHomeThumb.includes('ibb.co') && !rawHomeThumb.includes('imgbb.com')
+          ? rawHomeThumb
+          : defaultImg;
       document.title = defaultTitle;
       setMetaContent('meta[name="description"]', defaultDesc);
       setMetaContent('meta[name="keywords"]', BASE_KEYWORDS);
       setMetaContent('meta[property="og:type"]', 'website');
       setMetaContent('#og-title', defaultTitle);
       setMetaContent('#og-description', defaultDesc);
-      setMetaContent('#og-image', videos[0]?.thumbnail || defaultImg);
+      setMetaContent('#og-image', homeThumb);
       setMetaContent('#og-url', `${SITE_ORIGIN}/`);
       if (videos[0]?.url) {
         setMetaContent('#og-video', videos[0].url);
@@ -711,7 +732,7 @@ export default function App() {
       }
       setMetaContent('#twitter-title', defaultTitle);
       setMetaContent('#twitter-description', defaultDesc);
-      setMetaContent('#twitter-image', videos[0]?.thumbnail || defaultImg);
+      setMetaContent('#twitter-image', homeThumb);
       if (canonicalEl) canonicalEl.setAttribute('href', `${SITE_ORIGIN}/`);
 
       if (jsonLdEl && (videos.length > 0 || shorts.length > 0)) {
@@ -729,10 +750,22 @@ export default function App() {
           .filter((s) => Boolean(s.url))
           .map((s) => buildShortObjectNode(s));
         const allMediaNodes = [...videoNodes, ...shortNodes];
+        const featuredHomeVideo =
+          videoNodes.length > 0
+            ? [
+                {
+                  ...videoNodes[0],
+                  '@id': `${SITE_ORIGIN}/#featured-video`,
+                  url: `${SITE_ORIGIN}/`,
+                  embedUrl: `${SITE_ORIGIN}/`,
+                },
+              ]
+            : [];
 
         const multiVideoGraph = {
           '@context': 'https://schema.org',
           '@graph': [
+            ...featuredHomeVideo,
             {
               '@type': 'ItemList',
               '@id': `${SITE_ORIGIN}/#videolist`,

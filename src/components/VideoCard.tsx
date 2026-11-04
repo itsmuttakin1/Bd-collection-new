@@ -333,6 +333,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             key={`${video.id}-preview-${streamStage}`}
             ref={videoRef}
             src={streamWithFragment}
+            poster="https://xtubeofficial.pages.dev/favicon.png"
             preload="metadata"
             muted
             playsInline

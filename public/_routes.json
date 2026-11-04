@@ -5,8 +5,11 @@
     "/sitemap-videos.xml",
     "/sitemap-shorts.xml",
     "/robots.txt",
+    "/google*.html",
+    "/xtubeofficial2026.txt",
     "/api/*",
-    "/"
+    "/",
+    "/index.html"
   ],
   "exclude": [
     "/assets/*",
