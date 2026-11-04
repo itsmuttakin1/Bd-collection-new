@@ -1059,40 +1059,82 @@
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const WORKER_TEMPLATE_CODE = `const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, Range"
-};
+    const WORKER_TEMPLATE_CODE = `const ALLOWED_ORIGIN = "https://xtubeofficial.pages.dev";
 
-const json = (data, status = 200) =>
+const buildCorsHeaders = (reqOrigin) => ({
+  "Access-Control-Allow-Origin": reqOrigin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : ALLOWED_ORIGIN,
+  "Access-Control-Allow-Methods": "GET, HEAD, POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, Range",
+  "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges, ETag",
+  "Vary": "Origin, Referer"
+});
+
+const json = (data, status = 200, reqOrigin = ALLOWED_ORIGIN) =>
   new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json",
-      ...corsHeaders
+      ...buildCorsHeaders(reqOrigin)
     }
   });
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const reqOrigin = request.headers.get("Origin") || "";
+    const reqReferer = request.headers.get("Referer") || "";
+    const corsHeaders = buildCorsHeaders(reqOrigin);
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    if (request.method === "GET" && !url.pathname.startsWith("/api/")) {
+    // Fast Edge-Cached Video Delivery Locked strictly to https://xtubeofficial.pages.dev
+    if ((request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
       const key = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
-      if (!key) return json({ status: "ok", message: "R2 Storage Worker Active" });
+      if (!key) return json({ status: "ok", message: "X Tube Protected R2 Worker Active" });
       if (!env.BUCKET) return json({ error: "R2 bucket binding missing" }, 500);
-      const object = await env.BUCKET.get(key);
+
+      // Block hotlinking or direct viewing outside https://xtubeofficial.pages.dev
+      const isAllowedSite =
+        reqOrigin === ALLOWED_ORIGIN ||
+        reqReferer.startsWith(ALLOWED_ORIGIN) ||
+        request.headers.get("X-Admin-Key") === env.ADMIN_KEY;
+
+      if (!isAllowedSite) {
+        return Response.redirect(ALLOWED_ORIGIN + "/", 302);
+      }
+
+      const cache = caches.default;
+      const rangeHeader = request.headers.get("Range");
+
+      if (!rangeHeader) {
+        const cachedRes = await cache.match(request);
+        if (cachedRes) return cachedRes;
+      }
+
+      const object = await env.BUCKET.get(key, rangeHeader ? { range: request.headers } : undefined);
       if (!object) return json({ error: "File not found" }, 404);
+
       const headers = new Headers(corsHeaders);
       object.writeHttpMetadata(headers);
+      if (!headers.get("Content-Type")) {
+        headers.set("Content-Type", "video/mp4");
+      }
       headers.set("etag", object.httpEtag);
       headers.set("Accept-Ranges", "bytes");
-      return new Response(object.body, { status: 200, headers });
+      headers.set("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
+
+      const status = rangeHeader && object.range ? 206 : 200;
+      const response = new Response(request.method === "HEAD" ? null : object.body, {
+        status,
+        headers
+      });
+
+      if (!rangeHeader && request.method === "GET" && ctx && ctx.waitUntil) {
+        ctx.waitUntil(cache.put(request, response.clone()));
+      }
+      return response;
     }
 
     if (!env.ADMIN_KEY) return json({ error: "Admin secret is not configured" }, 500);
@@ -1129,7 +1171,10 @@ export default {
         }
         const key = [folder, safeName].filter(Boolean).join("/");
         await env.BUCKET.put(key, file.stream(), {
-          httpMetadata: { contentType: file.type || "video/mp4" }
+          httpMetadata: {
+            contentType: file.type || "video/mp4",
+            cacheControl: "public, max-age=31536000, immutable"
+          }
         });
         return json({ success: true, key });
       }

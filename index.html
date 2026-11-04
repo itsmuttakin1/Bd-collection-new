@@ -18,6 +18,7 @@
       content="index, follow, max-video-preview:-1, max-image-preview:large, max-snippet:-1"
     />
     <meta name="googlebot" content="index, follow, max-video-preview:-1, max-image-preview:large" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#dc2626" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
@@ -27,6 +28,17 @@
     <link rel="sitemap" type="application/xml" title="Sitemap" href="https://xtubeofficial.pages.dev/sitemap.xml" />
     <link rel="sitemap" type="application/xml" title="Videos Sitemap" href="https://xtubeofficial.pages.dev/sitemap-videos.xml" />
     <link rel="sitemap" type="application/xml" title="Shorts Sitemap" href="https://xtubeofficial.pages.dev/sitemap-shorts.xml" />
+
+    <!-- High-Speed Preconnect & DNS-Prefetch to Cloudflare R2 Video Servers & Firebase -->
+    <link rel="preconnect" href="https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev" crossorigin />
+    <link rel="preconnect" href="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev" crossorigin />
+    <link rel="preconnect" href="https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev" crossorigin />
+    <link rel="preconnect" href="https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev" crossorigin />
+    <link rel="preconnect" href="https://project-8276511555517830479-default-rtdb.firebaseio.com" crossorigin />
+    <link rel="dns-prefetch" href="https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev" />
+    <link rel="dns-prefetch" href="https://pub-a89cc17745e446439972f8e3a1b3c661.r2.dev" />
+    <link rel="dns-prefetch" href="https://pub-b89fbff1088544e2a25d432417afc3b1.r2.dev" />
+    <link rel="dns-prefetch" href="https://pub-f58d47fa71fd4d4e98985fc906988f57.r2.dev" />
 
     <!-- OpenGraph Social Cards -->
     <meta property="og:type" content="website" />

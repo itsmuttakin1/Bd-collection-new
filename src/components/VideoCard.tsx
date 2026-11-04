@@ -1,14 +1,20 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Play, Share2, Check } from 'lucide-react';
 import {
   VideoItem,
   ShortItem,
   buildVideoShareLink,
   copyTextToClipboard,
-  sanitizeServerThumbnail,
   buildVideoStreamCandidates,
 } from '../firebase';
 import { TranslationStrings } from '../i18n';
+import {
+  getCachedVideoFrameSync,
+  getCachedVideoFrameAsync,
+  tryCaptureAndCacheVideoFrame,
+  requestVideoPreviewSlot,
+  releaseVideoPreviewSlot,
+} from '../utils/thumbCache';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -27,17 +33,19 @@ const CARD_GRADIENTS = [
 ];
 
 /**
- * Live Video or R2 Thumbnail Preview for Shorts Shelf cards on Home & Watch pages.
- * - Old Shorts/Videos (or any with broken ImgBB thumbnails) render a live frame directly from the video stream.
- * - Newly uploaded Shorts/Videos with an R2 server thumbnail (`thumbs/...` on R2) display their server thumbnail.
+ * Ultra-fast cached & viewport-prioritized preview for Shorts Shelf cards on Home & Watch pages.
  */
 export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => {
-  const [imgFailed, setImgFailed] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const cacheKey = `short_${short.id}_${short.url || short.videoUrl || ''}`;
+  const [cachedFrame, setCachedFrame] = useState<string | null>(() =>
+    getCachedVideoFrameSync(cacheKey)
+  );
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [streamStage, setStreamStage] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const slotId = `shelf_${short.id}`;
 
-  const serverThumb = sanitizeServerThumbnail(short.thumbnail || short.thumbnailUrl);
   const streamCandidates = React.useMemo(
     () => buildVideoStreamCandidates(short.url || short.videoUrl, short.r2Key),
     [short.url, short.videoUrl, short.r2Key]
@@ -48,64 +56,116 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
       ? streamCandidates[Math.min(streamStage, streamCandidates.length - 1)]
       : '';
 
+  // Single-pass Media Fragment (#t=1.2) avoids double-seeking and loads in 1 Range request
   const streamWithTime = currentStreamUrl
     ? currentStreamUrl.includes('#t=')
       ? currentStreamUrl
-      : `${currentStreamUrl}#t=2.5`
+      : `${currentStreamUrl}#t=1.2`
     : '';
 
-  const handleVideoLoadedMetadata = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    try {
-      const dur = Number(v.duration) || 0;
-      const targetTime =
-        dur > 5
-          ? Math.min(Math.max(dur * 0.25, 2.0), dur - 0.5)
-          : dur > 1.2
-          ? Math.min(dur * 0.45, dur - 0.2)
-          : 0.5;
-      v.currentTime = targetTime;
-    } catch {}
+  useEffect(() => {
+    let cancelled = false;
+    if (!cachedFrame) {
+      getCachedVideoFrameAsync(cacheKey).then((found) => {
+        if (!cancelled && found) {
+          setCachedFrame(found);
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, cachedFrame]);
+
+  useEffect(() => {
+    if (cachedFrame || !streamWithTime) return;
+    const el = containerRef.current;
+    if (!el) {
+      setShouldLoadVideo(true);
+      return;
+    }
+
+    let cleanupSlot: (() => void) | null = null;
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const startSlot = (priority: number) => {
+      if (cleanupSlot) return;
+      cleanupSlot = requestVideoPreviewSlot(slotId, priority, () => {
+        setShouldLoadVideo(true);
+        safetyTimer = setTimeout(() => {
+          releaseVideoPreviewSlot(slotId);
+        }, 2200);
+      });
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      startSlot(50);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting) {
+          const top = entry.boundingClientRect.top;
+          const priority = Math.max(10, 2000 - Math.max(0, Math.round(top)));
+          startSlot(priority);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '450px 150px' }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      if (safetyTimer) clearTimeout(safetyTimer);
+      if (cleanupSlot) cleanupSlot();
+    };
+  }, [cachedFrame, streamWithTime, slotId]);
+
+  const handleFrameReady = () => {
+    releaseVideoPreviewSlot(slotId);
+    const captured = tryCaptureAndCacheVideoFrame(videoRef.current, cacheKey);
+    if (captured) {
+      setCachedFrame(captured);
+    }
   };
 
-  if (serverThumb && !imgFailed) {
-    return (
-      <img
-        src={serverThumb}
-        alt={short.title}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onLoad={() => setImgLoaded(true)}
-        onError={() => {
-          setImgFailed(true);
-          setImgLoaded(false);
-        }}
-        className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-300 ${
-          imgLoaded ? 'opacity-100' : 'opacity-90'
-        }`}
-      />
-    );
-  }
-
-  if (!streamWithTime) return null;
-
   return (
-    <video
-      key={`${short.id}-shelf-${streamStage}`}
-      ref={videoRef}
-      src={streamWithTime}
-      preload="metadata"
-      muted
-      playsInline
-      onLoadedMetadata={handleVideoLoadedMetadata}
-      onError={() => {
-        if (streamStage + 1 < streamCandidates.length) {
-          setStreamStage((s) => s + 1);
-        }
-      }}
-      className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
-    />
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+      {cachedFrame ? (
+        <img
+          src={cachedFrame}
+          alt={short.title}
+           decoding="async"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      ) : (
+        shouldLoadVideo &&
+        streamWithTime && (
+          <video
+            key={`${short.id}-shelf-${streamStage}`}
+            ref={videoRef}
+            src={streamWithTime}
+            preload="metadata"
+            muted
+            playsInline
+            onLoadedData={handleFrameReady}
+            onSeeked={handleFrameReady}
+            onError={() => {
+              if (streamStage + 1 < streamCandidates.length) {
+                setStreamStage((s) => s + 1);
+              } else {
+                releaseVideoPreviewSlot(slotId);
+              }
+            }}
+            className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
+          />
+        )
+      )}
+    </div>
   );
 };
 
@@ -115,11 +175,17 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   compact = false,
   t,
 }) => {
-  const [imgFailed, setImgFailed] = useState(false);
+  const cacheKey = `vid_${video.id}_${video.url || video.videoUrl || ''}`;
+  const [cachedFrame, setCachedFrame] = useState<string | null>(() =>
+    getCachedVideoFrameSync(cacheKey)
+  );
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [streamStage, setStreamStage] = useState(0);
   const [copiedCardLink, setCopiedCardLink] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const slotId = `card_${video.id}_${compact ? 'c' : 'f'}`;
 
   const hashIdx =
     (video.id || video.title || '0')
@@ -147,30 +213,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     !video.author || video.author === 'Bd Collection' ? 'X Tube' : video.author;
   const authorInitial = displayAuthor.charAt(0).toUpperCase();
 
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [isPortraitThumb, setIsPortraitThumb] = useState(false);
-
-  const handleLoadedMetadata = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    setVideoReady(true);
-    try {
-      const dur = Number(v.duration) || 0;
-      // Avoid 0.0s–1.5s where many videos fade in from black; seek to 25% or 3.0s
-      const targetTime =
-        dur > 6
-          ? Math.min(Math.max(dur * 0.25, 3.0), dur - 1)
-          : dur > 1.5
-          ? Math.min(dur * 0.5, dur - 0.2)
-          : 0.5;
-      v.currentTime = targetTime;
-    } catch {
-      setVideoReady(true);
-    }
-  };
-
-  // Only use thumbnail if it is hosted on the user's R2 Server (ignores old broken ImgBB thumbnails)
-  const thumbSrc = sanitizeServerThumbnail(video.thumbnail || video.thumbnailUrl);
   const streamCandidates = React.useMemo(
     () => buildVideoStreamCandidates(video.url || video.videoUrl, video.r2Key),
     [video.url, video.videoUrl, video.r2Key]
@@ -181,15 +223,89 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       ? streamCandidates[Math.min(streamStage, streamCandidates.length - 1)]
       : '';
 
+  // Single-pass #t=1.2 avoids double-seeking and loads the keyframe in 1 fast HTTP Range request
   const streamWithFragment = streamSrc
     ? streamSrc.includes('#t=')
       ? streamSrc
-      : `${streamSrc}#t=3.0`
+      : `${streamSrc}#t=1.2`
     : '';
 
+  // Check IndexedDB cache on mount
+  useEffect(() => {
+    let cancelled = false;
+    if (!cachedFrame) {
+      getCachedVideoFrameAsync(cacheKey).then((found) => {
+        if (!cancelled && found) {
+          setCachedFrame(found);
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, cachedFrame]);
+
+  // Viewport-prioritized concurrency queue so visible cards load immediately without clogging the browser
+  useEffect(() => {
+    if (cachedFrame || !streamWithFragment) return;
+    const el = containerRef.current;
+    if (!el) {
+      setShouldLoadVideo(true);
+      return;
+    }
+
+    let cleanupSlot: (() => void) | null = null;
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const startSlot = (priority: number) => {
+      if (cleanupSlot) return;
+      cleanupSlot = requestVideoPreviewSlot(slotId, priority, () => {
+        setShouldLoadVideo(true);
+        safetyTimer = setTimeout(() => {
+          releaseVideoPreviewSlot(slotId);
+        }, 2200);
+      });
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      startSlot(50);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry && entry.isIntersecting) {
+          const top = entry.boundingClientRect.top;
+          const priority = Math.max(10, 2000 - Math.max(0, Math.round(top)));
+          startSlot(priority);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '450px 0px' }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      if (safetyTimer) clearTimeout(safetyTimer);
+      if (cleanupSlot) cleanupSlot();
+    };
+  }, [cachedFrame, streamWithFragment, slotId]);
+
+  const handleFrameReady = () => {
+    setVideoReady(true);
+    releaseVideoPreviewSlot(slotId);
+    const captured = tryCaptureAndCacheVideoFrame(videoRef.current, cacheKey);
+    if (captured) {
+      setCachedFrame(captured);
+    }
+  };
+
   const renderThumbnailMedia = () => (
-    <>
-      {/* Rich Fallback Card Base (Always visible behind media so card is never a black box) */}
+    <div ref={containerRef} className="absolute inset-0 w-full h-full overflow-hidden">
+      {/* Rich Fallback Card Base (Always visible while frame loads so card is never blank) */}
       <div
         className={`absolute inset-0 bg-gradient-to-br ${gradientBg} flex flex-col items-center justify-center p-4 text-center select-none`}
       >
@@ -201,90 +317,44 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         </p>
       </div>
 
-      {/* R2 Server Thumbnail (for newly uploaded videos) with Smart Aspect Ratio Adjustment */}
-      {thumbSrc && !imgFailed && (
-        <div
-          className={`absolute inset-0 z-10 overflow-hidden bg-zinc-950 transition-opacity duration-200 ${
-            imgLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          {/* Blurred ambient backdrop fills any aspect ratio gap so portrait/square images never have black bars */}
-          <img
-            src={thumbSrc}
-            alt=""
-            aria-hidden="true"
-            referrerPolicy="no-referrer"
-            className="absolute inset-0 w-full h-full object-cover object-center blur-xl scale-125 opacity-75 pointer-events-none"
-          />
-          {/* Foreground crisp thumbnail properly fitted */}
-          <img
-            src={thumbSrc}
-            alt={video.title}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            onLoad={(e) => {
-              const el = e.currentTarget;
-              if (el.naturalWidth && el.naturalHeight) {
-                setIsPortraitThumb(el.naturalHeight > el.naturalWidth * 1.05);
-              }
-              setImgLoaded(true);
+      {/* Instant 0ms Cached Video Frame (from IndexedDB / Memory Cache) */}
+      {cachedFrame ? (
+        <img
+          src={cachedFrame}
+          alt={video.title}
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-transform duration-200"
+        />
+      ) : (
+        /* Live Video Frame Preview directly from video stream */
+        shouldLoadVideo &&
+        streamWithFragment && (
+          <video
+            key={`${video.id}-preview-${streamStage}`}
+            ref={videoRef}
+            src={streamWithFragment}
+            preload="metadata"
+            muted
+            playsInline
+            onLoadedMetadata={() => {
+              setVideoReady(true);
             }}
+            onLoadedData={handleFrameReady}
+            onSeeked={handleFrameReady}
+            onCanPlay={handleFrameReady}
             onError={() => {
-              setImgFailed(true);
-              setImgLoaded(false);
+              if (streamStage + 1 < streamCandidates.length) {
+                setStreamStage((s) => s + 1);
+              } else {
+                releaseVideoPreviewSlot(slotId);
+              }
             }}
-            className={`relative z-10 w-full h-full transition-transform duration-200 group-hover:scale-105 ${
-              isPortraitThumb ? 'object-contain' : 'object-cover object-center'
+            onContextMenu={(e) => e.preventDefault()}
+            className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
+              videoReady ? 'opacity-100' : 'opacity-95'
             }`}
           />
-          {/* Crawl-discoverable HTML5 video element with poster & contentUrl for Googlebot-Video */}
-          {streamSrc && (
-            <video
-              src={streamSrc}
-              poster={thumbSrc}
-              preload="none"
-              muted
-              playsInline
-              aria-label={video.title}
-              className="sr-only"
-            >
-              <source src={streamSrc} type="video/mp4" />
-            </video>
-          )}
-        </div>
-      )}
-
-      {/* Live Video Frame Preview directly from video stream (for all old videos or when no R2 thumbnail is set) */}
-      {(!thumbSrc || imgFailed) && streamWithFragment && (
-        <video
-          key={`${video.id}-preview-${streamStage}`}
-          ref={videoRef}
-          src={streamWithFragment}
-          preload="metadata"
-          muted
-          playsInline
-          onLoadedMetadata={handleLoadedMetadata}
-          onLoadedData={() => {
-            setVideoReady(true);
-            const v = videoRef.current;
-            if (v && v.currentTime < 0.2 && v.duration > 1) {
-              try {
-                v.currentTime = Math.min(3.0, v.duration * 0.3);
-              } catch {}
-            }
-          }}
-          onCanPlay={() => setVideoReady(true)}
-          onSeeked={() => setVideoReady(true)}
-          onError={() => {
-            if (streamStage + 1 < streamCandidates.length) {
-              setStreamStage((s) => s + 1);
-            }
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
-            videoReady ? 'opacity-100' : 'opacity-95'
-          }`}
-        />
+        )
       )}
 
       {/* Hover Play Overlay */}
@@ -299,13 +369,12 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           {video.duration}
         </span>
       )}
-    </>
+    </div>
   );
 
   const watchHref = buildVideoShareLink(video.id);
 
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Allow Ctrl/Cmd/Middle-click to open in new tab normally; intercept standard left-click
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
     e.preventDefault();
     onCardClick(video);
@@ -413,4 +482,3 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     </article>
   );
 };
-

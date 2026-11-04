@@ -605,6 +605,7 @@ async function startServer() {
         contentType && contentType.includes('video') ? contentType : 'video/mp4'
       );
       res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
       const contentLength = upstreamRes.headers.get('content-length');
       if (contentLength) res.setHeader('Content-Length', contentLength);
