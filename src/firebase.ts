@@ -69,6 +69,17 @@ export interface ShortItem {
   isLongVideo?: boolean;
 }
 
+export interface NoticeItem {
+  id: string;
+  text: string;
+  badge?: string;
+  videoId?: string;
+  shortId?: string;
+  linkText?: string;
+  active: boolean;
+  createdAt: number;
+}
+
 /**
  * Generates the canonical Watch Share Link (`https://<origin>/?v=<videoId>`)
  * identical across Index cards, Watch page, and Admin Panel (`/ad.html`).

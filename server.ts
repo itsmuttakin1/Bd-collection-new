@@ -227,7 +227,11 @@ async function startServer() {
           rawVal.description ||
           `${rawTitle} - Watch exclusive HD viral video on X Tube (X Tube Official, xxx, Bangladeshi viral stream).`
         ).trim();
-        const thumb = (rawVal.thumbnail || rawVal.thumbnailUrl || `${CANONICAL_SITE_URL}/favicon.png`).trim();
+        const rawThumb = (rawVal.thumbnail || rawVal.thumbnailUrl || '').trim();
+        const thumb =
+          rawThumb && !rawThumb.includes('ibb.co') && !rawThumb.includes('imgbb.com')
+            ? rawThumb
+            : `${CANONICAL_SITE_URL}/favicon.png`;
         const contentLoc = (rawVal.url || rawVal.videoUrl || '').trim();
         if (!contentLoc || brokenFiles.some((b) => contentLoc.includes(b))) continue;
 
@@ -288,7 +292,11 @@ async function startServer() {
           : `${rawTitle} | X Tube Shorts`;
         const hashtags = String(rawVal.hashtags || rawVal.keywords || '#Shorts #XTube #XXX #BdViral').trim();
         const desc = `${rawTitle} ${hashtags} - Watch viral vertical Short video on X Tube Official (X Tube Shorts, xxx, trending short clip).`.trim();
-        const thumb = (rawVal.thumbnail || rawVal.thumbnailUrl || `${CANONICAL_SITE_URL}/favicon.png`).trim();
+        const rawShortThumb = (rawVal.thumbnail || rawVal.thumbnailUrl || '').trim();
+        const thumb =
+          rawShortThumb && !rawShortThumb.includes('ibb.co') && !rawShortThumb.includes('imgbb.com')
+            ? rawShortThumb
+            : `${CANONICAL_SITE_URL}/favicon.png`;
         const contentLoc = normalizeShortUrl(rawVal.url || rawVal.videoUrl || '', rawVal.r2Key);
         if (!contentLoc) continue;
 

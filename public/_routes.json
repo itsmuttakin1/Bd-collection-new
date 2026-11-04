@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "include": [
+    "/sitemap.xml",
+    "/sitemap-videos.xml",
+    "/sitemap-shorts.xml",
+    "/robots.txt",
+    "/api/*",
+    "/"
+  ],
+  "exclude": [
+    "/assets/*",
+    "/favicon.png",
+    "/ad.html",
+    "/sw-thumb-cache.js",
+    "/_headers"
+  ]
+}

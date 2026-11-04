@@ -14,6 +14,7 @@ import {
   onDisconnect,
   VideoItem,
   ShortItem,
+  NoticeItem,
   buildVideoShareLink,
   buildShortShareLink,
   copyTextToClipboard,
@@ -44,6 +45,8 @@ import {
   Menu,
   Globe,
   Smartphone,
+  Megaphone,
+  ChevronRight,
 } from 'lucide-react';
 
 type ViewMode = 'home' | 'watch' | 'shorts';
@@ -461,6 +464,8 @@ export default function App() {
   const [likedVideos, setLikedVideos] = useState<Record<string, boolean>>({});
   const [copiedShare, setCopiedShare] = useState<boolean>(false);
   const [adBlockActive, setAdBlockActive] = useState<boolean>(false);
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [activeNoticeIdx, setActiveNoticeIdx] = useState<number>(0);
 
   // Convert "MM:SS" or "HH:MM:SS" duration string to ISO-8601 duration (e.g. "PT3M30S") for Google VideoObject
   const formatIsoDuration = (raw?: string): string => {
@@ -490,7 +495,7 @@ export default function App() {
       'X Tube – Official Viral Videos, Shorts & Trending HD Streams | X Tube Official';
     const defaultDesc =
       'X Tube (X Tube Official) – Watch and stream the latest Bangladeshi viral videos, trending Shorts, exclusive HD clips, and uncensored entertainment on X Tube.';
-    const defaultImg = 'https://i.ibb.co/23nQP6mb/1000012168.jpg';
+    const defaultImg = `${SITE_ORIGIN}/favicon.png`;
 
     const setMetaContent = (selector: string, val: string) => {
       const el = document.querySelector(selector);
@@ -716,7 +721,7 @@ export default function App() {
         ];
         const validVideos = videos.filter(
           (v) =>
-            Boolean(v.url && v.thumbnail) &&
+            Boolean(v.url) &&
             !NON_INDEXABLE_STREAMS.some((bad) => (v.url || '').includes(bad))
         );
         const videoNodes = validVideos.map((v) => buildVideoObjectNode(v));
@@ -1105,6 +1110,67 @@ export default function App() {
     return () => unsubShorts();
   }, []);
 
+  // Sync Live Admin Notice Board (`notices`) from Firebase Realtime Database
+  useEffect(() => {
+    const parseNoticesData = (data: any): NoticeItem[] => {
+      if (!data || typeof data !== 'object') return [];
+      const list: NoticeItem[] = Object.entries(data)
+        .map(([key, val]: [string, any]) => {
+          if (!val || typeof val !== 'object') return null;
+          const text = String(val.text || val.message || '').trim();
+          if (!text || val.active === false) return null;
+          return {
+            id: key,
+            text,
+            badge: String(val.badge || '🔥 NEW UPDATE').trim(),
+            videoId: val.videoId ? String(val.videoId).trim() : undefined,
+            shortId: val.shortId ? String(val.shortId).trim() : undefined,
+            linkText: val.linkText ? String(val.linkText).trim() : undefined,
+            active: val.active !== false,
+            createdAt: Number(val.createdAt || val.addedAt) || Date.now(),
+          };
+        })
+        .filter((item): item is NoticeItem => Boolean(item));
+      list.sort((a, b) => b.createdAt - a.createdAt);
+      return list;
+    };
+
+    fetch(
+      'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/notices.json',
+      { cache: 'no-store' }
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json && typeof json === 'object') {
+          setNotices(parseNoticesData(json));
+        }
+      })
+      .catch(() => {});
+
+    const noticesRef = ref(db, 'notices');
+    const unsubNotices = onValue(
+      noticesRef,
+      (snapshot) => {
+        setNotices(parseNoticesData(snapshot.val()));
+      },
+      () => {}
+    );
+
+    return () => unsubNotices();
+  }, []);
+
+  // Auto-cycle multiple active notices every 6 seconds
+  useEffect(() => {
+    if (notices.length <= 1) {
+      setActiveNoticeIdx(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setActiveNoticeIdx((prev) => (prev + 1) % notices.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [notices.length]);
+
   // Sync ALL videos from Firebase Realtime Database (`video-platform-7c031`) so every Admin Panel video share link works
   useEffect(() => {
     const videosRef = ref(db, 'videos');
@@ -1354,6 +1420,48 @@ export default function App() {
   const handleVideoPlaySuccess = (video: VideoItem) => {
     incrementVideoViews(video.id);
     recordAlgorithmInteraction(video, 'watch');
+  };
+
+  // Handle clicking on a Notice Board item (opens linked Video, Short, or latest uploaded Video)
+  const handleNoticeAction = (notice: NoticeItem) => {
+    if (!notice) return;
+    if (notice.shortId) {
+      openShortsTab(notice.shortId);
+      return;
+    }
+    if (notice.videoId) {
+      const targetVid = findMatchingVideo(videos, notice.videoId);
+      if (targetVid) {
+        userNavigatedRef.current = true;
+        initialSharedResolvedRef.current = true;
+        pendingSharedIdRef.current = targetVid.id;
+        activeVideoIdRef.current = targetVid.id;
+        setActiveVideo(targetVid);
+        setSharedVideoId(targetVid.id);
+        setActiveShortId(null);
+        setViewMode('watch');
+        syncUrlWithVideo(targetVid.id);
+        incrementVideoViews(targetVid.id);
+        recordAlgorithmInteraction(targetVid, 'watch');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+    if (videos.length > 0) {
+      const newestVid = videos[0];
+      userNavigatedRef.current = true;
+      initialSharedResolvedRef.current = true;
+      pendingSharedIdRef.current = newestVid.id;
+      activeVideoIdRef.current = newestVid.id;
+      setActiveVideo(newestVid);
+      setSharedVideoId(newestVid.id);
+      setActiveShortId(null);
+      setViewMode('watch');
+      syncUrlWithVideo(newestVid.id);
+      incrementVideoViews(newestVid.id);
+      recordAlgorithmInteraction(newestVid, 'watch');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Build and copy direct shareable link for the active video (`https://<origin>/?v=<videoId>`)
@@ -1884,6 +1992,62 @@ export default function App() {
                   <span>{t.trending}</span>
                 </button>
               </div>
+
+              {/* LIVE ADMIN NOTICE BOARD BANNER ON INDEX PAGE */}
+              {notices.length > 0 && (() => {
+                const currentNotice = notices[activeNoticeIdx % notices.length] || notices[0];
+                const hasTarget = Boolean(currentNotice.videoId || currentNotice.shortId || videos.length > 0);
+                return (
+                  <div
+                    onClick={() => handleNoticeAction(currentNotice)}
+                    className={`relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-r from-red-950/75 via-zinc-900/95 to-zinc-900/90 px-3.5 sm:px-5 py-3 shadow-lg transition-all ${
+                      hasTarget ? 'cursor-pointer hover:border-red-500/80' : ''
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600 text-white text-[11px] font-bold tracking-wide uppercase shrink-0 shadow shadow-red-600/30">
+                          <Megaphone className="w-3.5 h-3.5 animate-bounce" />
+                          <span>{currentNotice.badge || '📢 NOTICE'}</span>
+                        </span>
+                        <p className="text-xs sm:text-sm font-semibold text-zinc-100 leading-snug break-words">
+                          {currentNotice.text}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {notices.length > 1 && (
+                          <div className="hidden sm:flex items-center gap-1 mr-1">
+                            {notices.slice(0, 6).map((n, idx) => (
+                              <button
+                                key={n.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveNoticeIdx(idx);
+                                }}
+                                className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                                  idx === activeNoticeIdx % notices.length
+                                    ? 'w-4 bg-red-500'
+                                    : 'w-1.5 bg-zinc-600 hover:bg-zinc-400'
+                                }`}
+                                aria-label={`Notice ${idx + 1}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/50 text-red-200 hover:text-white text-xs font-bold transition-colors">
+                          <span>
+                            {currentNotice.linkText ||
+                              (currentNotice.shortId ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন')}
+                          </span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Native Banner Ad on Index */}
               <NativeBannerAd />
