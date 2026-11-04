@@ -1993,31 +1993,68 @@ export default function App() {
                 </button>
               </div>
 
-              {/* LIVE ADMIN NOTICE BOARD BANNER ON INDEX PAGE */}
+              {/* LIVE ADMIN NOTICE BOARD BANNER ON INDEX PAGE (Mobile-Adjusted Layout) */}
               {notices.length > 0 && (() => {
                 const currentNotice = notices[activeNoticeIdx % notices.length] || notices[0];
                 const hasTarget = Boolean(currentNotice.videoId || currentNotice.shortId || videos.length > 0);
                 return (
                   <div
                     onClick={() => handleNoticeAction(currentNotice)}
-                    className={`relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-r from-red-950/75 via-zinc-900/95 to-zinc-900/90 px-3.5 sm:px-5 py-3 shadow-lg transition-all ${
-                      hasTarget ? 'cursor-pointer hover:border-red-500/80' : ''
+                    className={`relative w-full max-w-full overflow-hidden rounded-xl sm:rounded-2xl border border-red-500/45 bg-gradient-to-r from-red-950/80 via-zinc-900/95 to-zinc-900/95 p-2.5 sm:px-4 sm:py-3 shadow-lg transition-all ${
+                      hasTarget ? 'cursor-pointer hover:border-red-500/80 active:scale-[0.99]' : ''
                     }`}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-600 text-white text-[11px] font-bold tracking-wide uppercase shrink-0 shadow shadow-red-600/30">
-                          <Megaphone className="w-3.5 h-3.5 animate-bounce" />
-                          <span>{currentNotice.badge || '📢 NOTICE'}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
+                      {/* Top row on mobile / Left group on desktop */}
+                      <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg bg-red-600 text-white text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shrink-0 shadow shadow-red-600/30">
+                          <Megaphone className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-bounce shrink-0" />
+                          <span className="truncate max-w-[130px] sm:max-w-none">
+                            {currentNotice.badge || '📢 NOTICE'}
+                          </span>
                         </span>
-                        <p className="text-xs sm:text-sm font-semibold text-zinc-100 leading-snug break-words">
-                          {currentNotice.text}
-                        </p>
+
+                        {/* Mobile Action Pill + Dots */}
+                        <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+                          {notices.length > 1 && (
+                            <div className="flex items-center gap-1 mr-0.5">
+                              {notices.slice(0, 5).map((n, idx) => (
+                                <button
+                                  key={n.id}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveNoticeIdx(idx);
+                                  }}
+                                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                                    idx === activeNoticeIdx % notices.length
+                                      ? 'w-3.5 bg-red-500'
+                                      : 'w-1.5 bg-zinc-600'
+                                  }`}
+                                  aria-label={`Notice ${idx + 1}`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <span className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded-lg bg-red-600/25 border border-red-500/50 text-red-200 text-[11px] font-bold whitespace-nowrap">
+                            <span>
+                              {currentNotice.linkText ||
+                                (currentNotice.shortId ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন')}
+                            </span>
+                            <ChevronRight className="w-3 h-3 shrink-0" />
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      {/* Notice Text: Full width on mobile, flexible middle on desktop */}
+                      <p className="text-xs sm:text-sm font-semibold text-zinc-100 leading-snug break-words line-clamp-2 sm:line-clamp-1 min-w-0 flex-1">
+                        {currentNotice.text}
+                      </p>
+
+                      {/* Desktop Action Pill + Dots */}
+                      <div className="hidden sm:flex items-center gap-2 shrink-0">
                         {notices.length > 1 && (
-                          <div className="hidden sm:flex items-center gap-1 mr-1">
+                          <div className="flex items-center gap-1 mr-1">
                             {notices.slice(0, 6).map((n, idx) => (
                               <button
                                 key={n.id}
@@ -2036,12 +2073,12 @@ export default function App() {
                             ))}
                           </div>
                         )}
-                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/50 text-red-200 hover:text-white text-xs font-bold transition-colors">
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/50 text-red-200 hover:text-white text-xs font-bold transition-colors whitespace-nowrap">
                           <span>
                             {currentNotice.linkText ||
                               (currentNotice.shortId ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন')}
                           </span>
-                          <ChevronRight className="w-3.5 h-3.5" />
+                          <ChevronRight className="w-3.5 h-3.5 shrink-0" />
                         </span>
                       </div>
                     </div>

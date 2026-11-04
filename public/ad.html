@@ -654,51 +654,53 @@
       </section>
 
       <!-- LIVE WEBSITE NOTICE BOARD MANAGER (ADMIN ONLY WRITE -> SHOWS ON INDEX PAGE) -->
-      <section class="p-4 sm:p-5 rounded-2xl border border-red-800/60 bg-zinc-900/60 space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="px-2.5 py-0.5 rounded-md bg-red-600 text-white text-xs font-bold">📢 NOTICE BOARD</span>
-              <h2 class="text-sm sm:text-base font-bold text-white">Live Website Notice Board (Index পেইজে নোটিশ শো করবে · Only Admin Can Write)</h2>
+      <section class="p-3.5 sm:p-5 rounded-2xl border border-red-800/60 bg-zinc-900/60 space-y-4 w-full max-w-full overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-zinc-800 pb-3.5">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-red-600 text-white text-[11px] font-bold shrink-0">📢 NOTICE BOARD</span>
+              <h2 class="text-sm sm:text-base font-bold text-white leading-snug">Live Website Notice Board (Index পেইজে নোটিশ শো করবে)</h2>
             </div>
-            <p class="text-xs text-zinc-400 mt-0.5">
+            <p class="text-[11px] sm:text-xs text-zinc-400 mt-1 leading-relaxed">
               এখান থেকে যেকোনো নোটিশ দিলে তা সাথে সাথে মেইন ওয়েবসাইটের (Index) উপরে শো করবে এবং ক্লিক করলে সরাসরি ওই ভিডিও বা শর্টস ওপেন হবে।
             </p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
             <button id="copy-notice-rules-btn" type="button"
-              class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors cursor-pointer">
-              📋 Copy Updated Firebase Rules (With Notice Board)
+              class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer">
+              📋 Copy Firebase Rules
             </button>
-            <span id="notice-count-badge" class="px-2.5 py-1 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-mono text-red-400">
+            <span id="notice-count-badge" class="px-2.5 py-1 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-mono text-red-400 shrink-0">
               0 notices
             </span>
           </div>
         </div>
 
-        <!-- 1-Click Quick Preset Notice Buttons -->
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-[11px] font-semibold text-zinc-400 mr-1">⚡ 1-Click Preset:</span>
-          <button type="button" data-notice-preset="🔥 নতুন এক্সক্লুসিভ ভাইরাল ভিডিও অ্যাড হয়েছে! মিস না করতে এখনই দেখুন 🔞" data-notice-badge="🔥 NEW VIDEO"
-            class="px-2.5 py-1 rounded-lg bg-zinc-950 hover:bg-red-950/60 border border-zinc-800 hover:border-red-600/60 text-[11px] text-zinc-200 cursor-pointer transition-colors">
-            🔥 নতুন ভিডিও অ্যাড হয়েছে
-          </button>
-          <button type="button" data-notice-preset="📱 নতুন ভাইরাল Shorts ভিডিও যুক্ত হয়েছে! সোয়াইপ করে সবগুলো দেখুন 🔥" data-notice-badge="📱 NEW SHORTS"
-            class="px-2.5 py-1 rounded-lg bg-zinc-950 hover:bg-red-950/60 border border-zinc-800 hover:border-red-600/60 text-[11px] text-zinc-200 cursor-pointer transition-colors">
-            📱 নতুন Shorts অ্যাড হয়েছে
-          </button>
-          <button type="button" data-notice-preset="🎬 আজকের সেরা নতুন কালেকশন আপলোড সম্পন্ন হয়েছে! ফুল HD ভিডিও দেখতে ক্লিক করুন ▶" data-notice-badge="🎬 EXCLUSIVE"
-            class="px-2.5 py-1 rounded-lg bg-zinc-950 hover:bg-red-950/60 border border-zinc-800 hover:border-red-600/60 text-[11px] text-zinc-200 cursor-pointer transition-colors">
-            🎬 আজকের নতুন কালেকশন
-          </button>
+        <!-- 1-Click Quick Preset Notice Buttons (Mobile Scrollable / Wrap) -->
+        <div class="space-y-1.5">
+          <span class="block text-[11px] font-semibold text-zinc-400">⚡ 1-Click Preset Notice:</span>
+          <div class="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-1.5">
+            <button type="button" data-notice-preset="🔥 নতুন এক্সক্লুসিভ ভাইরাল ভিডিও অ্যাড হয়েছে! মিস না করতে এখনই দেখুন 🔞" data-notice-badge="🔥 NEW VIDEO"
+              class="px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-red-950/60 border border-zinc-800 hover:border-red-600/60 text-[11px] text-zinc-200 text-left sm:text-center cursor-pointer transition-colors">
+              🔥 নতুন ভিডিও অ্যাড হয়েছে
+            </button>
+            <button type="button" data-notice-preset="📱 নতুন ভাইরাল Shorts ভিডিও যুক্ত হয়েছে! সোয়াইপ করে সবগুলো দেখুন 🔥" data-notice-badge="📱 NEW SHORTS"
+              class="px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-red-950/60 border border-zinc-800 hover:border-red-600/60 text-[11px] text-zinc-200 text-left sm:text-center cursor-pointer transition-colors">
+              📱 নতুন Shorts অ্যাড হয়েছে
+            </button>
+            <button type="button" data-notice-preset="🎬 আজকের সেরা নতুন কালেকশন আপলোড সম্পন্ন হয়েছে! ফুল HD ভিডিও দেখতে ক্লিক করুন ▶" data-notice-badge="🎬 EXCLUSIVE"
+              class="px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-red-950/60 border border-zinc-800 hover:border-red-600/60 text-[11px] text-zinc-200 text-left sm:text-center cursor-pointer transition-colors">
+              🎬 আজকের নতুন কালেকশন
+            </button>
+          </div>
         </div>
 
-        <!-- Create Notice Form -->
-        <form id="notice-board-form" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-          <div class="sm:col-span-2">
+        <!-- Create Notice Form (Mobile Responsive Grid) -->
+        <form id="notice-board-form" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div class="md:col-span-2">
             <label class="block text-[11px] text-zinc-400 mb-1">Badge Label</label>
             <select id="notice-badge-input"
-              class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-semibold text-white focus:outline-none focus:border-red-500">
+              class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-semibold text-white focus:outline-none focus:border-red-500">
               <option value="🔥 NEW VIDEO">🔥 NEW VIDEO</option>
               <option value="📢 NOTICE">📢 NOTICE</option>
               <option value="📱 NEW SHORT">📱 NEW SHORT</option>
@@ -707,31 +709,31 @@
             </select>
           </div>
 
-          <div class="sm:col-span-5">
+          <div class="md:col-span-5">
             <label class="block text-[11px] text-zinc-400 mb-1">Notice Message (Index পেইজে যা লেখা থাকবে)</label>
             <input id="notice-text-input" type="text" required
               placeholder="🔥 নতুন ভিডিও অ্যাড হয়েছে! দেখতে এখানে ক্লিক করুন..."
-              class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+              class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
           </div>
 
-          <div class="sm:col-span-3">
+          <div class="md:col-span-3">
             <label class="block text-[11px] text-zinc-400 mb-1">Link to Video / Short (ঐচ্ছিক)</label>
             <select id="notice-target-select"
-              class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-red-500">
+              class="w-full px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-200 focus:outline-none focus:border-red-500">
               <option value="">✨ Latest Uploaded Video (Auto)</option>
             </select>
           </div>
 
-          <div class="sm:col-span-2">
+          <div class="md:col-span-2">
             <button id="notice-submit-btn" type="submit"
-              class="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-md shadow-red-600/20">
+              class="w-full px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-md shadow-red-600/20">
               📢 Post Notice
             </button>
           </div>
         </form>
 
         <!-- Active Notices List -->
-        <div id="notices-list-wrap" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+        <div id="notices-list-wrap" class="space-y-2 max-h-64 overflow-y-auto pr-0.5">
           <p class="text-xs text-zinc-500 py-2 text-center">No active notices yet. Post a notice above or upload a video!</p>
         </div>
       </section>
@@ -5213,7 +5215,7 @@ service cloud.firestore {
 
       list.forEach((n) => {
         const row = document.createElement('div');
-        row.className = `p-2.5 rounded-xl border flex flex-wrap items-center justify-between gap-2 text-xs ${
+        row.className = `p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
           n.active
             ? 'border-red-800/50 bg-zinc-950/90 text-zinc-100'
             : 'border-zinc-800 bg-zinc-950/40 text-zinc-500 opacity-70'
@@ -5226,14 +5228,16 @@ service cloud.firestore {
           : '✨ Latest Video';
 
         row.innerHTML = `
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="px-2 py-0.5 rounded bg-red-600/90 text-white text-[10px] font-bold shrink-0">${n.badge}</span>
-            <span class="font-medium truncate">${n.text}</span>
-            <span class="text-[10px] font-mono text-zinc-400 shrink-0">(${targetLabel})</span>
+          <div class="space-y-1.5 min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="px-2 py-0.5 rounded bg-red-600/90 text-white text-[10px] font-bold shrink-0">${n.badge}</span>
+              <span class="text-[10px] font-mono text-zinc-400">${targetLabel}</span>
+            </div>
+            <p class="font-medium text-zinc-100 break-words leading-snug">${n.text}</p>
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
+          <div class="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-zinc-800/70">
             <button type="button" data-toggle-notice="${n.id}"
-              class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold cursor-pointer ${
+              class="px-2.5 py-1.5 sm:py-1 rounded-lg border text-[11px] font-semibold text-center cursor-pointer ${
                 n.active
                   ? 'bg-emerald-950/80 border-emerald-700/70 text-emerald-300'
                   : 'bg-zinc-900 border-zinc-700 text-zinc-400'
@@ -5241,7 +5245,7 @@ service cloud.firestore {
               ${n.active ? '● Active on Index' : '○ Hidden'}
             </button>
             <button type="button" data-del-notice="${n.id}"
-              class="px-2.5 py-1 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-semibold cursor-pointer">
+              class="px-2.5 py-1.5 sm:py-1 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-semibold text-center cursor-pointer">
               🗑️ Delete
             </button>
           </div>
