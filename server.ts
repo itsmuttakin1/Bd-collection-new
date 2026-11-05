@@ -443,6 +443,553 @@ async function startServer() {
     }
   });
 
+  // In-memory fallback session store for Telegram Upload Bot
+  const tgBotMemorySessions = new Map<string, { unlocked: boolean; mode: string }>();
+
+  // Telegram Bot Video Upload Webhook (/api/telegram-bot)
+  app.all('/api/telegram-bot', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    if (req.method === 'GET') {
+      res.json({
+        ok: true,
+        service: 'X Tube Official Telegram Upload Bot Webhook',
+        domain: CANONICAL_SITE_URL,
+      });
+      return;
+    }
+
+    try {
+      const update = req.body || {};
+      const botToken = String(req.query.token || '').trim();
+      const workerUrl = String(req.query.worker || '').trim().replace(/\/+$/, '');
+      const publicUrl = String(req.query.pub || '').trim().replace(/\/+$/, '');
+      const adminKey = String(req.query.key || '').trim();
+      const requiredPass = String(req.query.pass || 'Muttakin').trim();
+      const fbEmail = String(req.query.fbEmail || '').trim();
+      const fbPass = String(req.query.fbPass || '').trim();
+      const firebaseWebApiKey = 'AIzaSyBPrgfeMTuy3GI1nb2jgw-qqQn6wPvH-0w';
+      const firebaseRtdbBase =
+        'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+      if (!botToken) {
+        res.status(200).json({ ok: false, error: 'Missing bot token' });
+        return;
+      }
+
+      const tgApi = async (method: string, payload: Record<string, any>) => {
+        const resp = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        return resp.json().catch(() => ({}));
+      };
+
+      const getFirebaseAuthQuery = async (): Promise<string> => {
+        if (!fbEmail || !fbPass) return '';
+        try {
+          const authRes = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseWebApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: fbEmail,
+                password: fbPass,
+                returnSecureToken: true,
+              }),
+            }
+          );
+          const authData: any = await authRes.json();
+          if (authData?.idToken) {
+            return `?auth=${encodeURIComponent(authData.idToken)}`;
+          }
+        } catch {}
+        return '';
+      };
+
+      const getChatSession = async (chatId: string | number) => {
+        const key = String(chatId);
+        if (tgBotMemorySessions.has(key)) {
+          return tgBotMemorySessions.get(key)!;
+        }
+        try {
+          const fbRes = await fetch(`${firebaseRtdbBase}/telegramBotSessions/${key}.json`);
+          if (fbRes.ok) {
+            const fbData: any = await fbRes.json();
+            if (fbData && typeof fbData === 'object') {
+              tgBotMemorySessions.set(key, fbData);
+              return fbData;
+            }
+          }
+        } catch {}
+        return { unlocked: false, mode: '' };
+      };
+
+      const saveChatSession = async (
+        chatId: string | number,
+        sessionObj: { unlocked: boolean; mode: string }
+      ) => {
+        const key = String(chatId);
+        tgBotMemorySessions.set(key, sessionObj);
+        try {
+          const authQ = await getFirebaseAuthQuery();
+          await fetch(`${firebaseRtdbBase}/telegramBotSessions/${key}.json${authQ}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...sessionObj,
+              botAuthToken: 'xtube_tg_bot_2026',
+              updatedAt: Date.now(),
+            }),
+          });
+        } catch {}
+      };
+
+      const categoryKeyboard = {
+        inline_keyboard: [
+          [
+            { text: '📱 Shorts Video', callback_data: 'mode_shorts' },
+            { text: '🎬 Long Video', callback_data: 'mode_long' },
+          ],
+          [{ text: '🚀 Both (Shorts + Long)', callback_data: 'mode_both' }],
+        ],
+      };
+
+      const modeLabel = (m: string) =>
+        m === 'shorts'
+          ? '📱 Shorts Only'
+          : m === 'long'
+          ? '🎬 Long Video Only'
+          : '🚀 Both (Shorts + Long)';
+
+      if (update.callback_query) {
+        const cb = update.callback_query;
+        const chatId = cb.message?.chat?.id;
+        const data = String(cb.data || '');
+
+        if (chatId && data.startsWith('mode_')) {
+          const session = await getChatSession(chatId);
+          if (!session.unlocked) {
+            await tgApi('answerCallbackQuery', {
+              callback_query_id: cb.id,
+              text: '🔐 আগে পাসওয়ার্ড দিয়ে আনলক করুন!',
+              show_alert: true,
+            });
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: '🔐 অনুগ্রহ করে প্রথমে পাসওয়ার্ড দিন:',
+            });
+            res.status(200).send('OK');
+            return;
+          }
+
+          const chosenMode = data.replace('mode_', '');
+          await saveChatSession(chatId, { unlocked: true, mode: chosenMode });
+          await tgApi('answerCallbackQuery', {
+            callback_query_id: cb.id,
+            text: `Selected: ${modeLabel(chosenMode)}`,
+          });
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `✅ ক্যাটাগরি সিলেক্ট হয়েছে: *${modeLabel(chosenMode)}*\n\n` +
+              `📤 *এখন আপনার ভিডিও ফাইলটি এখানে পাঠান (Send Video)!*\n` +
+              `💡 টিপস: ভিডিও পাঠানোর সময় Caption-এ টাইটেল লিখে দিতে পারেন। কিছু না লিখলে অটোমেটিক ভাইরাল টাইটেল ও হ্যাশট্যাগ বসে যাবে।`,
+            parse_mode: 'Markdown',
+            reply_markup: categoryKeyboard,
+          });
+        }
+        res.status(200).send('OK');
+        return;
+      }
+
+      const msg = update.message || update.edited_message;
+      if (!msg || !msg.chat) {
+        res.status(200).send('OK');
+        return;
+      }
+
+      const chatId = msg.chat.id;
+      const text = String(msg.text || '').trim();
+      const session = await getChatSession(chatId);
+
+      if (text === '/start' || text === '/login') {
+        await saveChatSession(chatId, { unlocked: false, mode: '' });
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text:
+            `🎬 *X Tube Official Video Upload Bot*-এ স্বাগতম!\n\n` +
+            `🔐 ভিডিও আপলোড শুরু করতে অনুগ্রহ করে আপনার পাসওয়ার্ড দিন:`,
+          parse_mode: 'Markdown',
+        });
+        res.status(200).send('OK');
+        return;
+      }
+
+      if (text === '/logout') {
+        await saveChatSession(chatId, { unlocked: false, mode: '' });
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: '🔒 বট লক করা হয়েছে। আবার শুরু করতে /start লিখুন।',
+        });
+        res.status(200).send('OK');
+        return;
+      }
+
+      if (!session.unlocked) {
+        if (text.toLowerCase() === requiredPass.toLowerCase()) {
+          await saveChatSession(chatId, { unlocked: true, mode: 'both' });
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `✅ *পাসওয়ার্ড সঠিক হয়েছে! স্বাগতম ${requiredPass}* 🎉\n\n` +
+              `👇 এখন কোন ক্যাটাগরিতে ভিডিও আপলোড করতে চান সিলেক্ট করুন:`,
+            parse_mode: 'Markdown',
+            reply_markup: categoryKeyboard,
+          });
+        } else {
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `❌ পাসওয়ার্ড সঠিক নয়!\n\n` +
+              `🔐 ভিডিও আপলোড করতে সঠিক পাসওয়ার্ড দিন (অথবা /start চাপুন):`,
+          });
+        }
+        res.status(200).send('OK');
+        return;
+      }
+
+      if (text.toLowerCase() === 'shorts' || text === '/shorts') {
+        await saveChatSession(chatId, { unlocked: true, mode: 'shorts' });
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: `✅ ক্যাটাগরি: *📱 Shorts Only* সিলেক্ট হয়েছে! এখন ভিডিও পাঠান:`,
+          parse_mode: 'Markdown',
+          reply_markup: categoryKeyboard,
+        });
+        res.status(200).send('OK');
+        return;
+      }
+      if (text.toLowerCase() === 'long' || text === '/long') {
+        await saveChatSession(chatId, { unlocked: true, mode: 'long' });
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: `✅ ক্যাটাগরি: *🎬 Long Video Only* সিলেক্ট হয়েছে! এখন ভিডিও পাঠান:`,
+          parse_mode: 'Markdown',
+          reply_markup: categoryKeyboard,
+        });
+        res.status(200).send('OK');
+        return;
+      }
+      if (text.toLowerCase() === 'both' || text === '/both') {
+        await saveChatSession(chatId, { unlocked: true, mode: 'both' });
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: `✅ ক্যাটাগরি: *🚀 Both (Shorts + Long)* সিলেক্ট হয়েছে! এখন ভিডিও পাঠান:`,
+          parse_mode: 'Markdown',
+          reply_markup: categoryKeyboard,
+        });
+        res.status(200).send('OK');
+        return;
+      }
+
+      const videoMedia =
+        msg.video ||
+        msg.animation ||
+        (msg.document && String(msg.document.mime_type || '').startsWith('video/')
+          ? msg.document
+          : null);
+
+      const isDirectVideoUrl = /^https?:\/\/\S+\.(mp4|webm|mkv|mov)(\?\S*)?$/i.test(text);
+
+      if (!videoMedia && !isDirectVideoUrl) {
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text:
+            `📂 বর্তমান ক্যাটাগরি: *${modeLabel(session.mode || 'both')}*\n\n` +
+            `📤 অনুগ্রহ করে একটি *ভিডিও ফাইল (Video)* পাঠান অথবা নিচের বাটন থেকে ক্যাটাগরি পরিবর্তন করুন:`,
+          parse_mode: 'Markdown',
+          reply_markup: categoryKeyboard,
+        });
+        res.status(200).send('OK');
+        return;
+      }
+
+      const activeMode = session.mode || 'both';
+      const statusMsg: any = await tgApi('sendMessage', {
+        chat_id: chatId,
+        text: `⏳ ভিডিওটি *${modeLabel(activeMode)}*-এ আপলোড হচ্ছে... অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন...`,
+        parse_mode: 'Markdown',
+      });
+
+      const viralPresets = [
+        {
+          title: '🔥 দেশি ভাইরাল হট ভিডিও 🥵💋 #Shorts #BdViral #18Plus #DesiHot',
+          tags: '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl Virallink bdgirl',
+        },
+        {
+          title: '💋 গার্লফ্রেন্ডের সাথে গোপন রুম ডেট ভাইরাল ক্লিপ 🔥🥵 #BdViral #RoomDate #18Plus',
+          tags: '#Shorts #RoomDate #BdViral #18Plus #DesiGirl #ViralLink Virallink bdgirl',
+        },
+        {
+          title: '🥵 নতুন দেশি ভাবি হট ভাইরাল ভিডিও 🔥💋 #HotBhabi #BdViral #18Plus #Shorts',
+          tags: '#Shorts #HotBhabi #BdViral #18Plus #DesiHot #Exclusive18 Virallink bdgirl',
+        },
+        {
+          title: '🎬 কলেজের মেয়ের প্রাইভেট ভাইরাল ভিডিও 🥵💦 #ViralGirl #BdViral #18Plus',
+          tags: '#Shorts #ViralGirl #BdViral #18Plus #PrivateLeak #DesiHot Virallink bdgirl',
+        },
+      ];
+      const randomPreset = viralPresets[Math.floor(Math.random() * viralPresets.length)];
+      const captionText = String(msg.caption || '').trim();
+      const finalTitle = captionText || randomPreset.title;
+      const finalKeywords = randomPreset.tags;
+
+      let finalStreamUrl = '';
+      let r2KeySaved = '';
+      let durationFormatted = '00:45';
+
+      if (isDirectVideoUrl) {
+        finalStreamUrl = text;
+      } else {
+        const durSec = Number(videoMedia.duration) || 45;
+        const mins = String(Math.floor(durSec / 60)).padStart(2, '0');
+        const secs = String(Math.floor(durSec % 60)).padStart(2, '0');
+        durationFormatted = `${mins}:${secs}`;
+
+        if (videoMedia.file_size && Number(videoMedia.file_size) > 20 * 1024 * 1024) {
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `⚠️ Telegram Bot API-এর নিয়ম অনুযায়ী বট সরাসরি ২০ MB-এর নিচের ভিডিও ডাউনলোড করতে পারে (আপনার ভিডিওটি ${(
+                Number(videoMedia.file_size) /
+                (1024 * 1024)
+              ).toFixed(1)} MB)।\n\n` +
+              `💡 সমাধান: ২০ MB-এর নিচের ভিডিও পাঠান অথবা বড় ভিডিওর ডিরেক্ট .mp4 লিংক এখানে পেস্ট করুন!`,
+          });
+          res.status(200).send('OK');
+          return;
+        }
+
+        const fileInfoRes = await fetch(
+          `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(
+            videoMedia.file_id
+          )}`
+        );
+        const fileInfo: any = await fileInfoRes.json();
+        if (!fileInfo.ok || !fileInfo.result?.file_path) {
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text: `❌ Telegram থেকে ভিডিও ফাইল ডাউনলোড করা যায়নি: ${
+              fileInfo.description || 'Unknown error'
+            }`,
+          });
+          res.status(200).send('OK');
+          return;
+        }
+
+        const tgFileUrl = `https://api.telegram.org/file/bot${botToken}/${fileInfo.result.file_path}`;
+        const fileDownloadRes = await fetch(tgFileUrl);
+        if (!fileDownloadRes.ok) {
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text: '❌ Telegram সার্ভার থেকে ভিডিও স্ট্রিম পাওয়া যায়নি।',
+          });
+          res.status(200).send('OK');
+          return;
+        }
+
+        const videoBuffer = await fileDownloadRes.arrayBuffer();
+        const ext = (fileInfo.result.file_path.split('.').pop() || 'mp4').toLowerCase();
+        const cleanName = `tg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
+        const targetFolder = activeMode === 'shorts' ? 'shorts' : 'videos';
+
+        if (!workerUrl || !adminKey || !publicUrl) {
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text: '❌ R2 Storage Server কনফিগার করা নেই! অনুগ্রহ করে Admin Panel (/ad.html) থেকে পুনরায় "Activate Telegram Bot" বাটনে ক্লিক করুন।',
+          });
+          res.status(200).send('OK');
+          return;
+        }
+
+        const form = new FormData();
+        form.append(
+          'file',
+          new Blob([videoBuffer], { type: videoMedia.mime_type || 'video/mp4' }),
+          cleanName
+        );
+        form.append('folder', targetFolder);
+
+        const r2UploadRes = await fetch(`${workerUrl}/api/upload`, {
+          method: 'POST',
+          headers: { 'X-Admin-Key': adminKey },
+          body: form,
+        });
+        const r2Data: any = await r2UploadRes.json().catch(() => ({}));
+        if (!r2UploadRes.ok || !r2Data.key) {
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text: `❌ Cloudflare R2 সার্ভারে আপলোড ব্যর্থ হয়েছে: ${
+              r2Data.error || r2UploadRes.status
+            }`,
+          });
+          res.status(200).send('OK');
+          return;
+        }
+
+        r2KeySaved = r2Data.key;
+        const encodedKey = r2KeySaved
+          .split('/')
+          .map((part: string) => encodeURIComponent(part))
+          .join('/');
+        finalStreamUrl = `${publicUrl}/${encodedKey}`;
+      }
+
+      const now = Date.now();
+      const randSuffix = Math.random().toString(36).slice(2, 7);
+      const authQuery = await getFirebaseAuthQuery();
+      const shareLinks: Array<{ label: string; url: string }> = [];
+      let createdVideoId = '';
+      let createdShortId = '';
+
+      if (activeMode === 'long' || activeMode === 'both') {
+        createdVideoId = `v_${now}_${randSuffix}`;
+        const videoPayload = {
+          id: createdVideoId,
+          title: finalTitle,
+          description: `${finalTitle} - Watch exclusive Bangladeshi viral video in HD on X Tube Official.`,
+          keywords: finalKeywords,
+          hashtags: finalKeywords,
+          url: finalStreamUrl,
+          videoUrl: finalStreamUrl,
+          r2Key: r2KeySaved,
+          thumbnail: '',
+          thumbnailUrl: '',
+          duration: durationFormatted,
+          views: 1,
+          likes: 1,
+          author: 'X Tube',
+          createdAt: now,
+          addedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        };
+        await fetch(
+          `${firebaseRtdbBase}/videos/${encodeURIComponent(createdVideoId)}.json${authQuery}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(videoPayload),
+          }
+        );
+        shareLinks.push({
+          label: '🎬 Long Video Share Link',
+          url: `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(createdVideoId)}`,
+        });
+      }
+
+      if (activeMode === 'shorts' || activeMode === 'both') {
+        createdShortId = `s_${now}_${randSuffix}`;
+        const shortPayload = {
+          id: createdShortId,
+          title: finalTitle,
+          hashtags: finalKeywords,
+          keywords: finalKeywords,
+          url: finalStreamUrl,
+          videoUrl: finalStreamUrl,
+          r2Key: r2KeySaved,
+          thumbnail: '',
+          thumbnailUrl: '',
+          duration: durationFormatted,
+          views: 1,
+          likes: 1,
+          author: 'X Tube',
+          createdAt: now,
+          addedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        };
+        await fetch(
+          `${firebaseRtdbBase}/shorts/${encodeURIComponent(createdShortId)}.json${authQuery}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(shortPayload),
+          }
+        );
+        shareLinks.push({
+          label: '📱 Short Video Share Link',
+          url: `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(createdShortId)}`,
+        });
+      }
+
+      const noticeId = `n_${now}_${randSuffix}`;
+      await fetch(
+        `${firebaseRtdbBase}/notices/${encodeURIComponent(noticeId)}.json${authQuery}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            badge: activeMode === 'shorts' ? '📱 NEW SHORT' : '🔥 NEW VIDEO',
+            text: `🔥 নতুন ভিডিও আপলোড হয়েছে: ${finalTitle}`,
+            videoId: createdVideoId || null,
+            shortId: !createdVideoId && createdShortId ? createdShortId : null,
+            linkText: activeMode === 'shorts' ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন',
+            active: true,
+            createdAt: now,
+            addedAt: now,
+            botAuthToken: 'xtube_tg_bot_2026',
+          }),
+        }
+      ).catch(() => {});
+
+      generateLiveSitemapXml('all').catch(() => {});
+
+      const primaryShareUrl = shareLinks[0]?.url || CANONICAL_SITE_URL;
+      const linksBlock = shareLinks
+        .map((item) => `${item.label}:\n${item.url}`)
+        .join('\n\n');
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text:
+          `✅ *ভিডিও সফলভাবে আপলোড ও ওয়েবসাইটে পাবলিশ হয়েছে!* 🎉\n\n` +
+          `📌 *টাইটেল:* ${finalTitle}\n` +
+          `📂 *ক্যাটাগরি:* ${modeLabel(activeMode)}\n` +
+          `⏱ *ডিউরেশন:* ${durationFormatted}\n\n` +
+          `🔗 *ডিরেক্ট শেয়ার লিংক (ক্লিক করে কপি বা শেয়ার করুন):*\n` +
+          `${linksBlock}\n\n` +
+          `📤 আরেকটি ভিডিও আপলোড করতে সরাসরি ভিডিও পাঠান:`,
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🌐 ওয়েবসাইটে ভিডিওটি দেখুন', url: primaryShareUrl }],
+            [
+              { text: '📱 Shorts Video', callback_data: 'mode_shorts' },
+              { text: '🎬 Long Video', callback_data: 'mode_long' },
+            ],
+            [{ text: '🚀 Both (Shorts + Long)', callback_data: 'mode_both' }],
+          ],
+        },
+      });
+
+      if (statusMsg?.result?.message_id) {
+        await tgApi('deleteMessage', {
+          chat_id: chatId,
+          message_id: statusMsg.result.message_id,
+        }).catch(() => {});
+      }
+
+      res.status(200).send('OK');
+    } catch (err: any) {
+      res.status(200).json({ ok: false, error: err?.message || 'Bot error' });
+    }
+  });
+
   // Direct Image Download Proxy (/api/download-image) so external thumbnails (ImgBB/PostImg) download cleanly
   app.get('/api/download-image', async (req, res) => {
     Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));

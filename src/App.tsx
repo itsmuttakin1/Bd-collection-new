@@ -1088,7 +1088,7 @@ export default function App() {
     const parseShortsData = (data: any): ShortItem[] => {
       if (!data || typeof data !== 'object') return [];
       const parsed: ShortItem[] = Object.entries(data)
-        .map(([key, val]: [string, any]) => {
+        .map(([key, val]: [string, any]): ShortItem | null => {
           if (!val || typeof val !== 'object') return null;
           const resolvedUrl = normalizeShortStreamUrl(val.url || val.videoUrl || '', val.r2Key);
           if (!resolvedUrl) return null;
@@ -1148,7 +1148,7 @@ export default function App() {
     const parseNoticesData = (data: any): NoticeItem[] => {
       if (!data || typeof data !== 'object') return [];
       const list: NoticeItem[] = Object.entries(data)
-        .map(([key, val]: [string, any]) => {
+        .map(([key, val]: [string, any]): NoticeItem | null => {
           if (!val || typeof val !== 'object') return null;
           const text = String(val.text || val.message || '').trim();
           if (!text || val.active === false) return null;

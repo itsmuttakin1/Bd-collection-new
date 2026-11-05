@@ -568,6 +568,92 @@
             </div>
           </div>
         </div>
+
+        <!-- NEW: TELEGRAM BOT DIRECT VIDEO UPLOAD STUDIO (/start -> Password "Muttakin" -> Shorts/Long/Both -> Auto Share Link) -->
+        <div class="p-4 sm:p-5 rounded-xl bg-gradient-to-b from-sky-950/35 to-zinc-950 border border-sky-700/60 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-zinc-800 pb-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-sky-600 text-white text-[11px] font-bold">🤖 TELEGRAM UPLOAD BOT</span>
+                <h3 class="text-sm sm:text-base font-bold text-white">Telegram Bot দিয়ে সরাসরি ভিডিও আপলোড সিস্টেম (পাসওয়ার্ড: <code class="text-emerald-300 font-mono">Muttakin</code>)</h3>
+              </div>
+              <p class="text-[11px] sm:text-xs text-zinc-300 mt-1 leading-relaxed">
+                বটে <code class="text-sky-300 font-mono">/start</code> দিলে পাসওয়ার্ড চাইবে (<code class="text-emerald-300 font-mono">Muttakin</code>) → পাসওয়ার্ড দিলে <strong>📱 Shorts, 🎬 Long, 🚀 Both</strong> অপশন আসবে → ভিডিও পাঠালেই অটো আপনার R2 সার্ভার ও ওয়েবসাইটে আপলোড হয়ে সাথে সাথে <code class="text-amber-300 font-mono">https://xtubeofficial.pages.dev/?v=...</code> শেয়ার লিংক দিবে!
+              </p>
+            </div>
+            <button id="copy-tg-bot-rules-btn" type="button"
+              class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] sm:text-xs font-bold transition-colors cursor-pointer shrink-0">
+              📋 Copy Updated Firebase Rules (For Bot)
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 text-xs">
+            <!-- Left 6 Cols: Step-by-Step Bengali Guide -->
+            <div class="lg:col-span-6 p-3.5 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-2 text-zinc-300 leading-relaxed">
+              <h4 class="text-xs font-bold text-emerald-400">📋 ধাপে ধাপে সেটআপ করার নিয়ম (মাত্র ২ মিনিট):</h4>
+              <ol class="list-decimal list-inside space-y-1.5 text-[11px] sm:text-xs">
+                <li>
+                  <strong>ধাপ ১ (@BotFather থেকে Token নেওয়া):</strong> Telegram-এ <strong class="text-white">@BotFather</strong>-এ গিয়ে <code class="text-sky-300 font-mono">/newbot</code> লিখে একটি বট খুলুন (অথবা আগের বটের <code class="text-sky-300 font-mono">/token</code> নিন) এবং <strong>HTTP API Token</strong>-টি কপি করুন।
+                </li>
+                <li>
+                  <strong>ধাপ ২ (Firebase Rules আপডেট):</strong> উপরে ডান পাশের <strong>📋 Copy Updated Firebase Rules (For Bot)</strong> বাটনে ক্লিক করে কোডটি কপি করুন এবং <strong>Firebase Console → Realtime Database → Rules</strong>-এ পেস্ট করে <strong>Publish</strong> দিন।
+                </li>
+                <li>
+                  <strong>ধাপ ৩ (১-ক্লিকে বট কানেক্ট করুন):</strong> ডান পাশের বক্সে আপনার <strong>Bot Token</strong> দিন, কোন <strong>R2 Server</strong>-এ ভিডিও যাবে সিলেক্ট করুন এবং <strong>⚡ 1-Click Activate Telegram Upload Bot</strong> বাটনে ক্লিক করুন!
+                </li>
+                <li>
+                  <strong>ধাপ ৪ (বট ব্যবহার করুন):</strong> এবার আপনার Telegram Bot ওপেন করে <code class="text-sky-300 font-mono">/start</code> দিন → পাসওয়ার্ড দিন: <code class="text-emerald-300 font-mono">Muttakin</code> → ক্যাটাগরি (<strong class="text-white">Shorts / Long / Both</strong>) সিলেক্ট করে ভিডিও পাঠান! আপলোড হলেই বট আপনাকে ডিরেক্ট শেয়ার লিংক দিয়ে দেবে!
+                </li>
+              </ol>
+            </div>
+
+            <!-- Right 6 Cols: 1-Click Bot Webhook Activator Form -->
+            <div class="lg:col-span-6 p-3.5 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3 flex flex-col justify-between">
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-white">⚙️ 1-Click Telegram Upload Bot Activator:</span>
+                  <span id="tg-upload-bot-status-badge" class="text-[11px] font-mono text-emerald-400"></span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div class="sm:col-span-2">
+                    <label class="block text-[11px] text-zinc-400 mb-1">Telegram Bot Token (@BotFather) *</label>
+                    <input id="tg-upload-bot-token" type="text" placeholder="1234567890:AAHxyz..."
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] text-zinc-400 mb-1">Bot Password *</label>
+                    <input id="tg-upload-bot-pass" type="text" value="Muttakin"
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-emerald-300 font-bold focus:outline-none focus:border-sky-500" />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-[11px] text-zinc-400 mb-1">Target R2 Storage Server *</label>
+                    <select id="tg-upload-server-select"
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-sky-500"></select>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] text-zinc-400 mb-1">Website Domain (Webhook Base)</label>
+                    <input id="tg-upload-domain-input" type="url" value="https://xtubeofficial.pages.dev"
+                      class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 focus:outline-none focus:border-sky-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-2 space-y-2">
+                <button id="activate-tg-upload-bot-btn" type="button"
+                  class="w-full px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-lg shadow-sky-600/20">
+                  ⚡ 1-Click Activate Telegram Upload Bot (Set Webhook)
+                </button>
+                <p id="tg-upload-bot-webhook-info" class="text-[11px] text-zinc-400 font-mono break-all text-center">
+                  বটে ভিডিও পাঠানোর সময় ক্যাপশনে টাইটেল লিখলে সেই টাইটেল বসবে, না লিখলে অটো ভাইরাল টাইটেল বসে যাবে!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- LIVE WEBSITE VISITORS & TRAFFIC ANALYTICS (TOTAL USERS + ONLINE USERS) -->
@@ -1494,6 +1580,7 @@ export default {
 
     const buildFirebaseRulesJson = () => {
       const adminOnly = `auth != null && auth.uid === '${ADMIN_UID}'`;
+      const botOrAdmin = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')`;
 
       return JSON.stringify(
         {
@@ -1503,7 +1590,7 @@ export default {
             videos: {
               ".read": true,
               "$videoId": {
-                ".write": adminOnly,
+                ".write": botOrAdmin,
                 views: {
                   ".read": true,
                   ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
@@ -1513,14 +1600,14 @@ export default {
                   ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
                 },
                 "$other": {
-                  ".write": adminOnly
+                  ".write": botOrAdmin
                 }
               }
             },
             shorts: {
               ".read": true,
               "$shortId": {
-                ".write": adminOnly,
+                ".write": botOrAdmin,
                 views: {
                   ".read": true,
                   ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
@@ -1530,7 +1617,7 @@ export default {
                   ".write": `(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
                 },
                 "$other": {
-                  ".write": adminOnly
+                  ".write": botOrAdmin
                 }
               }
             },
@@ -1552,10 +1639,17 @@ export default {
             },
             notices: {
               ".read": true,
-              ".write": adminOnly,
+              ".write": botOrAdmin,
               "$noticeId": {
                 ".read": true,
-                ".write": adminOnly
+                ".write": botOrAdmin
+              }
+            },
+            telegramBotSessions: {
+              ".read": true,
+              "$chatId": {
+                ".read": true,
+                ".write": botOrAdmin
               }
             },
             seoConfig: {
@@ -2073,6 +2167,19 @@ service cloud.firestore {
           shortSelect.appendChild(opt2);
         }
       });
+
+      const tgSrvSelect = document.getElementById('tg-upload-server-select');
+      if (tgSrvSelect) {
+        const prevTgSrv = tgSrvSelect.value;
+        tgSrvSelect.innerHTML = '';
+        servers.forEach((s) => {
+          const optTg = document.createElement('option');
+          optTg.value = s.id;
+          optTg.textContent = `${s.name} (${normalizeBaseUrl(s.publicUrl).replace('https://', '')})`;
+          if (s.id === (prevTgSrv || activeServerId)) optTg.selected = true;
+          tgSrvSelect.appendChild(optTg);
+        });
+      }
 
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
       if (activeSrv) {
@@ -5460,6 +5567,167 @@ service cloud.firestore {
         setTimeout(() => {
           pingSitemapBtn.textContent = orig;
         }, 2500);
+      });
+    }
+
+    // ============================================================================
+    // TELEGRAM BOT DIRECT VIDEO UPLOAD ACTIVATOR (SET WEBHOOK + PASSWORD "Muttakin")
+    // ============================================================================
+    const tgUploadTokenInput = document.getElementById('tg-upload-bot-token');
+    const tgUploadPassInput = document.getElementById('tg-upload-bot-pass');
+    const tgUploadSrvSelect = document.getElementById('tg-upload-server-select');
+    const tgUploadDomainInput = document.getElementById('tg-upload-domain-input');
+    const activateTgUploadBotBtn = document.getElementById('activate-tg-upload-bot-btn');
+    const tgUploadStatusBadge = document.getElementById('tg-upload-bot-status-badge');
+    const tgUploadWebhookInfo = document.getElementById('tg-upload-bot-webhook-info');
+    const copyTgBotRulesBtn = document.getElementById('copy-tg-bot-rules-btn');
+
+    if (copyTgBotRulesBtn) {
+      copyTgBotRulesBtn.addEventListener('click', () => {
+        const rulesText = buildFirebaseRulesJson();
+        navigator.clipboard.writeText(rulesText);
+        copyTgBotRulesBtn.textContent = '✓ Copied Firebase Rules (For Bot)!';
+        showStatus(
+          '✅ Copied Updated Firebase Rules (with Telegram Bot upload permission)! এখন Firebase Console → Realtime Database → Rules-এ পেস্ট করে Publish দিন।',
+          'success'
+        );
+        setTimeout(() => {
+          copyTgBotRulesBtn.textContent = '📋 Copy Updated Firebase Rules (For Bot)';
+        }, 2500);
+      });
+    }
+
+    // Load saved Telegram Upload Bot settings from Firebase (`settings/telegramUploadBot`)
+    onValue(ref(db, 'settings/telegramUploadBot'), (snap) => {
+      const cfg = snap.val();
+      if (!cfg || typeof cfg !== 'object') return;
+      if (tgUploadTokenInput && cfg.botToken && !tgUploadTokenInput.value) {
+        tgUploadTokenInput.value = cfg.botToken;
+      }
+      if (tgUploadPassInput && cfg.botPass) {
+        tgUploadPassInput.value = cfg.botPass;
+      }
+      if (tgUploadDomainInput && cfg.domain) {
+        tgUploadDomainInput.value = cfg.domain;
+      }
+      if (tgUploadSrvSelect && cfg.serverId) {
+        tgUploadSrvSelect.value = cfg.serverId;
+      }
+      if (tgUploadStatusBadge && cfg.botUsername) {
+        tgUploadStatusBadge.textContent = `✓ Active (@${cfg.botUsername})`;
+      }
+    });
+
+    if (activateTgUploadBotBtn) {
+      activateTgUploadBotBtn.addEventListener('click', async () => {
+        const botToken = (tgUploadTokenInput?.value || '').trim();
+        const botPass = (tgUploadPassInput?.value || 'Muttakin').trim() || 'Muttakin';
+        const domainBase = normalizeBaseUrl(
+          tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev'
+        );
+        const chosenSrvId = tgUploadSrvSelect?.value || activeServerId;
+        const targetSrv =
+          servers.find((s) => s.id === chosenSrvId) ||
+          servers.find((s) => s.id === activeServerId) ||
+          servers[0];
+
+        if (!botToken || !botToken.includes(':')) {
+          showStatus(
+            'অনুগ্রহ করে @BotFather থেকে পাওয়া সঠিক Telegram Bot Token পেস্ট করুন (যেমন: 123456789:AAH...)!',
+            'error'
+          );
+          return;
+        }
+
+        if (!targetSrv || !targetSrv.workerUrl || !targetSrv.publicUrl || !targetSrv.adminKey) {
+          showStatus(
+            'অনুগ্রহ করে আগে অন্তত ১টি Cloudflare R2 Storage Server যুক্ত করুন (Worker URL, Public R2 URL এবং X-Admin-Key সহ)!',
+            'error'
+          );
+          return;
+        }
+
+        const origBtnText = activateTgUploadBotBtn.textContent;
+        activateTgUploadBotBtn.textContent = '⏳ Connecting to Telegram & Setting Webhook...';
+
+        try {
+          // 1. Verify Bot Token via Telegram getMe API
+          const meRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+          const meData = await meRes.json();
+          if (!meRes.ok || !meData.ok) {
+            throw new Error(meData.description || 'Invalid Telegram Bot Token');
+          }
+          const botUsername = meData.result?.username || 'YourBot';
+
+          // 2. Build Webhook URL pointing to https://xtubeofficial.pages.dev/api/telegram-bot
+          const webhookUrlObj = new URL(`${domainBase}/api/telegram-bot`);
+          webhookUrlObj.searchParams.set('token', botToken);
+          webhookUrlObj.searchParams.set('worker', normalizeBaseUrl(targetSrv.workerUrl));
+          webhookUrlObj.searchParams.set('pub', normalizeBaseUrl(targetSrv.publicUrl));
+          webhookUrlObj.searchParams.set('key', targetSrv.adminKey);
+          webhookUrlObj.searchParams.set('pass', botPass);
+
+          // 3. Register Webhook with Telegram
+          const hookRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: webhookUrlObj.toString(),
+              allowed_updates: ['message', 'edited_message', 'callback_query'],
+              drop_pending_updates: true,
+            }),
+          });
+          const hookData = await hookRes.json();
+          if (!hookRes.ok || !hookData.ok) {
+            throw new Error(hookData.description || 'Failed to set Telegram Webhook');
+          }
+
+          // 4. Register helpful commands menu in the Telegram Bot
+          await fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              commands: [
+                { command: 'start', description: '🔐 Start & Enter Password (Muttakin) to Upload' },
+                { command: 'shorts', description: '📱 Switch to Shorts Upload Mode' },
+                { command: 'long', description: '🎬 Switch to Long Video Upload Mode' },
+                { command: 'both', description: '🚀 Upload to Both (Shorts + Long)' },
+                { command: 'logout', description: '🔒 Lock the Bot' },
+              ],
+            }),
+          }).catch(() => {});
+
+          // 5. Save Bot Config in Firebase (`settings/telegramUploadBot`) for Admin convenience
+          await set(ref(db, 'settings/telegramUploadBot'), {
+            botToken,
+            botPass,
+            botUsername,
+            serverId: targetSrv.id,
+            serverName: targetSrv.name,
+            domain: domainBase,
+            updatedAt: Date.now(),
+          }).catch(() => {});
+
+          if (tgUploadStatusBadge) {
+            tgUploadStatusBadge.textContent = `✓ Connected (@${botUsername})`;
+          }
+          if (tgUploadWebhookInfo) {
+            tgUploadWebhookInfo.textContent = `✅ Active Bot: @${botUsername} | Server: ${targetSrv.name} | Password: "${botPass}"`;
+          }
+          activateTgUploadBotBtn.textContent = `✓ Connected to @${botUsername}!`;
+          showStatus(
+            `🎉 Telegram Bot (@${botUsername}) সফলভাবে কানেক্ট হয়েছে! এখন টেলিগ্রামে @${botUsername}-এ গিয়ে /start লিখুন এবং পাসওয়ার্ড দিন: ${botPass}`,
+            'success'
+          );
+        } catch (err) {
+          activateTgUploadBotBtn.textContent = origBtnText;
+          showStatus(`Telegram Bot Error: ${err.message}`, 'error');
+          return;
+        }
+
+        setTimeout(() => {
+          activateTgUploadBotBtn.textContent = origBtnText;
+        }, 3500);
       });
     }
   </script>
