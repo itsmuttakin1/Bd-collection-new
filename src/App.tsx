@@ -123,12 +123,16 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
   );
   if (exact) return exact;
 
-  // 2. Case-insensitive ID match
+  // 2. Case-insensitive or underscore-stripped ID match (fixes Telegram Markdown stripped underscores)
   const lower = decoded.toLowerCase();
+  const stripped = lower.replace(/_/g, '');
   const caseMatch = list.find(
     (v) =>
       v.id.toLowerCase() === lower ||
-      (v.rawId && v.rawId.toLowerCase() === lower)
+      v.id.toLowerCase().replace(/_/g, '') === stripped ||
+      (v.rawId &&
+        (v.rawId.toLowerCase() === lower ||
+          v.rawId.toLowerCase().replace(/_/g, '') === stripped))
   );
   if (caseMatch) return caseMatch;
 
@@ -136,6 +140,43 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
   return list.find((v) => {
     if (v.r2Key && (v.r2Key === target || v.r2Key === decoded)) return true;
     const stream = (v.url || v.videoUrl || '').trim();
+    if (!stream) return false;
+    return (
+      stream === target ||
+      stream === decoded ||
+      stream.endsWith(`/${target}`) ||
+      stream.endsWith(`/${decoded}`) ||
+      stream.endsWith(`/${encodeURIComponent(decoded)}`)
+    );
+  });
+};
+
+const findMatchingShort = (list: ShortItem[], rawTarget: string | null): ShortItem | undefined => {
+  if (!rawTarget || rawTarget === 'feed') return undefined;
+  const target = rawTarget.trim();
+  if (!target) return undefined;
+
+  let decoded = target;
+  try {
+    decoded = decodeURIComponent(target).trim();
+  } catch {}
+
+  const exact = list.find(
+    (s) => s.id === target || s.id === decoded || s.id.trim() === target || s.id.trim() === decoded
+  );
+  if (exact) return exact;
+
+  const lower = decoded.toLowerCase();
+  const stripped = lower.replace(/_/g, '');
+  const fuzzy = list.find(
+    (s) =>
+      s.id.toLowerCase() === lower || s.id.toLowerCase().replace(/_/g, '') === stripped
+  );
+  if (fuzzy) return fuzzy;
+
+  return list.find((s) => {
+    if (s.r2Key && (s.r2Key === target || s.r2Key === decoded)) return true;
+    const stream = (s.url || s.videoUrl || '').trim();
     if (!stream) return false;
     return (
       stream === target ||
@@ -1075,51 +1116,97 @@ export default function App() {
       if (!/^https?:\/\//i.test(clean) && !clean.startsWith('/')) {
         clean = `https://${clean}`;
       }
-      // Fix Shorts uploaded to the R2 `shorts/` folder that had the Server 1 public domain saved instead of the Shorts R2 bucket domain
-      if (clean.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
-        clean = clean.replace(
-          'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
-          'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
-        );
-      }
       return clean;
+    };
+
+    const parseSingleShortEntry = (key: string, val: any): ShortItem | null => {
+      if (!val || typeof val !== 'object') return null;
+      const resolvedUrl = normalizeShortStreamUrl(val.url || val.videoUrl || '', val.r2Key);
+      if (!resolvedUrl) return null;
+      const resolvedThumb = sanitizeServerThumbnail(val.thumbnail || val.thumbnailUrl || '');
+      const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
+      const resolvedHashtags =
+        (val.hashtags || val.keywords || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl').trim();
+
+      return {
+        id: key,
+        title: val.title || '🔥 দেশি ভাইরাল শর্টস 🥵💋',
+        hashtags: resolvedHashtags,
+        keywords: val.keywords || resolvedHashtags,
+        videoUrl: resolvedUrl,
+        url: resolvedUrl,
+        r2Key: val.r2Key,
+        thumbnail: resolvedThumb,
+        thumbnailUrl: resolvedThumb,
+        duration: val.duration || '00:30',
+        views: Number(val.views) || 0,
+        likes: Number(val.likes) || 0,
+        createdAt: resolvedTime,
+        addedAt: resolvedTime,
+        author: !val.author || val.author === 'Bd Collection' ? 'X Tube' : val.author,
+      };
     };
 
     const parseShortsData = (data: any): ShortItem[] => {
       if (!data || typeof data !== 'object') return [];
       const parsed: ShortItem[] = Object.entries(data)
-        .map(([key, val]: [string, any]): ShortItem | null => {
-          if (!val || typeof val !== 'object') return null;
-          const resolvedUrl = normalizeShortStreamUrl(val.url || val.videoUrl || '', val.r2Key);
-          if (!resolvedUrl) return null;
-          const resolvedThumb = sanitizeServerThumbnail(val.thumbnail || val.thumbnailUrl || '');
-          const resolvedTime = Number(val.addedAt || val.createdAt) || Date.now();
-          const resolvedHashtags =
-            (val.hashtags || val.keywords || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl').trim();
-
-          return {
-            id: key,
-            title: val.title || '🔥 দেশি ভাইরাল শর্টস 🥵💋',
-            hashtags: resolvedHashtags,
-            keywords: val.keywords || resolvedHashtags,
-            videoUrl: resolvedUrl,
-            url: resolvedUrl,
-            r2Key: val.r2Key,
-            thumbnail: resolvedThumb,
-            thumbnailUrl: resolvedThumb,
-            duration: val.duration || '00:30',
-            views: Number(val.views) || 0,
-            likes: Number(val.likes) || 0,
-            createdAt: resolvedTime,
-            addedAt: resolvedTime,
-            author: !val.author || val.author === 'Bd Collection' ? 'X Tube' : val.author,
-          };
-        })
+        .map(([key, val]: [string, any]): ShortItem | null => parseSingleShortEntry(key, val))
         .filter((item): item is ShortItem => Boolean(item));
 
       parsed.sort((a, b) => b.createdAt - a.createdAt);
       return parsed;
     };
+
+    const applyShortsAndResolveUrl = (data: any) => {
+      const list = parseShortsData(data);
+      setShorts(list);
+      const reqShort = getRequestedShortIdFromUrl(false);
+      if (reqShort && reqShort !== 'feed') {
+        const matched = findMatchingShort(list, reqShort);
+        if (matched) {
+          setActiveShortId(matched.id);
+        }
+      }
+    };
+
+    // Direct single-node lookup if visitor opened a shared `?short=<id>` link
+    const bootShortId = getRequestedShortIdFromUrl(false);
+    if (bootShortId && bootShortId !== 'feed') {
+      let decodedShort = bootShortId.trim();
+      try {
+        decodedShort = decodeURIComponent(decodedShort).trim();
+      } catch {}
+
+      fetch(
+        `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts/${encodeURIComponent(
+          decodedShort
+        )}.json`,
+        { cache: 'no-store' }
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .then(async (val) => {
+          let entry = parseSingleShortEntry(decodedShort, val);
+          if (!entry) {
+            const vidRes = await fetch(
+              `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos/${encodeURIComponent(
+                decodedShort
+              )}.json`,
+              { cache: 'no-store' }
+            ).catch(() => null);
+            const vidVal = vidRes && vidRes.ok ? await vidRes.json().catch(() => null) : null;
+            entry = parseSingleShortEntry(decodedShort, vidVal);
+          }
+          if (entry) {
+            const validEntry = entry;
+            setShorts((prev) =>
+              prev.some((s) => s.id === validEntry.id) ? prev : [validEntry, ...prev]
+            );
+            setActiveShortId(validEntry.id);
+            setViewMode('shorts');
+          }
+        })
+        .catch(() => {});
+    }
 
     fetch('https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts.json', {
       cache: 'no-store',
@@ -1127,7 +1214,7 @@ export default function App() {
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (json && typeof json === 'object') {
-          setShorts(parseShortsData(json));
+          applyShortsAndResolveUrl(json);
         }
       })
       .catch(() => {});
@@ -1135,7 +1222,7 @@ export default function App() {
     const unsubShorts = onValue(
       shortsRef,
       (snapshot) => {
-        setShorts(parseShortsData(snapshot.val()));
+        applyShortsAndResolveUrl(snapshot.val());
       },
       () => {}
     );
@@ -1285,7 +1372,7 @@ export default function App() {
           }
           setLoadingVideos(false);
         } else {
-          // Direct node lookup in Firebase RTDB in case video was just added or key needs direct resolution
+          // Direct node lookup in Firebase RTDB (`videos/$id` AND fallback to `shorts/$id` + full `shorts.json` fuzzy match)
           let decodedId = urlVidId.trim();
           try {
             decodedId = decodeURIComponent(decodedId).trim();
@@ -1298,22 +1385,61 @@ export default function App() {
             { cache: 'no-store' }
           )
             .then((r) => (r.ok ? r.json() : null))
-            .then((singleVal) => {
+            .then(async (singleVal) => {
+              let singleVideo = parseSingleVideoEntry(decodedId, singleVal);
+
+              // Fallback 1: Check `shorts/$decodedId` in case video was uploaded as a Short
+              if (!singleVideo) {
+                const shortRes = await fetch(
+                  `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts/${encodeURIComponent(
+                    decodedId
+                  )}.json`,
+                  { cache: 'no-store' }
+                ).catch(() => null);
+                const shortVal =
+                  shortRes && shortRes.ok ? await shortRes.json().catch(() => null) : null;
+                singleVideo = parseSingleVideoEntry(decodedId, shortVal);
+              }
+
+              // Fallback 2: Fuzzy underscore-insensitive match across `shorts.json`
+              if (!singleVideo) {
+                const allShortsRes = await fetch(
+                  'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts.json',
+                  { cache: 'no-store' }
+                ).catch(() => null);
+                const allShortsJson =
+                  allShortsRes && allShortsRes.ok
+                    ? await allShortsRes.json().catch(() => null)
+                    : null;
+                if (allShortsJson && typeof allShortsJson === 'object') {
+                  const strippedTarget = decodedId.toLowerCase().replace(/_/g, '');
+                  for (const [sKey, sVal] of Object.entries(allShortsJson)) {
+                    if (
+                      sKey.toLowerCase() === decodedId.toLowerCase() ||
+                      sKey.toLowerCase().replace(/_/g, '') === strippedTarget
+                    ) {
+                      singleVideo = parseSingleVideoEntry(sKey, sVal);
+                      if (singleVideo) break;
+                    }
+                  }
+                }
+              }
+
               initialSharedResolvedRef.current = true;
-              const singleVideo = parseSingleVideoEntry(decodedId, singleVal);
               if (singleVideo) {
+                const resolvedVid = singleVideo;
                 setVideos((prev) =>
-                  prev.some((v) => v.id === singleVideo.id) ? prev : [singleVideo, ...prev]
+                  prev.some((v) => v.id === resolvedVid.id) ? prev : [resolvedVid, ...prev]
                 );
-                pendingSharedIdRef.current = singleVideo.id;
-                activeVideoIdRef.current = singleVideo.id;
-                setSharedVideoId(singleVideo.id);
-                setActiveVideo(singleVideo);
+                pendingSharedIdRef.current = resolvedVid.id;
+                activeVideoIdRef.current = resolvedVid.id;
+                setSharedVideoId(resolvedVid.id);
+                setActiveVideo(resolvedVid);
                 setViewMode('watch');
-                syncUrlWithVideo(singleVideo.id, true);
+                syncUrlWithVideo(resolvedVid.id, true);
                 if (!initialSharedViewCounted) {
                   initialSharedViewCounted = true;
-                  incrementVideoViews(singleVideo.id);
+                  incrementVideoViews(resolvedVid.id);
                 }
               } else if (finalVideos.length > 0) {
                 setViewMode('home');
@@ -1793,8 +1919,20 @@ export default function App() {
         ordered.push(item);
       }
     }
+
+    // If a specific Short was requested via `?short=<id>` or clicked, always place it at index 0
+    if (activeShortId && activeShortId !== 'feed') {
+      const targetShort = findMatchingShort(ordered, activeShortId);
+      if (targetShort) {
+        return [
+          targetShort,
+          ...ordered.filter((item) => item.id !== targetShort.id),
+        ];
+      }
+    }
+
     return ordered;
-  }, [shorts, videos, shortsSessionSeed]);
+  }, [shorts, videos, shortsSessionSeed, activeShortId]);
 
   return (
     <div

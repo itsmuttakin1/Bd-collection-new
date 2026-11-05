@@ -71,12 +71,6 @@ const normalizeShortStreamUrl = (rawUrl, r2Key) => {
   if (!clean && r2Key) {
     clean = `https://pub-56ae26091320480ca8946ab4e42a051d.r2.dev/${String(r2Key).replace(/^\/+/, '')}`;
   }
-  if (clean.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
-    clean = clean.replace(
-      'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
-      'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
-    );
-  }
   return clean;
 };
 
@@ -803,15 +797,16 @@ export default {
         }
 
         // 5. Save Video Metadata to Firebase Realtime Database (`videos` and/or `shorts` + `notices`)
+        // Use clean alphanumeric IDs WITHOUT underscores so Telegram never strips characters as Markdown italics
         const now = Date.now();
-        const randSuffix = Math.random().toString(36).slice(2, 7);
+        const randSuffix = Math.random().toString(36).slice(2, 7).replace(/[^a-z0-9]/gi, '');
         const authQuery = await getFirebaseAuthQuery();
         const shareLinks = [];
         let createdVideoId = '';
         let createdShortId = '';
 
         if (activeMode === 'long' || activeMode === 'both') {
-          createdVideoId = `v_${now}_${randSuffix}`;
+          createdVideoId = `v${now}${randSuffix}`;
           const videoPayload = {
             id: createdVideoId,
             title: finalTitle,
@@ -831,7 +826,7 @@ export default {
             addedAt: now,
             botAuthToken: 'xtube_tg_bot_2026',
           };
-          await fetch(
+          const vidFbRes = await fetch(
             `${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(createdVideoId)}.json${authQuery}`,
             {
               method: 'PUT',
@@ -839,14 +834,22 @@ export default {
               body: JSON.stringify(videoPayload),
             }
           );
+          if (!vidFbRes.ok) {
+            const errTxt = await vidFbRes.text().catch(() => '');
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: `❌ Firebase Database-এ ভিডিও সেভ করা যায়নি (${vidFbRes.status}): ${errTxt}\n\nঅনুগ্রহ করে Admin Panel (/ad.html) থেকে "Copy Updated Firebase Rules (For Bot)" বাটনে ক্লিক করে Firebase Console-এ Rules Publish করুন।`,
+            });
+            return new Response('OK', { status: 200 });
+          }
           shareLinks.push({
-            label: '🎬 Long Video Share Link',
+            label: '🎬 Direct Video Share Link',
             url: `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(createdVideoId)}`,
           });
         }
 
         if (activeMode === 'shorts' || activeMode === 'both') {
-          createdShortId = `s_${now}_${randSuffix}`;
+          createdShortId = `s${now}${randSuffix}`;
           const shortPayload = {
             id: createdShortId,
             title: finalTitle,
@@ -865,7 +868,7 @@ export default {
             addedAt: now,
             botAuthToken: 'xtube_tg_bot_2026',
           };
-          await fetch(
+          const shortFbRes = await fetch(
             `${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(createdShortId)}.json${authQuery}`,
             {
               method: 'PUT',
@@ -873,14 +876,28 @@ export default {
               body: JSON.stringify(shortPayload),
             }
           );
+          if (!shortFbRes.ok) {
+            const errTxt = await shortFbRes.text().catch(() => '');
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: `❌ Firebase Database-এ Short ভিডিও সেভ করা যায়নি (${shortFbRes.status}): ${errTxt}\n\nঅনুগ্রহ করে Admin Panel (/ad.html) থেকে "Copy Updated Firebase Rules (For Bot)" বাটনে ক্লিক করে Firebase Console-এ Rules Publish করুন।`,
+            });
+            return new Response('OK', { status: 200 });
+          }
           shareLinks.push({
             label: '📱 Short Video Share Link',
             url: `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(createdShortId)}`,
           });
+          if (activeMode === 'shorts') {
+            shareLinks.push({
+              label: '🎬 Watch Player Share Link',
+              url: `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(createdShortId)}`,
+            });
+          }
         }
 
         // Auto-post Notice to Index Notice Board
-        const noticeId = `n_${now}_${randSuffix}`;
+        const noticeId = `n${now}${randSuffix}`;
         await fetch(
           `${FIREBASE_RTDB_BASE}/notices/${encodeURIComponent(noticeId)}.json${authQuery}`,
           {
@@ -901,7 +918,7 @@ export default {
         ).catch(() => {});
 
         // Refresh live Sitemap & ping IndexNow
-        generateLiveSitemapXml('all').catch(() => {});
+        await generateLiveSitemapXml('all').catch(() => {});
 
         const primaryShareUrl = shareLinks[0]?.url || CANONICAL_SITE_URL;
         const linksBlock = shareLinks
@@ -911,14 +928,13 @@ export default {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text:
-            `✅ *ভিডিও সফলভাবে আপলোড ও ওয়েবসাইটে পাবলিশ হয়েছে!* 🎉\n\n` +
-            `📌 *টাইটেল:* ${finalTitle}\n` +
-            `📂 *ক্যাটাগরি:* ${modeLabel(activeMode)}\n` +
-            `⏱ *ডিউরেশন:* ${durationFormatted}\n\n` +
-            `🔗 *ডিরেক্ট শেয়ার লিংক (ক্লিক করে কপি বা শেয়ার করুন):*\n` +
+            `✅ ভিডিও সফলভাবে আপলোড ও ওয়েবসাইটে পাবলিশ হয়েছে! 🎉\n\n` +
+            `📌 টাইটেল: ${finalTitle}\n` +
+            `📂 ক্যাটাগরি: ${modeLabel(activeMode)}\n` +
+            `⏱ ডিউরেশন: ${durationFormatted}\n\n` +
+            `🔗 ডিরেক্ট শেয়ার লিংক (ক্লিক করে কপি বা শেয়ার করুন):\n` +
             `${linksBlock}\n\n` +
             `📤 আরেকটি ভিডিও আপলোড করতে সরাসরি ভিডিও পাঠান:`,
-          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [{ text: '🌐 ওয়েবসাইটে ভিডিওটি দেখুন', url: primaryShareUrl }],
@@ -970,8 +986,8 @@ export default {
           html = html.replace('</head>', `${gscMeta}\n  </head>`);
         }
 
-        if (vidParam && videosData[vidParam]) {
-          const v = videosData[vidParam];
+        if (vidParam && (videosData[vidParam] || shortsData[vidParam])) {
+          const v = videosData[vidParam] || shortsData[vidParam];
           const rawTitle = String(v.title || 'Viral Video').trim();
           const fullTitle = `${rawTitle} | X Tube Official`;
           const desc = String(

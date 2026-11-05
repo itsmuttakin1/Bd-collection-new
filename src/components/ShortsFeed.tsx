@@ -73,14 +73,6 @@ const buildShortCandidateUrls = (short: ShortItem): string[] => {
     raw = `https://${raw}`;
   }
 
-  // Prioritize the Shorts R2 bucket if saved with Server 1 domain on /shorts/ path
-  if (raw.includes('pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/')) {
-    raw = raw.replace(
-      'pub-a89cc17745e446439972f8e3a1b3c661.r2.dev/shorts/',
-      'pub-56ae26091320480ca8946ab4e42a051d.r2.dev/shorts/'
-    );
-  }
-
   const candidates: string[] = [raw];
 
   try {
@@ -138,19 +130,47 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   const [cycleQueues, setCycleQueues] = useState<string[][]>([]);
   const appliedInitialIdRef = useRef<string | null | undefined>(undefined);
 
-  // Initialize Cycle 0 (and append any newly loaded unique IDs from Firebase into Cycle 0 so all videos play before looping)
+  // Initialize Cycle 0 (and ensure initialShortId is placed at index 0 even if shorts load after videos)
   useEffect(() => {
     if (allUniqueIds.length === 0) return;
 
+    const resolveTargetShortId = (rawTarget?: string | null): string | null => {
+      if (!rawTarget || rawTarget === 'feed') return null;
+      const clean = rawTarget.trim();
+      if (!clean) return null;
+      if (allUniqueIds.includes(clean)) return clean;
+      const stripped = clean.replace(/_/g, '').toLowerCase();
+      return (
+        allUniqueIds.find(
+          (id) =>
+            id.toLowerCase() === clean.toLowerCase() ||
+            id.replace(/_/g, '').toLowerCase() === stripped
+        ) || null
+      );
+    };
+
+    const matchedInitialId = resolveTargetShortId(initialShortId);
+
     setCycleQueues((prev) => {
-      // If initialShortId changed or queue is empty, build fresh Cycle 0 with initialShortId at index 0
-      if (prev.length === 0 || appliedInitialIdRef.current !== initialShortId) {
-        appliedInitialIdRef.current = initialShortId;
+      // If queue is empty, or initialShortId changed, or matchedInitialId just arrived from Firebase and isn't at index 0 yet
+      if (
+        prev.length === 0 ||
+        (initialShortId &&
+          initialShortId !== 'feed' &&
+          appliedInitialIdRef.current !== matchedInitialId &&
+          matchedInitialId)
+      ) {
+        if (matchedInitialId) {
+          appliedInitialIdRef.current = matchedInitialId;
+        } else if (!initialShortId || initialShortId === 'feed') {
+          appliedInitialIdRef.current = initialShortId;
+        }
+
         let firstPass = [...allUniqueIds];
-        if (initialShortId && firstPass.includes(initialShortId)) {
+        if (matchedInitialId && firstPass.includes(matchedInitialId)) {
           firstPass = [
-            initialShortId,
-            ...firstPass.filter((id) => id !== initialShortId),
+            matchedInitialId,
+            ...firstPass.filter((id) => id !== matchedInitialId),
           ];
         }
         return [firstPass];

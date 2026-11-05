@@ -4662,14 +4662,19 @@ service cloud.firestore {
       if (legacyThumbCleanupRan || !currentUser || currentUser.uid !== ADMIN_UID) return;
       legacyThumbCleanupRan = true;
       try {
-        const [vidSnap, shortSnap] = await Promise.all([
+        const [vidSnap, shortSnap, noticeSnap] = await Promise.all([
           get(ref(db, 'videos')),
-          get(ref(db, 'shorts'))
+          get(ref(db, 'shorts')),
+          get(ref(db, 'notices'))
         ]);
         const updates = {};
         if (vidSnap.exists()) {
           Object.entries(vidSnap.val() || {}).forEach(([id, v]) => {
             if (!v || typeof v !== 'object') return;
+            if (!v.url && !v.videoUrl) {
+              updates[`videos/${id}`] = null;
+              return;
+            }
             const t1 = v.thumbnail || '';
             const t2 = v.thumbnailUrl || '';
             if ((t1 && !isR2ServerThumbUrl(t1)) || (t2 && !isR2ServerThumbUrl(t2))) {
@@ -4681,11 +4686,22 @@ service cloud.firestore {
         if (shortSnap.exists()) {
           Object.entries(shortSnap.val() || {}).forEach(([id, s]) => {
             if (!s || typeof s !== 'object') return;
+            if (!s.url && !s.videoUrl) {
+              updates[`shorts/${id}`] = null;
+              return;
+            }
             const t1 = s.thumbnail || '';
             const t2 = s.thumbnailUrl || '';
             if ((t1 && !isR2ServerThumbUrl(t1)) || (t2 && !isR2ServerThumbUrl(t2))) {
               updates[`shorts/${id}/thumbnail`] = '';
               updates[`shorts/${id}/thumbnailUrl`] = '';
+            }
+          });
+        }
+        if (noticeSnap.exists()) {
+          Object.entries(noticeSnap.val() || {}).forEach(([id, n]) => {
+            if (!n || typeof n !== 'object' || !String(n.text || '').trim()) {
+              updates[`notices/${id}`] = null;
             }
           });
         }
