@@ -376,8 +376,30 @@ export default {
       }
     }
 
-    // 3B. Telegram Bot Video Upload Webhook (/api/telegram-bot)
-    // Flow: /start -> Password ("Muttakin") -> Select Category (Shorts / Long / Both) -> Send Video -> Auto Upload to R2 + Firebase -> Reply with Share Link!
+    // 3A. Authoritative Server Time & Visitor Ping (/api/visitor-ping)
+    if (path === '/api/visitor-ping') {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          serverTime: Date.now(),
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+
+    // 3B. Telegram Bot Redeem Code Store & Order System (/api/telegram-bot)
+    // Flow:
+    // - User sends /start -> Shows Ad-Free Redeem Code Packages from Firebase (`redeemPackages`)
+    // - User selects Package -> Shows bKash & Nagad Numbers -> User selects bKash/Nagad & sends Sender Number + TrxID
+    // - Order saved to Firebase (`redeemOrders`) -> Shows in Admin Panel (/ad.html) + Notifies Admin on Telegram
+    // - Admin can 1-Click Generate & Send Redeem Code to User from Admin Panel OR directly from Telegram!
     if (path === '/api/telegram-bot') {
       if (request.method === 'OPTIONS') {
         return new Response(null, {
@@ -394,7 +416,7 @@ export default {
         return new Response(
           JSON.stringify({
             ok: true,
-            service: 'X Tube Official Telegram Upload Bot Webhook',
+            service: 'X Tube Official Redeem Code Store Bot Webhook',
             domain: CANONICAL_SITE_URL,
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -404,13 +426,10 @@ export default {
       try {
         const update = await request.json();
         const botToken = (url.searchParams.get('token') || '').trim();
-        const workerUrl = (url.searchParams.get('worker') || '').trim().replace(/\/+$/, '');
-        const publicUrl = (url.searchParams.get('pub') || '').trim().replace(/\/+$/, '');
-        const adminKey = (url.searchParams.get('key') || '').trim();
         const requiredPass = (url.searchParams.get('pass') || 'Muttakin').trim();
-        const fbEmail = (url.searchParams.get('fbEmail') || '').trim();
-        const fbPass = (url.searchParams.get('fbPass') || '').trim();
-        const firebaseWebApiKey = 'AIzaSyBPrgfeMTuy3GI1nb2jgw-qqQn6wPvH-0w';
+        const queryAdminId = (url.searchParams.get('adminId') || '').trim();
+        const queryBkash = (url.searchParams.get('bkash') || '').trim();
+        const queryNagad = (url.searchParams.get('nagad') || '').trim();
 
         if (!botToken) {
           return new Response(JSON.stringify({ ok: false, error: 'Missing bot token' }), {
@@ -428,31 +447,65 @@ export default {
           return res.json().catch(() => ({}));
         };
 
-        const getFirebaseAuthQuery = async () => {
-          if (!fbEmail || !fbPass) return '';
-          try {
-            const authRes = await fetch(
-              `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseWebApiKey}`,
+        const loadStoreData = async () => {
+          const [pkgRes, cfgRes] = await Promise.all([
+            fetch(`${FIREBASE_RTDB_BASE}/redeemPackages.json`).catch(() => null),
+            fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`).catch(() => null),
+          ]);
+          const rawPkgs = pkgRes && pkgRes.ok ? await pkgRes.json().catch(() => null) : null;
+          const rawCfg = cfgRes && cfgRes.ok ? await cfgRes.json().catch(() => null) : null;
+
+          let packages = [];
+          if (rawPkgs && typeof rawPkgs === 'object') {
+            packages = Object.entries(rawPkgs)
+              .map(([id, p]) => ({
+                id,
+                name: String(p?.name || 'VIP Ad-Free Package'),
+                price: String(p?.price || '50 TK'),
+                durationHours: Number(p?.durationHours) || 168,
+                durationLabel: String(p?.durationLabel || '7 Days'),
+              }))
+              .sort((a, b) => a.durationHours - b.durationHours);
+          }
+
+          if (packages.length === 0) {
+            packages = [
               {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  email: fbEmail,
-                  password: fbPass,
-                  returnSecureToken: true,
-                }),
-              }
-            );
-            const authData = await authRes.json();
-            if (authData && authData.idToken) {
-              return `?auth=${encodeURIComponent(authData.idToken)}`;
-            }
-          } catch {}
-          return '';
+                id: 'pkg3d',
+                name: '🔥 3 Days VIP Ad-Free',
+                price: '30 TK',
+                durationHours: 72,
+                durationLabel: '3 Days',
+              },
+              {
+                id: 'pkg7d',
+                name: '👑 7 Days VIP Ad-Free',
+                price: '50 TK',
+                durationHours: 168,
+                durationLabel: '7 Days',
+              },
+              {
+                id: 'pkg30d',
+                name: '💎 30 Days VIP Ad-Free',
+                price: '150 TK',
+                durationHours: 720,
+                durationLabel: '30 Days',
+              },
+            ];
+          }
+
+          const storeCfg = rawCfg && typeof rawCfg === 'object' ? rawCfg : {};
+          return {
+            packages,
+            bkashNumber: storeCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)',
+            nagadNumber: storeCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)',
+            adminChatId: String(storeCfg.adminChatId || queryAdminId || '').trim(),
+            botPass: String(storeCfg.botPass || requiredPass || 'Muttakin').trim(),
+          };
         };
 
         const getChatSession = async (chatId) => {
-          const cacheKeyUrl = `${CANONICAL_SITE_URL}/__tg_bot_session_${chatId}`;
+          const cacheKeyUrl = `${CANONICAL_SITE_URL}/__tg_store_session_${chatId}`;
           try {
             const cached = await caches.default.match(cacheKeyUrl);
             if (cached) {
@@ -469,11 +522,11 @@ export default {
               if (fbData && typeof fbData === 'object') return fbData;
             }
           } catch {}
-          return { unlocked: false, mode: '' };
+          return { step: 'idle', isAdmin: false };
         };
 
         const saveChatSession = async (chatId, sessionObj) => {
-          const cacheKeyUrl = `${CANONICAL_SITE_URL}/__tg_bot_session_${chatId}`;
+          const cacheKeyUrl = `${CANONICAL_SITE_URL}/__tg_store_session_${chatId}`;
           const payload = {
             ...sessionObj,
             botAuthToken: 'xtube_tg_bot_2026',
@@ -491,72 +544,267 @@ export default {
             );
           } catch {}
           try {
-            const authQ = await getFirebaseAuthQuery();
-            await fetch(
-              `${FIREBASE_RTDB_BASE}/telegramBotSessions/${chatId}.json${authQ}`,
-              {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              }
-            );
+            await fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/${chatId}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
           } catch {}
         };
 
-        const categoryKeyboard = {
-          inline_keyboard: [
-            [
-              { text: '📱 Shorts Video', callback_data: 'mode_shorts' },
-              { text: '🎬 Long Video', callback_data: 'mode_long' },
-            ],
-            [{ text: '🚀 Both (Shorts + Long)', callback_data: 'mode_both' }],
-          ],
+        const buildPackagesKeyboard = (packages) => {
+          const rows = packages.map((pkg) => [
+            {
+              text: `🎟️ ${pkg.name} (${pkg.durationLabel}) — ${pkg.price}`,
+              callback_data: `buy_pkg_${pkg.id}`,
+            },
+          ]);
+          rows.push([{ text: '🌐 ভিজিট ওয়েবসাইট (X Tube Official)', url: CANONICAL_SITE_URL }]);
+          return { inline_keyboard: rows };
         };
 
-        const modeLabel = (m) =>
-          m === 'shorts'
-            ? '📱 Shorts Only'
-            : m === 'long'
-            ? '🎬 Long Video Only'
-            : '🚀 Both (Shorts + Long)';
+        const sendStoreWelcome = async (chatId) => {
+          const { packages } = await loadStoreData();
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `👑 *X Tube Official — VIP Ad-Free Redeem Code Store*-এ স্বাগতম!\n\n` +
+              `✨ *Redeem Code ব্যবহারের সুবিধা:*\n` +
+              `• ওয়েবসাইটে কোনো প্রকার বিজ্ঞাপন (Ads / Popunder / Smartlink) আসবে না!\n` +
+              `• ১ ক্লিকেই সব Full Video ও Shorts সরাসরি প্লে হবে!\n\n` +
+              `👇 *নিচের তালিকা থেকে আপনার পছন্দের Ad-Free প্যাকেজটি সিলেক্ট করুন:*`,
+            parse_mode: 'Markdown',
+            reply_markup: buildPackagesKeyboard(packages),
+          });
+        };
 
-        // Handle Callback Query (Category Selection Buttons)
+        // Handle Callback Queries (Package Selection, Payment Method Selection, Admin 1-Click Approve/Reject)
         if (update.callback_query) {
           const cb = update.callback_query;
           const chatId = cb.message?.chat?.id;
           const data = String(cb.data || '');
+          if (!chatId) return new Response('OK', { status: 200 });
 
-          if (chatId && data.startsWith('mode_')) {
-            const session = await getChatSession(chatId);
-            if (!session.unlocked) {
+          const { packages, bkashNumber, nagadNumber, adminChatId } = await loadStoreData();
+          const session = await getChatSession(chatId);
+
+          if (data === 'back_to_packages') {
+            await saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null });
+            await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
+            await sendStoreWelcome(chatId);
+            return new Response('OK', { status: 200 });
+          }
+
+          if (data.startsWith('buy_pkg_')) {
+            const pkgId = data.replace('buy_pkg_', '');
+            const pkg = packages.find((p) => p.id === pkgId) || packages[0];
+            if (!pkg) return new Response('OK', { status: 200 });
+
+            await saveChatSession(chatId, {
+              ...session,
+              step: 'choose_payment',
+              selectedPkg: pkg,
+            });
+
+            await tgApi('answerCallbackQuery', {
+              callback_query_id: cb.id,
+              text: `${pkg.name} সিলেক্ট করা হয়েছে`,
+            });
+
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text:
+                `📦 *সিলেক্ট করা প্যাকেজ:* ${pkg.name}\n` +
+                `⏱ *মেয়াদ (Validity):* ${pkg.durationLabel}\n` +
+                `💰 *মূল্য (Price):* ${pkg.price}\n\n` +
+                `💳 *পেমেন্ট নাম্বারসমূহ (Send Money):*\n` +
+                `📲 *bKash:* \`${bkashNumber}\`\n` +
+                `🟠 *Nagad:* \`${nagadNumber}\`\n\n` +
+                `👇 আপনি কোন মাধ্যমে পেমেন্ট করতে চান সিলেক্ট করুন:`,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '📲 bKash Payment', callback_data: 'pay_method_bKash' },
+                    { text: '🟠 Nagad Payment', callback_data: 'pay_method_Nagad' },
+                  ],
+                  [{ text: '🔙 অন্য প্যাকেজ দেখুন', callback_data: 'back_to_packages' }],
+                ],
+              },
+            });
+            return new Response('OK', { status: 200 });
+          }
+
+          if (data === 'pay_method_bKash' || data === 'pay_method_Nagad') {
+            const method = data.replace('pay_method_', '');
+            const pkg = session.selectedPkg || packages[0];
+            const targetNumber = method === 'bKash' ? bkashNumber : nagadNumber;
+
+            await saveChatSession(chatId, {
+              ...session,
+              step: 'awaiting_trx',
+              selectedPkg: pkg,
+              paymentMethod: method,
+            });
+
+            await tgApi('answerCallbackQuery', {
+              callback_query_id: cb.id,
+              text: `${method} সিলেক্ট হয়েছে`,
+            });
+
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text:
+                `✅ *পেমেন্ট মাধ্যম:* ${method}\n` +
+                `📦 *প্যাকেজ:* ${pkg.name} (${pkg.durationLabel})\n` +
+                `💰 *পরিমাণ:* ${pkg.price}\n` +
+                `📞 *${method} নাম্বার (ট্যাপ করে কপি করুন):* \`${targetNumber}\`\n\n` +
+                `✍️ উপরের নাম্বারে *${pkg.price}* Send Money করার পর, *যে নাম্বার থেকে টাকা পাঠিয়েছেন (Sender Number) এবং Transaction ID (TrxID)* নিচে এক লাইনে লিখে মেসেজ পাঠান:\n` +
+                `*(উদাহরণ: 01712345678 TrxID98765)*`,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔙 প্যাকেজ পরিবর্তন করুন', callback_data: 'back_to_packages' }],
+                ],
+              },
+            });
+            return new Response('OK', { status: 200 });
+          }
+
+          // Admin 1-Click Approve & Auto-Send Redeem Code directly inside Telegram
+          if (data.startsWith('admin_approve_')) {
+            const isCallerAdmin =
+              session.isAdmin || (adminChatId && String(chatId) === String(adminChatId));
+            if (!isCallerAdmin) {
               await tgApi('answerCallbackQuery', {
                 callback_query_id: cb.id,
-                text: '🔐 আগে পাসওয়ার্ড দিয়ে আনলক করুন!',
+                text: '❌ শুধুমাত্র Admin এটি অনুমোদন করতে পারবেন!',
                 show_alert: true,
-              });
-              await tgApi('sendMessage', {
-                chat_id: chatId,
-                text: '🔐 অনুগ্রহ করে প্রথমে পাসওয়ার্ড দিন:',
               });
               return new Response('OK', { status: 200 });
             }
 
-            const chosenMode = data.replace('mode_', '');
-            await saveChatSession(chatId, { unlocked: true, mode: chosenMode });
+            const orderId = data.replace('admin_approve_', '');
+            const orderRes = await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`);
+            const orderData = orderRes.ok ? await orderRes.json().catch(() => null) : null;
+
+            if (!orderData || !orderData.chatId) {
+              await tgApi('answerCallbackQuery', {
+                callback_query_id: cb.id,
+                text: '❌ অর্ডারটি পাওয়া যায়নি!',
+                show_alert: true,
+              });
+              return new Response('OK', { status: 200 });
+            }
+
+            const now = Date.now();
+            const durationHours = Number(orderData.durationHours) || 168;
+            const expiresAt = now + durationHours * 3600 * 1000;
+            const randPart1 = Math.random().toString(36).slice(2, 6).toUpperCase();
+            const randPart2 = Math.random().toString(36).slice(2, 6).toUpperCase();
+            const generatedCode = `XTUBE-${randPart1}-${randPart2}`;
+
+            await fetch(`${FIREBASE_RTDB_BASE}/redeemCodes/${generatedCode}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                code: generatedCode,
+                createdAt: now,
+                expiresAt,
+                durationLabel: orderData.durationLabel || `${durationHours} Hours`,
+                active: true,
+                maxDevices: 1,
+                boundDeviceId: '',
+                orderId,
+                userChatId: String(orderData.chatId),
+                botAuthToken: 'xtube_tg_bot_2026',
+              }),
+            });
+
+            await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: 'approved',
+                redeemCode: generatedCode,
+                expiresAt,
+                approvedAt: now,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }),
+            });
+
+            const expDateStr = new Date(expiresAt).toLocaleString('en-GB', {
+              timeZone: 'Asia/Dhaka',
+            });
+
+            await tgApi('sendMessage', {
+              chat_id: orderData.chatId,
+              text:
+                `🎉 *অভিনন্দন! আপনার পেমেন্ট অনুমোদিত হয়েছে!* ✅\n\n` +
+                `📦 *প্যাকেজ:* ${orderData.packageName}\n` +
+                `🎟️ *আপনার VIP Redeem Code (ট্যাপ করে কপি করুন):*\n` +
+                `\`${generatedCode}\`\n\n` +
+                `⏰ *মেয়াদ শেষ হবে:* ${expDateStr} (BD Time)\n\n` +
+                `🚀 *কিভাবে ব্যবহার করবেন:*\n` +
+                `১. নিচের বাটনে ক্লিক করে ওয়েবসাইটে যান\n` +
+                `২. উপরে ডান পাশে *🎟️ Redeem Code* বাটনে ক্লিক করুন\n` +
+                `৩. আপনার কোডটি (\`${generatedCode}\`) বসিয়ে *Activate Code* চাপুন!`,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🌐 ওয়েবসাইটে গিয়ে Redeem Code বসান', url: CANONICAL_SITE_URL }],
+                ],
+              },
+            });
+
             await tgApi('answerCallbackQuery', {
               callback_query_id: cb.id,
-              text: `Selected: ${modeLabel(chosenMode)}`,
+              text: `✅ Code ${generatedCode} sent to user!`,
+            });
+
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: `✅ অর্ডার #${orderId} অনুমোদিত হয়েছে এবং ইউজারকে Redeem Code (\`${generatedCode}\`) পাঠানো হয়েছে!`,
+              parse_mode: 'Markdown',
+            });
+            return new Response('OK', { status: 200 });
+          }
+
+          if (data.startsWith('admin_reject_')) {
+            const isCallerAdmin =
+              session.isAdmin || (adminChatId && String(chatId) === String(adminChatId));
+            if (!isCallerAdmin) return new Response('OK', { status: 200 });
+
+            const orderId = data.replace('admin_reject_', '');
+            const orderRes = await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`);
+            const orderData = orderRes.ok ? await orderRes.json().catch(() => null) : null;
+
+            if (orderData && orderData.chatId) {
+              await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  status: 'rejected',
+                  rejectedAt: Date.now(),
+                  botAuthToken: 'xtube_tg_bot_2026',
+                }),
+              });
+              await tgApi('sendMessage', {
+                chat_id: orderData.chatId,
+                text: `❌ দুঃখিত! আপনার পেমেন্ট রিকোয়েস্ট (#${orderId}) যাচাই করা সম্ভব হয়নি। অনুগ্রহ করে সঠিক নাম্বার ও Transaction ID দিয়ে আবার চেষ্টা করুন (/start)।`,
+              });
+            }
+            await tgApi('answerCallbackQuery', {
+              callback_query_id: cb.id,
+              text: 'Order Rejected',
             });
             await tgApi('sendMessage', {
               chat_id: chatId,
-              text:
-                `✅ ক্যাটাগরি সিলেক্ট হয়েছে: *${modeLabel(chosenMode)}*\n\n` +
-                `📤 *এখন আপনার ভিডিও ফাইলটি এখানে পাঠান (Send Video)!*\n` +
-                `💡 টিপস: ভিডিও পাঠানোর সময় Caption-এ টাইটেল লিখে দিতে পারেন। কিছু না লিখলে অটোমেটিক ভাইরাল টাইটেল ও হ্যাশট্যাগ বসে যাবে।`,
-              parse_mode: 'Markdown',
-              reply_markup: categoryKeyboard,
+              text: `❌ অর্ডার #${orderId} বাতিল (Rejected) করা হয়েছে।`,
             });
+            return new Response('OK', { status: 200 });
           }
+
           return new Response('OK', { status: 200 });
         }
 
@@ -567,393 +815,154 @@ export default {
 
         const chatId = msg.chat.id;
         const text = String(msg.text || '').trim();
+        const { packages, adminChatId, botPass } = await loadStoreData();
         const session = await getChatSession(chatId);
 
-        // 1. /start or /logout command
-        if (text === '/start' || text === '/login') {
-          await saveChatSession(chatId, { unlocked: false, mode: '' });
+        // /myid command so Admin can see their Chat ID easily
+        if (text === '/myid' || text === '/id') {
           await tgApi('sendMessage', {
             chat_id: chatId,
-            text:
-              `🎬 *X Tube Official Video Upload Bot*-এ স্বাগতম!\n\n` +
-              `🔐 ভিডিও আপলোড শুরু করতে অনুগ্রহ করে আপনার পাসওয়ার্ড দিন:`,
+            text: `🆔 আপনার Telegram Chat ID হলো:\n\`${chatId}\`\n\n(এই ID-টি Admin Panel-এর Admin ID বক্সে বসাতে পারবেন)`,
             parse_mode: 'Markdown',
           });
           return new Response('OK', { status: 200 });
         }
 
-        if (text === '/logout') {
-          await saveChatSession(chatId, { unlocked: false, mode: '' });
-          await tgApi('sendMessage', {
-            chat_id: chatId,
-            text: '🔒 বট লক করা হয়েছে। আবার শুরু করতে /start লিখুন।',
-          });
+        // /start or /packages or /buy command -> Always show available Redeem Code packages
+        if (text.startsWith('/start') || text === '/packages' || text === '/buy') {
+          await saveChatSession(chatId, { ...session, step: 'idle' });
+          await sendStoreWelcome(chatId);
           return new Response('OK', { status: 200 });
         }
 
-        // 2. If not unlocked yet, check password ("Muttakin")
-        if (!session.unlocked) {
-          if (text.toLowerCase() === requiredPass.toLowerCase()) {
-            await saveChatSession(chatId, { unlocked: true, mode: 'both' });
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text:
-                `✅ *পাসওয়ার্ড সঠিক হয়েছে! স্বাগতম ${requiredPass}* 🎉\n\n` +
-                `👇 এখন কোন ক্যাটাগরিতে ভিডিও আপলোড করতে চান সিলেক্ট করুন:`,
-              parse_mode: 'Markdown',
-              reply_markup: categoryKeyboard,
-            });
-          } else {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text:
-                `❌ পাসওয়ার্ড সঠিক নয়!\n\n` +
-                `🔐 ভিডিও আপলোড করতে সঠিক পাসওয়ার্ড দিন (অথবা /start চাপুন):`,
-            });
-          }
-          return new Response('OK', { status: 200 });
-        }
-
-        // 3. Allow text shortcuts to switch mode when unlocked
-        if (text.toLowerCase() === 'shorts' || text === '/shorts') {
-          await saveChatSession(chatId, { unlocked: true, mode: 'shorts' });
-          await tgApi('sendMessage', {
-            chat_id: chatId,
-            text: `✅ ক্যাটাগরি: *📱 Shorts Only* সিলেক্ট হয়েছে! এখন ভিডিও পাঠান:`,
-            parse_mode: 'Markdown',
-            reply_markup: categoryKeyboard,
-          });
-          return new Response('OK', { status: 200 });
-        }
-        if (text.toLowerCase() === 'long' || text === '/long') {
-          await saveChatSession(chatId, { unlocked: true, mode: 'long' });
-          await tgApi('sendMessage', {
-            chat_id: chatId,
-            text: `✅ ক্যাটাগরি: *🎬 Long Video Only* সিলেক্ট হয়েছে! এখন ভিডিও পাঠান:`,
-            parse_mode: 'Markdown',
-            reply_markup: categoryKeyboard,
-          });
-          return new Response('OK', { status: 200 });
-        }
-        if (text.toLowerCase() === 'both' || text === '/both') {
-          await saveChatSession(chatId, { unlocked: true, mode: 'both' });
-          await tgApi('sendMessage', {
-            chat_id: chatId,
-            text: `✅ ক্যাটাগরি: *🚀 Both (Shorts + Long)* সিলেক্ট হয়েছে! এখন ভিডিও পাঠান:`,
-            parse_mode: 'Markdown',
-            reply_markup: categoryKeyboard,
-          });
-          return new Response('OK', { status: 200 });
-        }
-
-        // 4. Handle Video File Upload (or Video Document / Animation / Direct .mp4 URL)
-        const videoMedia =
-          msg.video ||
-          msg.animation ||
-          (msg.document &&
-          String(msg.document.mime_type || '').startsWith('video/')
-            ? msg.document
-            : null);
-
-        const isDirectVideoUrl = /^https?:\/\/\S+\.(mp4|webm|mkv|mov)(\?\S*)?$/i.test(text);
-
-        if (!videoMedia && !isDirectVideoUrl) {
-          await tgApi('sendMessage', {
-            chat_id: chatId,
-            text:
-              `📂 বর্তমান ক্যাটাগরি: *${modeLabel(session.mode || 'both')}*\n\n` +
-              `📤 অনুগ্রহ করে একটি *ভিডিও ফাইল (Video)* পাঠান অথবা নিচের বাটন থেকে ক্যাটাগরি পরিবর্তন করুন:`,
-            parse_mode: 'Markdown',
-            reply_markup: categoryKeyboard,
-          });
-          return new Response('OK', { status: 200 });
-        }
-
-        const activeMode = session.mode || 'both';
-        const statusMsg = await tgApi('sendMessage', {
-          chat_id: chatId,
-          text: `⏳ ভিডিওটি *${modeLabel(activeMode)}*-এ আপলোড হচ্ছে... অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন...`,
-          parse_mode: 'Markdown',
-        });
-
-        const viralPresets = [
-          {
-            title: '🔥 দেশি ভাইরাল হট ভিডিও 🥵💋 #Shorts #BdViral #18Plus #DesiHot',
-            tags: '#Shorts #BdViral #18Plus #DesiHot #RoomDate #ViralGirl Virallink bdgirl',
-          },
-          {
-            title: '💋 গার্লফ্রেন্ডের সাথে গোপন রুম ডেট ভাইরাল ক্লিপ 🔥🥵 #BdViral #RoomDate #18Plus',
-            tags: '#Shorts #RoomDate #BdViral #18Plus #DesiGirl #ViralLink Virallink bdgirl',
-          },
-          {
-            title: '🥵 নতুন দেশি ভাবি হট ভাইরাল ভিডিও 🔥💋 #HotBhabi #BdViral #18Plus #Shorts',
-            tags: '#Shorts #HotBhabi #BdViral #18Plus #DesiHot #Exclusive18 Virallink bdgirl',
-          },
-          {
-            title: '🎬 কলেজের মেয়ের প্রাইভেট ভাইরাল ভিডিও 🥵💦 #ViralGirl #BdViral #18Plus',
-            tags: '#Shorts #ViralGirl #BdViral #18Plus #PrivateLeak #DesiHot Virallink bdgirl',
-          },
-        ];
-        const randomPreset = viralPresets[Math.floor(Math.random() * viralPresets.length)];
-        const captionText = String(msg.caption || '').trim();
-        const finalTitle = captionText || randomPreset.title;
-        const finalKeywords = randomPreset.tags;
-
-        let finalStreamUrl = '';
-        let r2KeySaved = '';
-        let durationFormatted = '00:45';
-
-        if (isDirectVideoUrl) {
-          finalStreamUrl = text;
-        } else {
-          const durSec = Number(videoMedia.duration) || 45;
-          const mins = String(Math.floor(durSec / 60)).padStart(2, '0');
-          const secs = String(Math.floor(durSec % 60)).padStart(2, '0');
-          durationFormatted = `${mins}:${secs}`;
-
-          // Check Telegram 20MB Bot API file download limit
-          if (videoMedia.file_size && Number(videoMedia.file_size) > 20 * 1024 * 1024) {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text:
-                `⚠️ Telegram Bot API-এর নিয়ম অনুযায়ী বট সরাসরি ২০ MB-এর নিচের ভিডিও ডাউনলোড করতে পারে (আপনার ভিডিওটি ${(
-                  Number(videoMedia.file_size) /
-                  (1024 * 1024)
-                ).toFixed(1)} MB)।\n\n` +
-                `💡 সমাধান: ২০ MB-এর নিচের ভিডিও পাঠান অথবা বড় ভিডিওর ডিরেক্ট .mp4 লিংক এখানে পেস্ট করুন!`,
-            });
-            return new Response('OK', { status: 200 });
-          }
-
-          const fileInfoRes = await fetch(
-            `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(
-              videoMedia.file_id
-            )}`
-          );
-          const fileInfo = await fileInfoRes.json();
-          if (!fileInfo.ok || !fileInfo.result?.file_path) {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: `❌ Telegram থেকে ভিডিও ফাইল ডাউনলোড করা যায়নি: ${
-                fileInfo.description || 'Unknown error'
-              }`,
-            });
-            return new Response('OK', { status: 200 });
-          }
-
-          const tgFileUrl = `https://api.telegram.org/file/bot${botToken}/${fileInfo.result.file_path}`;
-          const fileDownloadRes = await fetch(tgFileUrl);
-          if (!fileDownloadRes.ok) {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: '❌ Telegram সার্ভার থেকে ভিডিও স্ট্রিম পাওয়া যায়নি।',
-            });
-            return new Response('OK', { status: 200 });
-          }
-
-          const videoBuffer = await fileDownloadRes.arrayBuffer();
-          const ext = (fileInfo.result.file_path.split('.').pop() || 'mp4').toLowerCase();
-          const cleanName = `tg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
-          const targetFolder = activeMode === 'shorts' ? 'shorts' : 'videos';
-
-          if (!workerUrl || !adminKey || !publicUrl) {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: '❌ R2 Storage Server কনফিগার করা নেই! অনুগ্রহ করে Admin Panel (/ad.html) থেকে পুনরায় "Activate Telegram Bot" বাটনে ক্লিক করুন।',
-            });
-            return new Response('OK', { status: 200 });
-          }
-
-          const form = new FormData();
-          form.append(
-            'file',
-            new Blob([videoBuffer], { type: videoMedia.mime_type || 'video/mp4' }),
-            cleanName
-          );
-          form.append('folder', targetFolder);
-
-          const r2UploadRes = await fetch(`${workerUrl}/api/upload`, {
-            method: 'POST',
-            headers: { 'X-Admin-Key': adminKey },
-            body: form,
-          });
-          const r2Data = await r2UploadRes.json().catch(() => ({}));
-          if (!r2UploadRes.ok || !r2Data.key) {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: `❌ Cloudflare R2 সার্ভারে আপলোড ব্যর্থ হয়েছে: ${
-                r2Data.error || r2UploadRes.status
-              }`,
-            });
-            return new Response('OK', { status: 200 });
-          }
-
-          r2KeySaved = r2Data.key;
-          const encodedKey = r2KeySaved
-            .split('/')
-            .map((part) => encodeURIComponent(part))
-            .join('/');
-          finalStreamUrl = `${publicUrl}/${encodedKey}`;
-        }
-
-        // 5. Save Video Metadata to Firebase Realtime Database (`videos` and/or `shorts` + `notices`)
-        // Use clean alphanumeric IDs WITHOUT underscores so Telegram never strips characters as Markdown italics
-        const now = Date.now();
-        const randSuffix = Math.random().toString(36).slice(2, 7).replace(/[^a-z0-9]/gi, '');
-        const authQuery = await getFirebaseAuthQuery();
-        const shareLinks = [];
-        let createdVideoId = '';
-        let createdShortId = '';
-
-        if (activeMode === 'long' || activeMode === 'both') {
-          createdVideoId = `v${now}${randSuffix}`;
-          const videoPayload = {
-            id: createdVideoId,
-            title: finalTitle,
-            description: `${finalTitle} - Watch exclusive Bangladeshi viral video in HD on X Tube Official.`,
-            keywords: finalKeywords,
-            hashtags: finalKeywords,
-            url: finalStreamUrl,
-            videoUrl: finalStreamUrl,
-            r2Key: r2KeySaved,
-            thumbnail: '',
-            thumbnailUrl: '',
-            duration: durationFormatted,
-            views: 1,
-            likes: 1,
-            author: 'X Tube',
-            createdAt: now,
-            addedAt: now,
-            botAuthToken: 'xtube_tg_bot_2026',
-          };
-          const vidFbRes = await fetch(
-            `${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(createdVideoId)}.json${authQuery}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(videoPayload),
-            }
-          );
-          if (!vidFbRes.ok) {
-            const errTxt = await vidFbRes.text().catch(() => '');
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: `❌ Firebase Database-এ ভিডিও সেভ করা যায়নি (${vidFbRes.status}): ${errTxt}\n\nঅনুগ্রহ করে Admin Panel (/ad.html) থেকে "Copy Updated Firebase Rules (For Bot)" বাটনে ক্লিক করে Firebase Console-এ Rules Publish করুন।`,
-            });
-            return new Response('OK', { status: 200 });
-          }
-          shareLinks.push({
-            label: '🎬 Direct Video Share Link',
-            url: `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(createdVideoId)}`,
-          });
-        }
-
-        if (activeMode === 'shorts' || activeMode === 'both') {
-          createdShortId = `s${now}${randSuffix}`;
-          const shortPayload = {
-            id: createdShortId,
-            title: finalTitle,
-            hashtags: finalKeywords,
-            keywords: finalKeywords,
-            url: finalStreamUrl,
-            videoUrl: finalStreamUrl,
-            r2Key: r2KeySaved,
-            thumbnail: '',
-            thumbnailUrl: '',
-            duration: durationFormatted,
-            views: 1,
-            likes: 1,
-            author: 'X Tube',
-            createdAt: now,
-            addedAt: now,
-            botAuthToken: 'xtube_tg_bot_2026',
-          };
-          const shortFbRes = await fetch(
-            `${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(createdShortId)}.json${authQuery}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(shortPayload),
-            }
-          );
-          if (!shortFbRes.ok) {
-            const errTxt = await shortFbRes.text().catch(() => '');
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: `❌ Firebase Database-এ Short ভিডিও সেভ করা যায়নি (${shortFbRes.status}): ${errTxt}\n\nঅনুগ্রহ করে Admin Panel (/ad.html) থেকে "Copy Updated Firebase Rules (For Bot)" বাটনে ক্লিক করে Firebase Console-এ Rules Publish করুন।`,
-            });
-            return new Response('OK', { status: 200 });
-          }
-          shareLinks.push({
-            label: '📱 Short Video Share Link',
-            url: `${CANONICAL_SITE_URL}/?short=${encodeURIComponent(createdShortId)}`,
-          });
-          if (activeMode === 'shorts') {
-            shareLinks.push({
-              label: '🎬 Watch Player Share Link',
-              url: `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(createdShortId)}`,
-            });
-          }
-        }
-
-        // Auto-post Notice to Index Notice Board
-        const noticeId = `n${now}${randSuffix}`;
-        await fetch(
-          `${FIREBASE_RTDB_BASE}/notices/${encodeURIComponent(noticeId)}.json${authQuery}`,
-          {
-            method: 'PUT',
+        // Admin Password Check ("Muttakin" or configured botPass) -> Registers Admin Chat ID for Order Notifications
+        if (text.toLowerCase() === botPass.toLowerCase()) {
+          await saveChatSession(chatId, { ...session, step: 'idle', isAdmin: true });
+          await fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              badge: activeMode === 'shorts' ? '📱 NEW SHORT' : '🔥 NEW VIDEO',
-              text: `🔥 নতুন ভিডিও আপলোড হয়েছে: ${finalTitle}`,
-              videoId: createdVideoId || null,
-              shortId: !createdVideoId && createdShortId ? createdShortId : null,
-              linkText: activeMode === 'shorts' ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন',
-              active: true,
-              createdAt: now,
-              addedAt: now,
+              adminChatId: String(chatId),
               botAuthToken: 'xtube_tg_bot_2026',
+              updatedAt: Date.now(),
             }),
-          }
-        ).catch(() => {});
-
-        // Refresh live Sitemap & ping IndexNow
-        await generateLiveSitemapXml('all').catch(() => {});
-
-        const primaryShareUrl = shareLinks[0]?.url || CANONICAL_SITE_URL;
-        const linksBlock = shareLinks
-          .map((item) => `${item.label}:\n${item.url}`)
-          .join('\n\n');
-
-        await tgApi('sendMessage', {
-          chat_id: chatId,
-          text:
-            `✅ ভিডিও সফলভাবে আপলোড ও ওয়েবসাইটে পাবলিশ হয়েছে! 🎉\n\n` +
-            `📌 টাইটেল: ${finalTitle}\n` +
-            `📂 ক্যাটাগরি: ${modeLabel(activeMode)}\n` +
-            `⏱ ডিউরেশন: ${durationFormatted}\n\n` +
-            `🔗 ডিরেক্ট শেয়ার লিংক (ক্লিক করে কপি বা শেয়ার করুন):\n` +
-            `${linksBlock}\n\n` +
-            `📤 আরেকটি ভিডিও আপলোড করতে সরাসরি ভিডিও পাঠান:`,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🌐 ওয়েবসাইটে ভিডিওটি দেখুন', url: primaryShareUrl }],
-              [
-                { text: '📱 Shorts Video', callback_data: 'mode_shorts' },
-                { text: '🎬 Long Video', callback_data: 'mode_long' },
-              ],
-              [{ text: '🚀 Both (Shorts + Long)', callback_data: 'mode_both' }],
-            ],
-          },
-        });
-
-        if (statusMsg?.result?.message_id) {
-          await tgApi('deleteMessage', {
-            chat_id: chatId,
-            message_id: statusMsg.result.message_id,
           }).catch(() => {});
+
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `✅ *Admin Mode Activated! স্বাগতম ${botPass}* 👑\n\n` +
+              `🆔 আপনার Admin Chat ID (\`${chatId}\`) অটোমেটিক সেভ হয়েছে!\n` +
+              `• এখন কোনো ইউজার বট থেকে প্যাকেজ সিলেক্ট করে পেমেন্ট রিকোয়েস্ট পাঠালে সাথে সাথে আপনার এই টেলিগ্রামে এবং *Admin Panel (/ad.html)*-এ নোটিফিকেশন চলে আসবে!\n` +
+              `• আপনি Admin Panel থেকে অথবা সরাসরি এই বট থেকেই ১ ক্লিকে ইউজারকে Redeem Code পাঠাতে পারবেন।`,
+            parse_mode: 'Markdown',
+            reply_markup: buildPackagesKeyboard(packages),
+          });
+          return new Response('OK', { status: 200 });
         }
 
+        // Handle User Submitting Payment Details (Sender Number + TrxID)
+        if (session.step === 'awaiting_trx' && session.selectedPkg) {
+          if (text.length < 4) {
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: '⚠️ অনুগ্রহ করে আপনার সঠিক পেমেন্ট নাম্বার এবং Transaction ID (TrxID) লিখে পাঠান:',
+            });
+            return new Response('OK', { status: 200 });
+          }
+
+          const now = Date.now();
+          const randOrder = Math.random().toString(36).slice(2, 6).toUpperCase();
+          const orderId = `ord${now}${randOrder}`;
+          const pkg = session.selectedPkg;
+          const paymentMethod = session.paymentMethod || 'bKash/Nagad';
+          const username = msg.from?.username ? `@${msg.from.username}` : 'No Username';
+          const firstName =
+            [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || 'User';
+
+          const orderPayload = {
+            id: orderId,
+            chatId: String(chatId),
+            username,
+            firstName,
+            packageId: pkg.id,
+            packageName: pkg.name,
+            price: pkg.price,
+            durationHours: Number(pkg.durationHours) || 168,
+            durationLabel: pkg.durationLabel || '7 Days',
+            paymentMethod,
+            paymentDetails: text,
+            status: 'pending',
+            createdAt: now,
+            botAuthToken: 'xtube_tg_bot_2026',
+          };
+
+          const saveRes = await fetch(
+            `${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(orderPayload),
+            }
+          );
+
+          if (!saveRes.ok) {
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: '❌ অর্ডার সেভ করতে সমস্যা হয়েছে। অনুগ্রহ করে Admin-কে জানান (Firebase Rules আপডেট করতে হবে)।',
+            });
+            return new Response('OK', { status: 200 });
+          }
+
+          await saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null });
+
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `✅ *আপনার পেমেন্ট রিকোয়েস্ট সফলভাবে জমা হয়েছে!* 🎉\n\n` +
+              `🆔 *Order ID:* \`#${orderId}\`\n` +
+              `📦 *প্যাকেজ:* ${pkg.name} (${pkg.durationLabel})\n` +
+              `💰 *মূল্য:* ${pkg.price}\n` +
+              `💳 *মাধ্যম:* ${paymentMethod}\n` +
+              `📝 *পেমেন্ট তথ্য:* \`${text}\`\n\n` +
+              `⏳ Admin আপনার পেমেন্ট যাচাই করে খুব শীঘ্রই এই চ্যাটে আপনার *VIP Redeem Code* পাঠিয়ে দেবেন!`,
+            parse_mode: 'Markdown',
+          });
+
+          // Notify Admin on Telegram if adminChatId is configured
+          const targetAdminChat = adminChatId || queryAdminId;
+          if (targetAdminChat) {
+            await tgApi('sendMessage', {
+              chat_id: targetAdminChat,
+              text:
+                `🔔 *নতুন Redeem Code অর্ডার এসেছে!* 🎟️\n\n` +
+                `👤 *ইউজার:* ${firstName} (${username})\n` +
+                `🆔 *User Chat ID:* \`${chatId}\`\n` +
+                `📦 *প্যাকেজ:* ${pkg.name} (${pkg.durationLabel})\n` +
+                `💰 *মূল্য:* ${pkg.price}\n` +
+                `💳 *মাধ্যম:* ${paymentMethod}\n` +
+                `📝 *Sender & TrxID:* \`${text}\`\n\n` +
+                `👇 আপনি নিচের বাটনে ক্লিক করে অথবা *Admin Panel (/ad.html)* থেকে ১-ক্লিকে Redeem Code জেনারেট করে ইউজারকে পাঠাতে পারেন:`,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '⚡ Approve & Auto-Send Redeem Code',
+                      callback_data: `admin_approve_${orderId}`,
+                    },
+                  ],
+                  [{ text: '❌ Reject Order', callback_data: `admin_reject_${orderId}` }],
+                ],
+              },
+            }).catch(() => {});
+          }
+
+          return new Response('OK', { status: 200 });
+        }
+
+        // Default fallback: show packages
+        await sendStoreWelcome(chatId);
         return new Response('OK', { status: 200 });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: String(err) }), {

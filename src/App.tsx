@@ -15,6 +15,8 @@ import {
   VideoItem,
   ShortItem,
   NoticeItem,
+  RedeemPackageItem,
+  RedeemStoreConfig,
   buildVideoShareLink,
   buildShortShareLink,
   copyTextToClipboard,
@@ -26,6 +28,8 @@ import {
   SocialBarLoader,
   AntiAdBlockGuard,
   triggerSmartlinkAd,
+  useAdFreeVip,
+  formatVipCountdown,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 import { VideoCard, ShortShelfPreview } from './components/VideoCard';
@@ -47,6 +51,11 @@ import {
   Smartphone,
   Megaphone,
   ChevronRight,
+  Ticket,
+  ShieldCheck,
+  Clock,
+  ExternalLink,
+  X,
 } from 'lucide-react';
 
 type ViewMode = 'home' | 'watch' | 'shorts';
@@ -507,6 +516,78 @@ export default function App() {
   const [adBlockActive, setAdBlockActive] = useState<boolean>(false);
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [activeNoticeIdx, setActiveNoticeIdx] = useState<number>(0);
+
+  // Redeem Code & Ad-Free VIP State
+  const {
+    isAdFree,
+    activeCode,
+    expiresAt,
+    durationLabel,
+    remainingMs,
+    activateCode,
+  } = useAdFreeVip();
+  const [redeemModalOpen, setRedeemModalOpen] = useState<boolean>(false);
+  const [redeemInput, setRedeemInput] = useState<string>('');
+  const [redeemLoading, setRedeemLoading] = useState<boolean>(false);
+  const [redeemFeedback, setRedeemFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [redeemPackages, setRedeemPackages] = useState<RedeemPackageItem[]>([]);
+  const [storeConfig, setStoreConfig] = useState<RedeemStoreConfig>({});
+
+  useEffect(() => {
+    const pkgRef = ref(db, 'redeemPackages');
+    const unsubPkg = onValue(
+      pkgRef,
+      (snap) => {
+        const val = snap.val();
+        if (!val || typeof val !== 'object') {
+          setRedeemPackages([]);
+          return;
+        }
+        const list: RedeemPackageItem[] = Object.entries(val)
+          .map(([id, item]: [string, any]) => ({
+            id,
+            name: String(item?.name || 'VIP Ad-Free Package'),
+            price: String(item?.price || '50 TK'),
+            durationHours: Number(item?.durationHours) || 168,
+            durationLabel: String(item?.durationLabel || '7 Days'),
+            createdAt: Number(item?.createdAt) || 0,
+          }))
+          .sort((a, b) => a.durationHours - b.durationHours);
+        setRedeemPackages(list);
+      },
+      () => {}
+    );
+
+    const cfgRef = ref(db, 'redeemStoreConfig');
+    const unsubCfg = onValue(
+      cfgRef,
+      (snap) => {
+        const val = snap.val();
+        if (val && typeof val === 'object') {
+          setStoreConfig(val);
+        }
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubPkg();
+      unsubCfg();
+    };
+  }, []);
+
+  const handleActivateRedeemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!redeemInput.trim()) return;
+    setRedeemLoading(true);
+    setRedeemFeedback(null);
+    const res = await activateCode(redeemInput);
+    setRedeemLoading(false);
+    setRedeemFeedback({ ok: res.ok, text: res.message });
+    if (res.ok) {
+      setRedeemInput('');
+    }
+  };
 
   // Convert "MM:SS" or "HH:MM:SS" duration string to ISO-8601 duration (e.g. "PT3M30S") for Google VideoObject
   const formatIsoDuration = (raw?: string): string => {
@@ -1544,21 +1625,23 @@ export default function App() {
     setProfileRevision((r) => r + 1);
   };
 
-  // 3x Smartlink clicks on any full video card before opening Watch page
+  // 3x Smartlink clicks on any full video card before opening Watch page (Bypassed when Redeem Code Ad-Free VIP is active)
   // Uses functional state updater and locks onto the exact clicked `video.id`
   const handleVideoCardClick = (video: VideoItem) => {
-    if (adBlockActive || !video) return;
-    const currentClicks = smartlinkCounts[video.id] || 0;
+    if ((!isAdFree && adBlockActive) || !video) return;
 
-    if (currentClicks < 3) {
-      const nextClicks = currentClicks + 1;
-      triggerSmartlinkAd();
-      setSmartlinkCounts((prev) => ({
-        ...prev,
-        [video.id]: nextClicks,
-      }));
-      if (nextClicks < 3) {
-        return;
+    if (!isAdFree) {
+      const currentClicks = smartlinkCounts[video.id] || 0;
+      if (currentClicks < 3) {
+        const nextClicks = currentClicks + 1;
+        triggerSmartlinkAd();
+        setSmartlinkCounts((prev) => ({
+          ...prev,
+          [video.id]: nextClicks,
+        }));
+        if (nextClicks < 3) {
+          return;
+        }
       }
     }
 
@@ -2004,8 +2087,38 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right: Quick Shorts Button + Language Selector */}
+        {/* Right: Redeem Code / VIP Button + Quick Shorts Button + Language Selector */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setRedeemFeedback(null);
+              setRedeemModalOpen(true);
+            }}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isAdFree
+                ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300 shadow-lg shadow-emerald-600/15'
+                : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
+            }`}
+            title="Activate Redeem Code for Ad-Free VIP Mode"
+          >
+            {isAdFree ? (
+              <>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="hidden md:inline">VIP Ad-Free:</span>
+                <span className="font-mono tabular-nums text-[11px]">
+                  {formatVipCountdown(remainingMs)}
+                </span>
+              </>
+            ) : (
+              <>
+                <Ticket className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>Redeem</span>
+                <span className="hidden sm:inline">Code</span>
+              </>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => openShortsTab()}
@@ -2036,6 +2149,169 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* REDEEM CODE & AD-FREE VIP MODAL */}
+      {redeemModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+          onClick={() => setRedeemModalOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 shadow-2xl space-y-5"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isAdFree
+                      ? 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400'
+                      : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
+                  }`}
+                >
+                  {isAdFree ? <ShieldCheck className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
+                    {isAdFree ? '👑 VIP Ad-Free Active' : '🎟️ Redeem Code (Ad-Free Mode)'}
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Redeem Code ব্যবহার করলে নির্ধারিত সময় পর্যন্ত কোনো Ads আসবে না
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRedeemModalOpen(false)}
+                className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Active VIP Countdown Banner */}
+            {isAdFree && (
+              <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-700/70 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold">
+                    ● AD-FREE ACTIVE
+                  </span>
+                  <span className="text-xs font-mono text-emerald-300 font-semibold">
+                    {durationLabel || 'VIP Pass'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-zinc-200 pt-1">
+                  <span className="flex items-center gap-1.5 text-zinc-400">
+                    <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>বাকি সময় (Remaining):</span>
+                  </span>
+                  <span className="text-sm sm:text-base font-mono font-bold text-emerald-300 tabular-nums">
+                    {formatVipCountdown(remainingMs)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-zinc-400 font-mono flex items-center justify-between pt-1 border-t border-emerald-800/50">
+                  <span>Code: {activeCode}</span>
+                  <span>
+                    Expires: {new Date(expiresAt).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Redeem Code Input Form */}
+            <form onSubmit={handleActivateRedeemSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-200 mb-1.5">
+                  আপনার Redeem Code দিন (Enter Redeem Code):
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={redeemInput}
+                    onChange={(e) => setRedeemInput(e.target.value.toUpperCase())}
+                    placeholder="XTUBE-XXXX-XXXX"
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-mono text-white uppercase placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={redeemLoading || !redeemInput.trim()}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold text-xs sm:text-sm cursor-pointer transition-colors shrink-0"
+                  >
+                    {redeemLoading ? 'Checking...' : '⚡ Activate Code'}
+                  </button>
+                </div>
+              </div>
+
+              {redeemFeedback && (
+                <div
+                  className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                    redeemFeedback.ok
+                      ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                      : 'bg-red-950/60 border-red-800 text-red-200'
+                  }`}
+                >
+                  {redeemFeedback.text}
+                </div>
+              )}
+            </form>
+
+            {/* Buy Redeem Code via Telegram Bot Section */}
+            <div className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs sm:text-sm font-bold text-white">
+                  🛒 কিভাবে Ad-Free Redeem Code কিনবেন?
+                </h3>
+                <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-500/40 text-[10px] font-bold text-sky-300">
+                  bKash / Nagad
+                </span>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                বিজ্ঞাপন ছাড়া (Ad-Free) সরাসরি সব ভিডিও ও শর্টস দেখতে আমাদের <strong>Telegram Bot</strong> থেকে আপনার পছন্দের প্যাকেজ সিলেক্ট করে <strong>bKash / Nagad</strong>-এ পেমেন্ট করুন। Admin সাথে সাথে আপনাকে Redeem Code পাঠিয়ে দেবে!
+              </p>
+
+              {redeemPackages.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <span className="block text-[11px] font-semibold text-zinc-400">
+                    📦 উপলব্ধ প্যাকেজসমূহ (Available Packages):
+                  </span>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {redeemPackages.map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className="px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <span className="font-bold text-white">{pkg.name}</span>
+                          <span className="text-zinc-400 ml-1.5">({pkg.durationLabel})</span>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 font-mono font-bold text-amber-300">
+                          {pkg.price}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {storeConfig.botUsername ? (
+                <a
+                  href={`https://t.me/${storeConfig.botUsername.replace(/^@/, '')}?start=buy`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
+                >
+                  <span>✈️ Buy Redeem Code on Telegram Bot (@{storeConfig.botUsername.replace(/^@/, '')})</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                </a>
+              ) : (
+                <p className="text-[11px] text-amber-300/90 font-mono text-center pt-1">
+                  Telegram Bot থেকে Redeem Code সংগ্রহ করে উপরে বসিয়ে Activate করুন।
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Layout */}
       <div className="flex-1 flex w-full max-w-full overflow-x-hidden">

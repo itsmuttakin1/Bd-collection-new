@@ -80,6 +80,34 @@ export interface NoticeItem {
   createdAt: number;
 }
 
+export interface RedeemCodeItem {
+  code: string;
+  expiresAt: number;
+  createdAt: number;
+  durationLabel?: string;
+  active: boolean;
+  boundDeviceId?: string;
+  activatedAt?: number;
+  maxDevices?: number;
+  note?: string;
+}
+
+export interface RedeemPackageItem {
+  id: string;
+  name: string;
+  price: string;
+  durationHours: number;
+  durationLabel: string;
+  createdAt: number;
+}
+
+export interface RedeemStoreConfig {
+  botUsername?: string;
+  bkashNumber?: string;
+  nagadNumber?: string;
+  updatedAt?: number;
+}
+
 /**
  * Generates the canonical Watch Share Link (`https://<origin>/?v=<videoId>`)
  * identical across Index cards, Watch page, and Admin Panel (`/ad.html`).

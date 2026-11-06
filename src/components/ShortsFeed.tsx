@@ -25,6 +25,7 @@ import {
   NativeBannerAd,
   triggerPopunderAd,
   triggerSmartlinkAd,
+  useAdFreeVip,
 } from './AdUnits';
 
 interface ShortsFeedProps {
@@ -112,6 +113,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   onShortWatched,
   onShortLiked,
 }) => {
+  const { isAdFree } = useAdFreeVip();
   // Fast lookup map so view/like updates never reorder the active feed
   const shortsById = React.useMemo(() => {
     const map = new Map<string, ShortItem>();
@@ -188,7 +190,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     });
   }, [allUniqueIds, initialShortId]);
 
-  // Build slides from cycleQueues with a Sponsored Ad slide after every 2 Shorts
+  // Build slides from cycleQueues (Sponsored Ad slides are omitted when Redeem Code VIP isAdFree is active)
   const slides: FeedSlide[] = React.useMemo(() => {
     const result: FeedSlide[] = [];
     let shortCounter = 0;
@@ -200,7 +202,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         const instanceKey = `c${cycleIdx}-p${posIdx}-${id}`;
         result.push({ type: 'short', instanceKey, item });
         shortCounter++;
-        if (shortCounter % 2 === 0) {
+        if (!isAdFree && shortCounter % 2 === 0) {
           result.push({
             type: 'ad',
             instanceKey: `ad-c${cycleIdx}-s${shortCounter}`,
@@ -211,7 +213,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     });
 
     return result;
-  }, [cycleQueues, shortsById]);
+  }, [cycleQueues, shortsById, isAdFree]);
 
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const activeIndexRef = useRef<number>(0);
@@ -283,7 +285,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
       const vid = videoRefs.current[sl.instanceKey];
       if (!vid) return;
 
-      const isItemUnlocked = !sl.item.isLongVideo || Boolean(unlockedMap[sl.item.id]);
+      const isItemUnlocked = !sl.item.isLongVideo || isAdFree || Boolean(unlockedMap[sl.item.id]);
 
       if (idx === activeIndex && isItemUnlocked) {
         vid.muted = isMuted;
@@ -321,7 +323,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
         );
       }
     });
-  }, [activeIndex, unlockedMap, slides, streamStages]);
+  }, [activeIndex, unlockedMap, slides, streamStages, isAdFree]);
 
   const handleScroll = () => {
     const container = feedContainerRef.current;
@@ -441,7 +443,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
   ) => {
     e.stopPropagation();
 
-    const isUnlocked = !short.isLongVideo || Boolean(unlockedMap[short.id]);
+    const isUnlocked = !short.isLongVideo || isAdFree || Boolean(unlockedMap[short.id]);
     if (!isUnlocked) {
       const currentClicks = adGateClicks[short.id] || 0;
       const nextClicks = currentClicks + 1;
@@ -594,14 +596,16 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
           <span>Viral Shorts</span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => triggerSmartlinkAd()}
-          className="px-2.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-[11px] font-bold text-white flex items-center gap-1 shrink-0 cursor-pointer"
-        >
-          <span>🔥 VIP 18+</span>
-          <ExternalLink className="w-3 h-3" />
-        </button>
+        {!isAdFree && (
+          <button
+            type="button"
+            onClick={() => triggerSmartlinkAd()}
+            className="px-2.5 py-1 rounded-full bg-red-600 hover:bg-red-500 text-[11px] font-bold text-white flex items-center gap-1 shrink-0 cursor-pointer"
+          >
+            <span>🔥 VIP 18+</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        )}
       </div>
 
       {/* Vertical Snap-Scroll Feed */}
@@ -665,7 +669,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
           const short = slide.item;
           const instanceKey = slide.instanceKey;
-          const isUnlocked = !short.isLongVideo || Boolean(unlockedMap[short.id]);
+          const isUnlocked = !short.isLongVideo || isAdFree || Boolean(unlockedMap[short.id]);
           const isPlaying = Boolean(playingMap[instanceKey]);
           const clicksSoFar = adGateClicks[short.id] || 0;
           const streamUrl = getResolvedShortStreamUrl(short);
@@ -729,7 +733,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                     onPlaying={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: true }))}
                     onPause={() => setPlayingMap((prev) => ({ ...prev, [instanceKey]: false }))}
                     onCanPlay={(e) => {
-                      if (idx === activeIndex && (!short.isLongVideo || unlockedMap[short.id])) {
+                      if (idx === activeIndex && (!short.isLongVideo || isAdFree || unlockedMap[short.id])) {
                         const vid = e.currentTarget;
                         if (vid.paused) {
                           vid

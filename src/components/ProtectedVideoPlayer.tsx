@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize } from 'lucide-react';
-import { triggerPopunderAd, triggerSmartlinkAd } from './AdUnits';
+import { triggerPopunderAd, triggerSmartlinkAd, useAdFreeVip } from './AdUnits';
 import { sanitizeServerThumbnail } from '../firebase';
 
 
@@ -19,10 +19,11 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   poster,
   onPlaySuccess,
 }) => {
+  const { isAdFree } = useAdFreeVip();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 3-click Popunder gate state before video actually plays
+  // 3-click Popunder gate state before video actually plays (bypassed when Redeem Code isAdFree is true)
   const [popunderClicks, setPopunderClicks] = useState<number>(0);
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
 
@@ -82,7 +83,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
 
   useEffect(() => {
     setPopunderClicks(0);
-    setIsUnlocked(false);
+    setIsUnlocked(isAdFree);
     setStreamStage(0);
     setIsPlaying(false);
     setProgress(0);
@@ -94,11 +95,17 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       videoRef.current.currentTime = 0;
       videoRef.current.load();
     }
-  }, [videoId, videoUrl]);
+  }, [videoId, videoUrl, isAdFree]);
 
-  // Overlay Play button click (requires 3 Popunder clicks before playing)
+  // Overlay Play button click (requires 3 Popunder clicks before playing unless Redeem Code VIP is active)
   const handleOverlayPlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    if (isAdFree) {
+      if (!isUnlocked) setIsUnlocked(true);
+      startVideoPlayback();
+      return;
+    }
 
     if (!isUnlocked) {
       const nextCount = popunderClicks + 1;
