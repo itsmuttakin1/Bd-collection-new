@@ -930,34 +930,27 @@
 
         <!-- ROW 3: TELEGRAM BOT STORE CONFIG (BOT TOKEN, PASSWORD, ADMIN ID, BKASH/NAGAD) & PACKAGE MANAGER -->
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <!-- Left 6 Cols: Bot Token, Password, Admin Chat ID & bKash/Nagad Settings -->
+          <!-- Left 6 Cols: Bot Token, Admin Chat ID & bKash/Nagad Settings -->
           <div class="lg:col-span-6 p-4 sm:p-5 rounded-2xl border border-sky-700/60 bg-gradient-to-b from-sky-950/30 to-zinc-950 space-y-4">
             <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div>
                 <span class="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-bold">🤖 BOT &amp; PAYMENT SETTINGS</span>
-                <h3 class="text-sm sm:text-base font-bold text-white mt-1">Telegram Bot Token, Password, Admin ID &amp; bKash/Nagad</h3>
+                <h3 class="text-sm sm:text-base font-bold text-white mt-1">Telegram Bot Token, Admin ID &amp; bKash/Nagad</h3>
               </div>
               <span id="tg-upload-bot-status-badge" class="text-[11px] font-mono text-emerald-400"></span>
             </div>
 
             <div class="space-y-3 text-xs">
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div class="sm:col-span-2">
-                  <label class="block text-[11px] text-zinc-400 mb-1">Telegram Bot Token (@BotFather) *</label>
-                  <input id="tg-upload-bot-token" type="text" placeholder="1234567890:AAHxyz..."
-                    class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-sky-500" />
-                </div>
-                <div>
-                  <label class="block text-[11px] text-zinc-400 mb-1">Admin Password *</label>
-                  <input id="tg-upload-bot-pass" type="text" value="Muttakin"
-                    class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-emerald-300 font-bold focus:outline-none focus:border-sky-500" />
-                </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Telegram Bot Token (@BotFather) *</label>
+                <input id="tg-upload-bot-token" type="text" placeholder="1234567890:AAHxyz..."
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-sky-500" />
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label class="block text-[11px] text-zinc-400 mb-1">Admin Telegram Chat ID (অর্ডার নোটিফিকেশন পাওয়ার জন্য)</label>
-                  <input id="tg-store-admin-chat-id" type="text" placeholder="যেমন: 583920192 (অথবা বটে /admin Muttakin লিখুন)"
+                  <input id="tg-store-admin-chat-id" type="text" placeholder="যেমন: 5140546628"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-sky-500" />
                 </div>
                 <div>
@@ -987,16 +980,16 @@
                   class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-sky-500" />
               </div>
 
-              <!-- Hidden legacy server select so existing JS refs never fail -->
+              <!-- Hidden legacy elements so existing JS refs never fail -->
               <select id="tg-upload-server-select" class="hidden"></select>
 
               <button id="activate-tg-upload-bot-btn" type="button"
                 class="w-full px-4 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-lg shadow-sky-600/20">
-                ⚡ 1-Click Save &amp; Activate Redeem Store Bot (Set Webhook)
+                ⚡ 1-Click Save &amp; Activate Redeem Store Bot
               </button>
 
               <p id="tg-upload-bot-webhook-info" class="text-[11px] text-zinc-400 font-mono break-all text-center">
-                বটে ইউজার <code class="text-sky-300">/start</code> দিলে আপনার তৈরি করা প্যাকেজগুলো দেখাবে এবং আপনি বটে <code class="text-emerald-300">/admin Muttakin</code> লিখলে আপনার Chat ID অটো সেট হয়ে যাবে!
+                বটে শুধুমাত্র <code class="text-sky-300">/start</code> কমান্ড থাকবে — ইউজার <code class="text-sky-300">/start</code> দিলে আপনার তৈরি করা প্যাকেজগুলো দেখাবে!
               </p>
             </div>
           </div>
@@ -6641,8 +6634,6 @@ service cloud.firestore {
               body: JSON.stringify({
                 commands: [
                   { command: 'start', description: '👑 Buy VIP Ad-Free Redeem Code Package' },
-                  { command: 'packages', description: '📦 View All Ad-Free Packages & Prices' },
-                  { command: 'admin', description: '🔐 Admin Login (/admin Muttakin)' },
                 ],
               }),
             }).catch(() => null),

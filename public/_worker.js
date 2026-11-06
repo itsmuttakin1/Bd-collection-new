@@ -932,7 +932,7 @@ export default {
 
         const chatId = msg.chat.id;
         const text = String(msg.text || '').trim();
-        const [{ packages, adminChatId, botPass }, session] = await Promise.all([
+        const [{ packages, adminChatId }, session] = await Promise.all([
           loadStoreData(),
           getChatSession(chatId),
         ]);
@@ -947,48 +947,11 @@ export default {
           return new Response('OK', { status: 200 });
         }
 
-        // /start or /packages or /buy command -> Always show available Redeem Code packages immediately
-        if (text.startsWith('/start') || text === '/packages' || text === '/buy') {
+        // /start command -> Always show available Redeem Code packages immediately
+        if (text.startsWith('/start')) {
           await Promise.all([
             saveChatSession(chatId, { ...session, step: 'idle' }),
             sendStoreWelcome(chatId, packages),
-          ]);
-          return new Response('OK', { status: 200 });
-        }
-
-        // Admin Password Check ("Muttakin" or "/admin Muttakin") -> Registers Admin Chat ID for Order Notifications
-        const cleanPassCheck = text.replace(/^\/admin\s*/i, '').trim();
-        if (cleanPassCheck.toLowerCase() === botPass.toLowerCase()) {
-          await Promise.all([
-            saveChatSession(chatId, { ...session, step: 'idle', isAdmin: true }),
-            fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                adminChatId: String(chatId),
-                botAuthToken: 'xtube_tg_bot_2026',
-                updatedAt: Date.now(),
-              }),
-            }).catch(() => {}),
-            fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                adminChatId: String(chatId),
-                botAuthToken: 'xtube_tg_bot_2026',
-                updatedAt: Date.now(),
-              }),
-            }).catch(() => {}),
-            tgApi('sendMessage', {
-              chat_id: chatId,
-              text:
-                `✅ <b>Admin Mode Activated! স্বাগতম ${escHtml(botPass)}</b> 👑\n\n` +
-                `🆔 আপনার Admin Chat ID (<code>${chatId}</code>) অটোমেটিক সেভ হয়েছে!\n` +
-                `• এখন কোনো ইউজার বট থেকে প্যাকেজ সিলেক্ট করে পেমেন্ট রিকোয়েস্ট পাঠালে সাথে সাথে আপনার এই টেলিগ্রামে এবং <b>Admin Panel (/ad.html)</b>-এ নোটিফিকেশন চলে আসবে!\n` +
-                `• আপনি Admin Panel থেকে অথবা সরাসরি এই বট থেকেই ১ ক্লিকে ইউজারকে Redeem Code পাঠাতে পারবেন।`,
-              parse_mode: 'HTML',
-              reply_markup: buildPackagesKeyboard(packages),
-            }),
           ]);
           return new Response('OK', { status: 200 });
         }
