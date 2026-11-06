@@ -6605,18 +6605,36 @@ service cloud.firestore {
           if (nagadNumber && nagadNumber !== 'Not Set') webhookUrlObj.searchParams.set('nagad', nagadNumber);
           if (adminChatId) webhookUrlObj.searchParams.set('adminId', adminChatId);
 
-          // Execute getMe + setWebhook + setMyCommands in parallel for ultra-fast activation (< 1s)
-          const [meRes, hookRes] = await Promise.all([
-            fetch(`https://api.telegram.org/bot${botToken}/getMe`),
-            fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+          // Test if the remote webhook endpoint has the latest worker code ({ ping: true } -> { pong: true })
+          let remoteWebhookReady = false;
+          try {
+            const pingRes = await fetch(webhookUrlObj.toString(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                url: webhookUrlObj.toString(),
-                allowed_updates: ['message', 'edited_message', 'callback_query'],
-                drop_pending_updates: true,
-              }),
-            }),
+              body: JSON.stringify({ ping: true }),
+            });
+            const pingData = await pingRes.json().catch(() => null);
+            if (pingRes.ok && pingData && pingData.pong === true) {
+              remoteWebhookReady = true;
+            }
+          } catch {}
+
+          // Execute getMe + (setWebhook if remote endpoint is updated, else deleteWebhook for instant live polling) + setMyCommands
+          const [meRes, hookRes] = await Promise.all([
+            fetch(`https://api.telegram.org/bot${botToken}/getMe`),
+            remoteWebhookReady
+              ? fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    url: webhookUrlObj.toString(),
+                    allowed_updates: ['message', 'edited_message', 'callback_query'],
+                    drop_pending_updates: false,
+                  }),
+                })
+              : fetch(
+                  `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=false`
+                ),
             fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -6635,7 +6653,7 @@ service cloud.firestore {
             throw new Error(meData.description || 'Invalid Telegram Bot Token');
           }
           if (!hookRes.ok || !hookData.ok) {
-            throw new Error(hookData.description || 'Failed to set Telegram Webhook');
+            throw new Error(hookData.description || 'Failed to configure Telegram Bot');
           }
 
           const botUsername = meData.result?.username || 'YourBot';
@@ -6668,11 +6686,11 @@ service cloud.firestore {
             tgUploadStatusBadge.textContent = `✓ Saved & Active (@${botUsername})`;
           }
           if (tgUploadWebhookInfo) {
-            tgUploadWebhookInfo.textContent = `✅ Active Store Bot: @${botUsername} (Saved in Firebase) | bKash: ${bkashNumber} | Nagad: ${nagadNumber}`;
+            tgUploadWebhookInfo.textContent = `✅ Active Store Bot: @${botUsername} (${remoteWebhookReady ? 'Webhook Active' : 'Live Auto-Responder Active'}) | bKash: ${bkashNumber} | Nagad: ${nagadNumber}`;
           }
           activateTgUploadBotBtn.textContent = `✓ Store Bot Saved & Connected (@${botUsername})!`;
           showStatus(
-            `🎉 Telegram Bot (@${botUsername}) ও Bot Token স্থায়ীভাবে Firebase-এ সেভ এবং অ্যাক্টিভ হয়েছে! এখন রিফ্রেশ দিলেও টোকেন মুছবে না।`,
+            `🎉 Telegram Bot (@${botUsername}) সফলভাবে চালু হয়েছে এবং Firebase-এ সেভ হয়েছে! এখন বটে /start লিখে চেক করুন।`,
             'success'
           );
         } catch (err) {

@@ -263,7 +263,7 @@ async function generateLiveSitemapXml(mode = 'all') {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -419,12 +419,27 @@ export default {
             service: 'X Tube Official Redeem Code Store Bot Webhook',
             domain: CANONICAL_SITE_URL,
           }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
         );
       }
 
       try {
         const update = await request.json();
+        if (update && update.ping === true) {
+          return new Response(JSON.stringify({ ok: true, pong: true }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
         const botToken = (url.searchParams.get('token') || '').trim();
         const requiredPass = (url.searchParams.get('pass') || 'Muttakin').trim();
         const queryAdminId = (url.searchParams.get('adminId') || '').trim();
@@ -434,7 +449,10 @@ export default {
         if (!botToken) {
           return new Response(JSON.stringify({ ok: false, error: 'Missing bot token' }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
           });
         }
 
@@ -454,7 +472,7 @@ export default {
         };
 
         const runInBackground = (promise) => {
-          if (ctx && typeof ctx.waitUntil === 'function') {
+          if (typeof ctx !== 'undefined' && ctx && typeof ctx.waitUntil === 'function') {
             ctx.waitUntil(promise.catch(() => {}));
           } else {
             promise.catch(() => {});
@@ -598,24 +616,24 @@ export default {
             botAuthToken: 'xtube_tg_bot_2026',
             updatedAt: Date.now(),
           };
-          try {
-            await caches.default.put(
-              cacheKeyUrl,
-              new Response(JSON.stringify(payload), {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Cache-Control': 'public, max-age=604800',
-                },
-              })
-            );
-          } catch {}
-          runInBackground(
+          await Promise.all([
+            caches.default
+              .put(
+                cacheKeyUrl,
+                new Response(JSON.stringify(payload), {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'public, max-age=604800',
+                  },
+                })
+              )
+              .catch(() => {}),
             fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/${chatId}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
-            })
-          );
+            }).catch(() => {}),
+          ]);
         };
 
         const buildPackagesKeyboard = (packages) => {
