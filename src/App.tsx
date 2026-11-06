@@ -531,48 +531,92 @@ export default function App() {
   const [redeemLoading, setRedeemLoading] = useState<boolean>(false);
   const [redeemFeedback, setRedeemFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [redeemPackages, setRedeemPackages] = useState<RedeemPackageItem[]>([]);
-  const [storeConfig, setStoreConfig] = useState<RedeemStoreConfig>({});
+  const [storeConfig, setStoreConfig] = useState<RedeemStoreConfig>({ serviceEnabled: true });
+
+  const isRedeemServiceEnabled = storeConfig.serviceEnabled !== false;
 
   useEffect(() => {
-    const pkgRef = ref(db, 'redeemPackages');
-    const unsubPkg = onValue(
-      pkgRef,
+    let primaryPkgs: Record<string, any> = {};
+    let fallbackPkgs: Record<string, any> = {};
+
+    const syncMergedPackages = () => {
+      const merged = { ...fallbackPkgs, ...primaryPkgs };
+      const list: RedeemPackageItem[] = Object.entries(merged)
+        .filter(([id, item]: [string, any]) => id !== 'botAuthToken' && item && typeof item === 'object' && item.active !== false)
+        .map(([id, item]: [string, any]) => ({
+          id,
+          name: String(item?.name || 'VIP Ad-Free Package'),
+          price: String(item?.price || '50 TK'),
+          durationHours: Number(item?.durationHours) || 168,
+          durationLabel: String(item?.durationLabel || '7 Days'),
+          active: item?.active !== false,
+          createdAt: Number(item?.createdAt) || 0,
+        }))
+        .sort((a, b) => a.durationHours - b.durationHours);
+      setRedeemPackages(list);
+    };
+
+    const unsubPkg1 = onValue(
+      ref(db, 'redeemPackages'),
       (snap) => {
-        const val = snap.val();
-        if (!val || typeof val !== 'object') {
-          setRedeemPackages([]);
-          return;
-        }
-        const list: RedeemPackageItem[] = Object.entries(val)
-          .map(([id, item]: [string, any]) => ({
-            id,
-            name: String(item?.name || 'VIP Ad-Free Package'),
-            price: String(item?.price || '50 TK'),
-            durationHours: Number(item?.durationHours) || 168,
-            durationLabel: String(item?.durationLabel || '7 Days'),
-            createdAt: Number(item?.createdAt) || 0,
-          }))
-          .sort((a, b) => a.durationHours - b.durationHours);
-        setRedeemPackages(list);
+        primaryPkgs = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        syncMergedPackages();
       },
       () => {}
     );
 
-    const cfgRef = ref(db, 'redeemStoreConfig');
-    const unsubCfg = onValue(
-      cfgRef,
+    const unsubPkg2 = onValue(
+      ref(db, 'telegramBotSessions/_storeConfig/packages'),
       (snap) => {
-        const val = snap.val();
-        if (val && typeof val === 'object') {
-          setStoreConfig(val);
-        }
+        fallbackPkgs = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        syncMergedPackages();
+      },
+      () => {}
+    );
+
+    let primaryCfg: Record<string, any> = {};
+    let fallbackCfg: Record<string, any> = {};
+
+    const syncMergedConfig = () => {
+      const merged: RedeemStoreConfig = {
+        ...fallbackCfg,
+        ...primaryCfg,
+        serviceEnabled:
+          primaryCfg.serviceEnabled !== undefined
+            ? primaryCfg.serviceEnabled !== false
+            : fallbackCfg.serviceEnabled !== undefined
+            ? fallbackCfg.serviceEnabled !== false
+            : true,
+      };
+      setStoreConfig(merged);
+      if (merged.serviceEnabled === false) {
+        setRedeemModalOpen(false);
+      }
+    };
+
+    const unsubCfg1 = onValue(
+      ref(db, 'redeemStoreConfig'),
+      (snap) => {
+        primaryCfg = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        syncMergedConfig();
+      },
+      () => {}
+    );
+
+    const unsubCfg2 = onValue(
+      ref(db, 'telegramBotSessions/_storeConfig'),
+      (snap) => {
+        fallbackCfg = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        syncMergedConfig();
       },
       () => {}
     );
 
     return () => {
-      unsubPkg();
-      unsubCfg();
+      unsubPkg1();
+      unsubPkg2();
+      unsubCfg1();
+      unsubCfg2();
     };
   }, []);
 
@@ -2089,35 +2133,37 @@ export default function App() {
 
         {/* Right: Redeem Code / VIP Button + Quick Shorts Button + Language Selector */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              setRedeemFeedback(null);
-              setRedeemModalOpen(true);
-            }}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              isAdFree
-                ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300 shadow-lg shadow-emerald-600/15'
-                : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
-            }`}
-            title="Activate Redeem Code for Ad-Free VIP Mode"
-          >
-            {isAdFree ? (
-              <>
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="hidden md:inline">VIP Ad-Free:</span>
-                <span className="font-mono tabular-nums text-[11px]">
-                  {formatVipCountdown(remainingMs)}
-                </span>
-              </>
-            ) : (
-              <>
-                <Ticket className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Redeem</span>
-                <span className="hidden sm:inline">Code</span>
-              </>
-            )}
-          </button>
+          {isRedeemServiceEnabled && (
+            <button
+              type="button"
+              onClick={() => {
+                setRedeemFeedback(null);
+                setRedeemModalOpen(true);
+              }}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isAdFree
+                  ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300 shadow-lg shadow-emerald-600/15'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
+              }`}
+              title="Activate Redeem Code for Ad-Free VIP Mode"
+            >
+              {isAdFree ? (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="hidden md:inline">VIP Ad-Free:</span>
+                  <span className="font-mono tabular-nums text-[11px]">
+                    {formatVipCountdown(remainingMs)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Ticket className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Redeem</span>
+                  <span className="hidden sm:inline">Code</span>
+                </>
+              )}
+            </button>
+          )}
 
           <button
             type="button"
@@ -2151,7 +2197,7 @@ export default function App() {
       </header>
 
       {/* REDEEM CODE & AD-FREE VIP MODAL */}
-      {redeemModalOpen && (
+      {isRedeemServiceEnabled && redeemModalOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
           onClick={() => setRedeemModalOpen(false)}

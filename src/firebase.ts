@@ -98,6 +98,7 @@ export interface RedeemPackageItem {
   price: string;
   durationHours: number;
   durationLabel: string;
+  active?: boolean;
   createdAt: number;
 }
 
@@ -105,6 +106,7 @@ export interface RedeemStoreConfig {
   botUsername?: string;
   bkashNumber?: string;
   nagadNumber?: string;
+  serviceEnabled?: boolean;
   updatedAt?: number;
 }
 

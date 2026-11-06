@@ -494,6 +494,8 @@ async function startServer() {
         ...(rawCfg && typeof rawCfg === 'object' ? rawCfg : {}),
       };
 
+      const serviceEnabled = mergedCfg.serviceEnabled !== false;
+
       const pkgSource =
         rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
           ? rawPkgs
@@ -509,9 +511,12 @@ async function startServer() {
         durationLabel: string;
       }> = [];
 
-      if (pkgSource && typeof pkgSource === 'object') {
+      if (serviceEnabled && pkgSource && typeof pkgSource === 'object') {
         packages = Object.entries(pkgSource)
-          .filter(([k, p]: [string, any]) => k !== 'botAuthToken' && p && typeof p === 'object')
+          .filter(
+            ([k, p]: [string, any]) =>
+              k !== 'botAuthToken' && p && typeof p === 'object' && p.active !== false
+          )
           .map(([id, p]: [string, any]) => ({
             id,
             name: String(p?.name || 'VIP Ad-Free Package'),
@@ -522,7 +527,7 @@ async function startServer() {
           .sort((a, b) => a.durationHours - b.durationHours);
       }
 
-      if (packages.length === 0) {
+      if (serviceEnabled && packages.length === 0) {
         packages = [
           {
             id: 'pkg1d',
@@ -549,7 +554,8 @@ async function startServer() {
       }
 
       memoStoreData = {
-        packages,
+        serviceEnabled,
+        packages: serviceEnabled ? packages : [],
         bkashNumber: String(mergedCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)'),
         nagadNumber: String(mergedCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)'),
         paymentNote: String(
@@ -607,7 +613,23 @@ async function startServer() {
     };
 
     const sendStoreWelcome = async (chatId: string | number, preloadedPackages?: Array<any>) => {
-      const packages = preloadedPackages || (await loadStoreData()).packages;
+      const storeData = await loadStoreData();
+      const packages = preloadedPackages || storeData.packages;
+      if (!storeData.serviceEnabled || !packages || packages.length === 0) {
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text:
+            `⛔ <b>Redeem Code ও VIP Package সার্ভিসটি বর্তমানে বন্ধ (OFF) আছে।</b>\n\n` +
+            `পরবর্তীতে সার্ভিসটি চালু হলে আবার চেষ্টা করুন।`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🌐 ভিজিট ওয়েবসাইট (X Tube Official)', url: CANONICAL_SITE_URL }],
+            ],
+          },
+        });
+        return;
+      }
       await tgApi('sendMessage', {
         chat_id: chatId,
         text:
@@ -627,10 +649,25 @@ async function startServer() {
       const data = String(cb.data || '');
       if (!chatId) return;
 
-      const [{ packages, bkashNumber, nagadNumber, paymentNote }, session] = await Promise.all([
-        loadStoreData(),
-        getChatSession(chatId),
-      ]);
+      const [{ serviceEnabled, packages, bkashNumber, nagadNumber, paymentNote }, session] =
+        await Promise.all([loadStoreData(), getChatSession(chatId)]);
+
+      if (
+        !serviceEnabled &&
+        (data === 'back_to_packages' ||
+          data.startsWith('buy_pkg_') ||
+          data.startsWith('pay_method_'))
+      ) {
+        await Promise.all([
+          tgApi('answerCallbackQuery', {
+            callback_query_id: cb.id,
+            text: '⛔ সার্ভিসটি বর্তমানে বন্ধ (OFF) আছে!',
+            show_alert: true,
+          }),
+          sendStoreWelcome(chatId, []),
+        ]);
+        return;
+      }
 
       if (data === 'back_to_packages') {
         await Promise.all([

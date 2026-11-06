@@ -781,6 +781,29 @@
       <!-- TAB PANEL: REDEEM CODE SYSTEM & TELEGRAM BOT PACKAGE / ORDER STORE    -->
       <!-- ===================================================================== -->
       <div id="admin-panel-redeem" data-admin-panel="redeem" class="hidden space-y-6">
+        <!-- MASTER SWITCH: REDEEM & PACKAGE SERVICE ON / OFF -->
+        <section id="redeem-service-master-banner" class="p-4 sm:p-5 rounded-2xl border border-emerald-500/50 bg-gradient-to-r from-emerald-950/40 via-zinc-950 to-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="redeem-service-status-pill" class="px-2.5 py-0.5 rounded-full bg-emerald-500 text-zinc-950 text-[11px] font-extrabold tracking-wide">
+                🟢 SERVICE ON (ACTIVE)
+              </span>
+              <h2 class="text-sm sm:text-base font-bold text-white">
+                Redeem Code &amp; Package Service Master Switch (ON / OFF)
+              </h2>
+            </div>
+            <p id="redeem-service-status-desc" class="text-xs text-zinc-300 leading-relaxed">
+              বর্তমানে ওয়েবসাইট এবং টেলিগ্রাম বটে Redeem Code ও VIP Package সার্ভিসটি <strong>চালু (ON)</strong> আছে। এটি <strong>OFF</strong> করলে ওয়েবসাইটে বা টেলিগ্রাম বটে কোনো প্যাকেজ বা Redeem অপশন শো করবে না।
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="toggle-redeem-service-btn" type="button"
+              class="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-red-600/25">
+              🔴 Turn OFF Redeem &amp; Package Service
+            </button>
+          </div>
+        </section>
+
         <!-- ROW 1: ADMIN REDEEM CODE GENERATOR + ACTIVE REDEEM CODES LIST -->
         <section class="p-4 sm:p-6 rounded-2xl border border-amber-500/40 bg-gradient-to-b from-amber-950/20 to-zinc-950 space-y-5">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-4">
@@ -6376,13 +6399,14 @@ service cloud.firestore {
       pkgsListWrap.innerHTML = '';
       const merged = { ...fallbackPkgsMap, ...primaryPkgsMap };
       const list = Object.entries(merged)
-        .filter(([id, item]) => id !== 'botAuthToken' && item && typeof item === 'object' && item.active !== false)
+        .filter(([id, item]) => id !== 'botAuthToken' && item && typeof item === 'object')
         .map(([id, item]) => ({
           id,
           name: item?.name || 'VIP Package',
           price: item?.price || '৳50',
           durationHours: Number(item?.durationHours) || 24,
           durationLabel: item?.durationLabel || `${item?.durationHours || 24} Hours`,
+          active: item?.active !== false,
         }))
         .sort((a, b) => a.durationHours - b.durationHours);
 
@@ -6393,22 +6417,65 @@ service cloud.firestore {
         return;
       }
 
-      if (pkgsCountBadge) pkgsCountBadge.textContent = `${list.length} packages`;
+      const activeCount = list.filter((p) => p.active).length;
+      if (pkgsCountBadge) pkgsCountBadge.textContent = `${activeCount}/${list.length} active`;
 
       list.forEach((p) => {
         const row = document.createElement('div');
-        row.className =
-          'p-2.5 rounded-xl border border-zinc-800 bg-zinc-950/90 flex items-center justify-between gap-2 text-xs';
+        row.className = `p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${
+          p.active
+            ? 'border-zinc-800 bg-zinc-950/90'
+            : 'border-red-900/40 bg-zinc-950/40 opacity-65'
+        }`;
         row.innerHTML = `
           <div>
-            <p class="font-bold text-white">${p.name} <span class="text-emerald-400 font-mono ml-1">${p.price}</span></p>
+            <p class="font-bold text-white">
+              ${p.name}
+              <span class="text-emerald-400 font-mono ml-1">${p.price}</span>
+              <span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                p.active ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60' : 'bg-red-950 text-red-300 border border-red-800/60'
+              }">${p.active ? 'ON' : 'OFF'}</span>
+            </p>
             <p class="text-[11px] text-zinc-400 font-mono">⏱️ ${p.durationLabel} (${p.durationHours} Hours)</p>
           </div>
-          <button type="button" data-del-pkg="${p.id}"
-            class="px-2.5 py-1 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-semibold cursor-pointer">
-            🗑️ Delete
-          </button>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" data-toggle-pkg="${p.id}"
+              class="px-2.5 py-1 rounded-lg ${
+                p.active
+                  ? 'bg-amber-950/70 hover:bg-amber-900 border border-amber-700/60 text-amber-300'
+                  : 'bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300'
+              } text-[11px] font-semibold cursor-pointer">
+              ${p.active ? '🔴 Turn OFF' : '🟢 Turn ON'}
+            </button>
+            <button type="button" data-del-pkg="${p.id}"
+              class="px-2.5 py-1 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-semibold cursor-pointer">
+              🗑️ Delete
+            </button>
+          </div>
         `;
+        row.querySelector('[data-toggle-pkg]')?.addEventListener('click', async () => {
+          try {
+            const nextActive = !p.active;
+            await Promise.all([
+              update(ref(db, `redeemPackages/${p.id}`), {
+                active: nextActive,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_storeConfig/packages/${p.id}`), {
+                active: nextActive,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }).catch(() => {}),
+            ]);
+            showStatus(
+              nextActive
+                ? `✅ প্যাকেজ "${p.name}" চালু (ON) করা হয়েছে!`
+                : `⛔ প্যাকেজ "${p.name}" বন্ধ (OFF) করা হয়েছে!`,
+              nextActive ? 'success' : 'info'
+            );
+          } catch (err) {
+            showStatus(`Toggle Error: ${err.message}`, 'error');
+          }
+        });
         row.querySelector('[data-del-pkg]')?.addEventListener('click', async () => {
           try {
             await Promise.all([
@@ -6447,6 +6514,42 @@ service cloud.firestore {
     const activateTgUploadBotBtn = document.getElementById('activate-tg-upload-bot-btn');
     const tgUploadStatusBadge = document.getElementById('tg-upload-bot-status-badge');
     const tgUploadWebhookInfo = document.getElementById('tg-upload-bot-webhook-info');
+    const redeemServiceMasterBanner = document.getElementById('redeem-service-master-banner');
+    const redeemServiceStatusPill = document.getElementById('redeem-service-status-pill');
+    const redeemServiceStatusDesc = document.getElementById('redeem-service-status-desc');
+    const toggleRedeemServiceBtn = document.getElementById('toggle-redeem-service-btn');
+
+    let isRedeemServiceEnabled = true;
+
+    const updateRedeemServiceMasterUi = (enabled) => {
+      isRedeemServiceEnabled = enabled !== false;
+      if (redeemServiceMasterBanner) {
+        redeemServiceMasterBanner.className = isRedeemServiceEnabled
+          ? 'p-4 sm:p-5 rounded-2xl border border-emerald-500/50 bg-gradient-to-r from-emerald-950/40 via-zinc-950 to-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4'
+          : 'p-4 sm:p-5 rounded-2xl border border-red-500/60 bg-gradient-to-r from-red-950/40 via-zinc-950 to-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4';
+      }
+      if (redeemServiceStatusPill) {
+        redeemServiceStatusPill.className = isRedeemServiceEnabled
+          ? 'px-2.5 py-0.5 rounded-full bg-emerald-500 text-zinc-950 text-[11px] font-extrabold tracking-wide'
+          : 'px-2.5 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-extrabold tracking-wide';
+        redeemServiceStatusPill.textContent = isRedeemServiceEnabled
+          ? '🟢 SERVICE ON (ACTIVE)'
+          : '🔴 SERVICE OFF (DISABLED)';
+      }
+      if (redeemServiceStatusDesc) {
+        redeemServiceStatusDesc.innerHTML = isRedeemServiceEnabled
+          ? 'বর্তমানে ওয়েবসাইট এবং টেলিগ্রাম বটে Redeem Code ও VIP Package সার্ভিসটি <strong>চালু (ON)</strong> আছে। এটি <strong>OFF</strong> করলে ওয়েবসাইটে বা টেলিগ্রাম বটে কোনো প্যাকেজ বা Redeem অপশন শো করবে না।'
+          : '⛔ বর্তমানে ওয়েবসাইট এবং টেলিগ্রাম বটে Redeem Code ও VIP Package সার্ভিসটি <strong>বন্ধ (OFF)</strong> করে রাখা হয়েছে। ওয়েবসাইটে বা বটে কোনো প্যাকেজ শো করছে না।';
+      }
+      if (toggleRedeemServiceBtn) {
+        toggleRedeemServiceBtn.className = isRedeemServiceEnabled
+          ? 'px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-red-600/25'
+          : 'px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-emerald-600/25';
+        toggleRedeemServiceBtn.textContent = isRedeemServiceEnabled
+          ? '🔴 Turn OFF Redeem & Package Service'
+          : '🟢 Turn ON Redeem & Package Service';
+      }
+    };
 
     const TG_STORE_LOCAL_KEY = 'xtube_tg_store_cfg_v3';
 
@@ -6469,6 +6572,9 @@ service cloud.firestore {
     const applyStoreConfigToInputs = (cfg) => {
       if (!cfg || typeof cfg !== 'object') return;
       saveLocalStoreConfig(cfg);
+      if (cfg.serviceEnabled !== undefined) {
+        updateRedeemServiceMasterUi(cfg.serviceEnabled !== false);
+      }
       if (cfg.botToken && String(cfg.botToken).includes(':')) {
         cachedStoreBotToken = String(cfg.botToken).trim();
         if (tgUploadTokenInput && tgUploadTokenInput.value !== cachedStoreBotToken) {
@@ -6501,6 +6607,34 @@ service cloud.firestore {
         tgUploadWebhookInfo.textContent = `✅ Saved Bot: @${cfg.botUsername || 'Ready'} | bKash: ${cfg.bkashNumber || 'Not Set'} | Nagad: ${cfg.nagadNumber || 'Not Set'}`;
       }
     };
+
+    if (toggleRedeemServiceBtn) {
+      toggleRedeemServiceBtn.addEventListener('click', async () => {
+        const nextEnabled = !isRedeemServiceEnabled;
+        updateRedeemServiceMasterUi(nextEnabled);
+        const patch = {
+          serviceEnabled: nextEnabled,
+          updatedAt: Date.now(),
+          botAuthToken: 'xtube_tg_bot_2026',
+        };
+        saveLocalStoreConfig(patch);
+        try {
+          await Promise.all([
+            update(ref(db, 'settings/telegramUploadBot'), patch).catch(() => {}),
+            update(ref(db, 'telegramBotSessions/_storeConfig'), patch).catch(() => {}),
+            update(ref(db, 'redeemStoreConfig'), patch).catch(() => {}),
+          ]);
+          showStatus(
+            nextEnabled
+              ? '🟢 Redeem Code & Package Service চালু (ON) করা হয়েছে! এখন ওয়েবসাইটে ও বটে প্যাকেজ শো করবে।'
+              : '🔴 Redeem Code & Package Service বন্ধ (OFF) করা হয়েছে! এখন ওয়েবসাইটে বা বটে কোনো প্যাকেজ শো করবে না।',
+            nextEnabled ? 'success' : 'info'
+          );
+        } catch (err) {
+          showStatus(`Toggle Error: ${err.message}`, 'error');
+        }
+      });
+    }
 
     // 1. Immediately restore from localStorage so refresh NEVER loses Bot Token
     applyStoreConfigToInputs(getSavedLocalStoreConfig());
@@ -6539,6 +6673,7 @@ service cloud.firestore {
         nagadNumber: nagadNumber || 'Not Set',
         paymentNote,
         domain,
+        serviceEnabled: isRedeemServiceEnabled,
         updatedAt: Date.now(),
         botAuthToken: 'xtube_tg_bot_2026',
       };
@@ -6657,6 +6792,7 @@ service cloud.firestore {
             nagadNumber,
             paymentNote,
             domain: domainBase,
+            serviceEnabled: isRedeemServiceEnabled,
             updatedAt: Date.now(),
             botAuthToken: 'xtube_tg_bot_2026',
           };
