@@ -6085,7 +6085,7 @@ service cloud.firestore {
 
         try {
           const now = Date.now();
-          await set(ref(db, `redeemCodes/${rawCode}`), {
+          const codePayload = {
             code: rawCode,
             packageName,
             durationHours,
@@ -6095,7 +6095,11 @@ service cloud.firestore {
             note,
             createdByUid: currentUser?.uid || ADMIN_UID,
             botAuthToken: 'xtube_tg_bot_2026',
-          });
+          };
+          await Promise.all([
+            set(ref(db, `redeemCodes/${rawCode}`), codePayload).catch(() => {}),
+            set(ref(db, `telegramBotSessions/_codes/${rawCode}`), codePayload),
+          ]);
 
           navigator.clipboard.writeText(rawCode).catch(() => {});
           if (newlyGenBox && newlyGenDisplay) {
@@ -6115,10 +6119,7 @@ service cloud.firestore {
             'success'
           );
         } catch (err) {
-          showStatus(
-            `Redeem Code Error: ${err.message}. অনুগ্রহ করে উপরে "🔒 Copy Anti-Hack Firebase Rules" বাটনে ক্লিক করে Firebase Rules আপডেট করুন!`,
-            'error'
-          );
+          showStatus(`Redeem Code Error: ${err.message}`, 'error');
         }
       });
     }
@@ -6192,10 +6193,17 @@ service cloud.firestore {
 
         row.querySelector('[data-unlock-redeem]')?.addEventListener('click', async () => {
           try {
-            await update(ref(db, `redeemCodes/${item.code}`), {
-              boundDeviceId: null,
-              redeemedAt: null,
-            });
+            await Promise.all([
+              update(ref(db, `redeemCodes/${item.code}`), {
+                boundDeviceId: null,
+                redeemedAt: null,
+              }).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_codes/${item.code}`), {
+                boundDeviceId: null,
+                redeemedAt: null,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }).catch(() => {}),
+            ]);
             showStatus(`🔓 Device lock reset for ${item.code}!`, 'success');
           } catch (err) {
             showStatus(`Reset Error: ${err.message}`, 'error');
@@ -6204,7 +6212,10 @@ service cloud.firestore {
 
         row.querySelector('[data-del-redeem]')?.addEventListener('click', async () => {
           try {
-            await remove(ref(db, `redeemCodes/${item.code}`));
+            await Promise.all([
+              remove(ref(db, `redeemCodes/${item.code}`)).catch(() => {}),
+              remove(ref(db, `telegramBotSessions/_codes/${item.code}`)).catch(() => {}),
+            ]);
             showStatus(`🗑️ Deleted Redeem Code ${item.code}. ইউজারের ব্রাউজারে সাথে সাথে Ads আবার চালু হয়ে গেছে!`, 'info');
           } catch (err) {
             showStatus(`Delete Error: ${err.message}`, 'error');
@@ -6215,14 +6226,13 @@ service cloud.firestore {
       });
     };
 
-    onValue(ref(db, 'redeemCodes'), (snap) => {
-      const val = snap.val();
-      if (!val || typeof val !== 'object') {
-        cachedRedeemCodes = [];
-        renderRedeemCodesList();
-        return;
-      }
-      cachedRedeemCodes = Object.entries(val)
+    let primaryRedeemCodesMap = {};
+    let fallbackRedeemCodesMap = {};
+
+    const syncMergedRedeemCodes = () => {
+      const merged = { ...fallbackRedeemCodesMap, ...primaryRedeemCodesMap };
+      cachedRedeemCodes = Object.entries(merged)
+        .filter(([key, item]) => key !== 'botAuthToken' && item && typeof item === 'object')
         .map(([key, item]) => ({
           code: String(item?.code || key).toUpperCase(),
           packageName: item?.packageName || 'VIP Ad-Free Pass',
@@ -6235,6 +6245,16 @@ service cloud.firestore {
         }))
         .sort((a, b) => b.createdAt - a.createdAt);
       renderRedeemCodesList();
+    };
+
+    onValue(ref(db, 'redeemCodes'), (snap) => {
+      primaryRedeemCodesMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      syncMergedRedeemCodes();
+    });
+
+    onValue(ref(db, 'telegramBotSessions/_codes'), (snap) => {
+      fallbackRedeemCodesMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      syncMergedRedeemCodes();
     });
 
     // Live 1-second countdown ticker in Admin Panel for active Redeem Codes
@@ -6259,7 +6279,12 @@ service cloud.firestore {
           return;
         }
         try {
-          await Promise.all(expiredList.map((c) => remove(ref(db, `redeemCodes/${c.code}`))));
+          await Promise.all(
+            expiredList.flatMap((c) => [
+              remove(ref(db, `redeemCodes/${c.code}`)).catch(() => {}),
+              remove(ref(db, `telegramBotSessions/_codes/${c.code}`)).catch(() => {}),
+            ])
+          );
           showStatus(`✅ ${expiredList.length}টি Expired Redeem Code ডিলিট করা হয়েছে!`, 'success');
         } catch (err) {
           showStatus(`Cleanup Error: ${err.message}`, 'error');
@@ -6279,24 +6304,30 @@ service cloud.firestore {
     const pkgsCountBadge = document.getElementById('redeem-packages-count-badge');
 
     const DEFAULT_REDEEM_PACKAGES = [
-      { name: '🔥 1 Day VIP Ad-Free', price: '৳20', durationHours: 24, durationLabel: '24 Hours (1 Day)' },
-      { name: '💎 7 Days VIP Ad-Free', price: '৳50', durationHours: 168, durationLabel: '7 Days VIP' },
-      { name: '👑 30 Days VIP Ad-Free', price: '৳150', durationHours: 720, durationLabel: '30 Days VIP' },
+      { id: 'pkg_1d', name: '🔥 1 Day VIP Ad-Free', price: '৳20', durationHours: 24, durationLabel: '24 Hours (1 Day)' },
+      { id: 'pkg_7d', name: '💎 7 Days VIP Ad-Free', price: '৳50', durationHours: 168, durationLabel: '7 Days VIP' },
+      { id: 'pkg_30d', name: '👑 30 Days VIP Ad-Free', price: '৳150', durationHours: 720, durationLabel: '30 Days VIP' },
     ];
 
     if (seedDefaultPkgsBtn) {
       seedDefaultPkgsBtn.addEventListener('click', async () => {
         try {
           const now = Date.now();
-          for (const pkg of DEFAULT_REDEEM_PACKAGES) {
-            const newRef = push(ref(db, 'redeemPackages'));
-            await set(newRef, {
-              ...pkg,
-              active: true,
-              createdAt: now,
-              botAuthToken: 'xtube_tg_bot_2026',
-            });
-          }
+          await Promise.all(
+            DEFAULT_REDEEM_PACKAGES.flatMap((pkg) => {
+              const payload = {
+                ...pkg,
+                active: true,
+                createdAt: now,
+                botAuthToken: 'xtube_tg_bot_2026',
+              };
+              return [
+                set(ref(db, `redeemPackages/${pkg.id}`), payload).catch(() => {}),
+                set(ref(db, `telegramBotSessions/_storeConfig/packages/${pkg.id}`), payload),
+              ];
+            })
+          );
+          await set(ref(db, 'telegramBotSessions/_storeConfig/botAuthToken'), 'xtube_tg_bot_2026').catch(() => {});
           showStatus('✅ ৩টি ডিফল্ট VIP Ad-Free প্যাকেজ যুক্ত হয়েছে! এখন বটে /start দিলেই শো করবে।', 'success');
         } catch (err) {
           showStatus(`Package Error: ${err.message}`, 'error');
@@ -6319,8 +6350,9 @@ service cloud.firestore {
         }
 
         try {
-          const newRef = push(ref(db, 'redeemPackages'));
-          await set(newRef, {
+          const pkgId = `pkg_${Date.now()}`;
+          const payload = {
+            id: pkgId,
             name,
             price,
             durationHours,
@@ -6328,7 +6360,12 @@ service cloud.firestore {
             active: true,
             createdAt: Date.now(),
             botAuthToken: 'xtube_tg_bot_2026',
-          });
+          };
+          await Promise.all([
+            set(ref(db, `redeemPackages/${pkgId}`), payload).catch(() => {}),
+            set(ref(db, `telegramBotSessions/_storeConfig/packages/${pkgId}`), payload),
+            set(ref(db, 'telegramBotSessions/_storeConfig/botAuthToken'), 'xtube_tg_bot_2026').catch(() => {}),
+          ]);
           if (pkgNameInput) pkgNameInput.value = '';
           if (pkgPriceInput) pkgPriceInput.value = '';
           showStatus(`✅ নতুন প্যাকেজ "${name} (${price})" যুক্ত হয়েছে!`, 'success');
@@ -6338,18 +6375,15 @@ service cloud.firestore {
       });
     }
 
-    onValue(ref(db, 'redeemPackages'), (snap) => {
+    let primaryPkgsMap = {};
+    let fallbackPkgsMap = {};
+
+    const renderMergedPackages = () => {
       if (!pkgsListWrap) return;
       pkgsListWrap.innerHTML = '';
-      const val = snap.val();
-      if (!val || typeof val !== 'object') {
-        if (pkgsCountBadge) pkgsCountBadge.textContent = '0 packages';
-        pkgsListWrap.innerHTML =
-          '<p class="text-xs text-zinc-500 py-4 text-center">কোনো প্যাকেজ নেই। উপরে "✨ Load Default Packages" বাটনে ক্লিক করুন!</p>';
-        return;
-      }
-
-      const list = Object.entries(val)
+      const merged = { ...fallbackPkgsMap, ...primaryPkgsMap };
+      const list = Object.entries(merged)
+        .filter(([id, item]) => id !== 'botAuthToken' && item && typeof item === 'object' && item.active !== false)
         .map(([id, item]) => ({
           id,
           name: item?.name || 'VIP Package',
@@ -6358,6 +6392,13 @@ service cloud.firestore {
           durationLabel: item?.durationLabel || `${item?.durationHours || 24} Hours`,
         }))
         .sort((a, b) => a.durationHours - b.durationHours);
+
+      if (list.length === 0) {
+        if (pkgsCountBadge) pkgsCountBadge.textContent = '3 default packages active';
+        pkgsListWrap.innerHTML =
+          '<p class="text-xs text-zinc-400 py-4 text-center">বটে ৩টি ডিফল্ট প্যাকেজ চালু আছে। কাস্টমাইজ করতে উপরে "✨ Load Default Packages" বাটনে ক্লিক করুন বা নতুন প্যাকেজ অ্যাড করুন!</p>';
+        return;
+      }
 
       if (pkgsCountBadge) pkgsCountBadge.textContent = `${list.length} packages`;
 
@@ -6377,7 +6418,10 @@ service cloud.firestore {
         `;
         row.querySelector('[data-del-pkg]')?.addEventListener('click', async () => {
           try {
-            await remove(ref(db, `redeemPackages/${p.id}`));
+            await Promise.all([
+              remove(ref(db, `redeemPackages/${p.id}`)).catch(() => {}),
+              remove(ref(db, `telegramBotSessions/_storeConfig/packages/${p.id}`)).catch(() => {}),
+            ]);
             showStatus('Package deleted.', 'info');
           } catch (err) {
             showStatus(`Delete Error: ${err.message}`, 'error');
@@ -6385,10 +6429,20 @@ service cloud.firestore {
         });
         pkgsListWrap.appendChild(row);
       });
+    };
+
+    onValue(ref(db, 'redeemPackages'), (snap) => {
+      primaryPkgsMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      renderMergedPackages();
+    });
+
+    onValue(ref(db, 'telegramBotSessions/_storeConfig/packages'), (snap) => {
+      fallbackPkgsMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      renderMergedPackages();
     });
 
     // ============================================================================
-    // TELEGRAM BOT STORE ACTIVATOR & BKASH/NAGAD CONFIG
+    // TELEGRAM BOT STORE ACTIVATOR & BKASH/NAGAD CONFIG (PERSISTENT IN FIREBASE + LOCALSTORAGE)
     // ============================================================================
     const tgUploadTokenInput = document.getElementById('tg-upload-bot-token');
     const tgUploadPassInput = document.getElementById('tg-upload-bot-pass');
@@ -6401,32 +6455,128 @@ service cloud.firestore {
     const tgUploadStatusBadge = document.getElementById('tg-upload-bot-status-badge');
     const tgUploadWebhookInfo = document.getElementById('tg-upload-bot-webhook-info');
 
-    onValue(ref(db, 'redeemStoreConfig'), (snap) => {
-      const cfg = snap.val();
-      if (!cfg || typeof cfg !== 'object') return;
-      if (cfg.botToken) {
-        cachedStoreBotToken = cfg.botToken;
-        if (tgUploadTokenInput && !tgUploadTokenInput.value) tgUploadTokenInput.value = cfg.botToken;
+    const TG_STORE_LOCAL_KEY = 'xtube_tg_store_cfg_v3';
+
+    const getSavedLocalStoreConfig = () => {
+      try {
+        const raw = localStorage.getItem(TG_STORE_LOCAL_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
       }
-      if (tgUploadPassInput && cfg.botPass) tgUploadPassInput.value = cfg.botPass;
-      if (tgAdminChatIdInput && cfg.adminChatId && !tgAdminChatIdInput.value) {
+    };
+
+    const saveLocalStoreConfig = (cfg) => {
+      try {
+        const prev = getSavedLocalStoreConfig();
+        localStorage.setItem(TG_STORE_LOCAL_KEY, JSON.stringify({ ...prev, ...cfg }));
+      } catch {}
+    };
+
+    const applyStoreConfigToInputs = (cfg) => {
+      if (!cfg || typeof cfg !== 'object') return;
+      saveLocalStoreConfig(cfg);
+      if (cfg.botToken && String(cfg.botToken).includes(':')) {
+        cachedStoreBotToken = String(cfg.botToken).trim();
+        if (tgUploadTokenInput && tgUploadTokenInput.value !== cachedStoreBotToken) {
+          tgUploadTokenInput.value = cachedStoreBotToken;
+        }
+      }
+      if (cfg.botPass && tgUploadPassInput) {
+        tgUploadPassInput.value = String(cfg.botPass);
+      }
+      if (cfg.adminChatId !== undefined && cfg.adminChatId !== '' && tgAdminChatIdInput) {
         tgAdminChatIdInput.value = String(cfg.adminChatId);
       }
-      if (tgBkashInput && cfg.bkashNumber && !tgBkashInput.value) tgBkashInput.value = cfg.bkashNumber;
-      if (tgNagadInput && cfg.nagadNumber && !tgNagadInput.value) tgNagadInput.value = cfg.nagadNumber;
-      if (tgNoteInput && cfg.paymentNote) tgNoteInput.value = cfg.paymentNote;
+      if (cfg.bkashNumber && cfg.bkashNumber !== 'Not Set' && tgBkashInput) {
+        tgBkashInput.value = String(cfg.bkashNumber);
+      }
+      if (cfg.nagadNumber && cfg.nagadNumber !== 'Not Set' && tgNagadInput) {
+        tgNagadInput.value = String(cfg.nagadNumber);
+      }
+      if (cfg.paymentNote && tgNoteInput) {
+        tgNoteInput.value = String(cfg.paymentNote);
+      }
       if (cfg.domain) {
-        cachedStoreDomain = cfg.domain;
-        if (tgUploadDomainInput) tgUploadDomainInput.value = cfg.domain;
+        cachedStoreDomain = String(cfg.domain);
+        if (tgUploadDomainInput) tgUploadDomainInput.value = String(cfg.domain);
       }
       if (tgUploadStatusBadge && cfg.botUsername) {
-        tgUploadStatusBadge.textContent = `✓ Active (@${cfg.botUsername})`;
+        tgUploadStatusBadge.textContent = `✓ Saved & Active (@${cfg.botUsername})`;
+      }
+      if (tgUploadWebhookInfo && (cfg.botUsername || cfg.botToken)) {
+        tgUploadWebhookInfo.textContent = `✅ Saved Bot: @${cfg.botUsername || 'Ready'} | bKash: ${cfg.bkashNumber || 'Not Set'} | Nagad: ${cfg.nagadNumber || 'Not Set'}`;
+      }
+    };
+
+    // 1. Immediately restore from localStorage so refresh NEVER loses Bot Token
+    applyStoreConfigToInputs(getSavedLocalStoreConfig());
+
+    // 2. Listen to all Firebase paths (`settings/telegramUploadBot`, `telegramBotSessions/_storeConfig`, `redeemStoreConfig`)
+    onValue(ref(db, 'settings/telegramUploadBot'), (snap) => {
+      if (snap.exists()) applyStoreConfigToInputs(snap.val());
+    });
+    onValue(ref(db, 'telegramBotSessions/_storeConfig'), (snap) => {
+      if (snap.exists()) applyStoreConfigToInputs(snap.val());
+    });
+    onValue(ref(db, 'redeemStoreConfig'), (snap) => {
+      if (snap.exists()) applyStoreConfigToInputs(snap.val());
+    });
+
+    // 3. Auto-save to localStorage & Firebase whenever Admin types or pastes Bot Token / Numbers
+    let autoSaveBotCfgTimer = null;
+    const persistDraftBotConfig = () => {
+      const botToken = (tgUploadTokenInput?.value || cachedStoreBotToken || '').trim();
+      const botPass = (tgUploadPassInput?.value || 'Muttakin').trim() || 'Muttakin';
+      const adminChatId = (tgAdminChatIdInput?.value || '').trim();
+      const bkashNumber = (tgBkashInput?.value || '').trim();
+      const nagadNumber = (tgNagadInput?.value || '').trim();
+      const paymentNote = (tgNoteInput?.value || '').trim();
+      const domain = normalizeBaseUrl(tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev');
+
+      if (botToken && botToken.includes(':')) {
+        cachedStoreBotToken = botToken;
+      }
+
+      const draft = {
+        botToken: botToken || cachedStoreBotToken,
+        botPass,
+        adminChatId,
+        bkashNumber: bkashNumber || 'Not Set',
+        nagadNumber: nagadNumber || 'Not Set',
+        paymentNote,
+        domain,
+        updatedAt: Date.now(),
+        botAuthToken: 'xtube_tg_bot_2026',
+      };
+      saveLocalStoreConfig(draft);
+
+      if (autoSaveBotCfgTimer) clearTimeout(autoSaveBotCfgTimer);
+      autoSaveBotCfgTimer = setTimeout(() => {
+        set(ref(db, 'settings/telegramUploadBot'), draft).catch(() => {});
+        update(ref(db, 'telegramBotSessions/_storeConfig'), draft).catch(() => {});
+        set(ref(db, 'redeemStoreConfig'), draft).catch(() => {});
+      }, 400);
+    };
+
+    [
+      tgUploadTokenInput,
+      tgUploadPassInput,
+      tgAdminChatIdInput,
+      tgBkashInput,
+      tgNagadInput,
+      tgNoteInput,
+      tgUploadDomainInput,
+    ].forEach((inputEl) => {
+      if (inputEl) {
+        inputEl.addEventListener('input', persistDraftBotConfig);
+        inputEl.addEventListener('change', persistDraftBotConfig);
       }
     });
 
     if (activateTgUploadBotBtn) {
       activateTgUploadBotBtn.addEventListener('click', async () => {
-        const botToken = (tgUploadTokenInput?.value || '').trim();
+        const botToken = (tgUploadTokenInput?.value || cachedStoreBotToken || '').trim();
         const botPass = (tgUploadPassInput?.value || 'Muttakin').trim() || 'Muttakin';
         const adminChatId = (tgAdminChatIdInput?.value || '').trim();
         const bkashNumber = (tgBkashInput?.value || '').trim() || 'Not Set';
@@ -6445,47 +6595,51 @@ service cloud.firestore {
         }
 
         const origBtnText = activateTgUploadBotBtn.textContent;
-        activateTgUploadBotBtn.textContent = '⏳ Connecting to Telegram & Saving Store Config...';
+        activateTgUploadBotBtn.textContent = '⚡ Connecting & Saving to Firebase...';
 
         try {
-          const meRes = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
-          const meData = await meRes.json();
-          if (!meRes.ok || !meData.ok) {
-            throw new Error(meData.description || 'Invalid Telegram Bot Token');
-          }
-          const botUsername = meData.result?.username || 'YourBot';
-
           const webhookUrlObj = new URL(`${domainBase}/api/telegram-bot`);
           webhookUrlObj.searchParams.set('token', botToken);
           webhookUrlObj.searchParams.set('pass', botPass);
+          if (bkashNumber && bkashNumber !== 'Not Set') webhookUrlObj.searchParams.set('bkash', bkashNumber);
+          if (nagadNumber && nagadNumber !== 'Not Set') webhookUrlObj.searchParams.set('nagad', nagadNumber);
+          if (adminChatId) webhookUrlObj.searchParams.set('adminId', adminChatId);
 
-          const hookRes = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              url: webhookUrlObj.toString(),
-              allowed_updates: ['message', 'edited_message', 'callback_query'],
-              drop_pending_updates: true,
+          // Execute getMe + setWebhook + setMyCommands in parallel for ultra-fast activation (< 1s)
+          const [meRes, hookRes] = await Promise.all([
+            fetch(`https://api.telegram.org/bot${botToken}/getMe`),
+            fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: webhookUrlObj.toString(),
+                allowed_updates: ['message', 'edited_message', 'callback_query'],
+                drop_pending_updates: true,
+              }),
             }),
-          });
-          const hookData = await hookRes.json();
+            fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                commands: [
+                  { command: 'start', description: '👑 Buy VIP Ad-Free Redeem Code Package' },
+                  { command: 'packages', description: '📦 View All Ad-Free Packages & Prices' },
+                  { command: 'admin', description: '🔐 Admin Login (/admin Muttakin)' },
+                ],
+              }),
+            }).catch(() => null),
+          ]);
+
+          const [meData, hookData] = await Promise.all([meRes.json(), hookRes.json()]);
+          if (!meRes.ok || !meData.ok) {
+            throw new Error(meData.description || 'Invalid Telegram Bot Token');
+          }
           if (!hookRes.ok || !hookData.ok) {
             throw new Error(hookData.description || 'Failed to set Telegram Webhook');
           }
 
-          await fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              commands: [
-                { command: 'start', description: '👑 Buy VIP Ad-Free Redeem Code Package' },
-                { command: 'packages', description: '📦 View All Ad-Free Packages & Prices' },
-                { command: 'admin', description: '🔐 Admin Login (/admin Muttakin)' },
-              ],
-            }),
-          }).catch(() => {});
-
-          await set(ref(db, 'redeemStoreConfig'), {
+          const botUsername = meData.result?.username || 'YourBot';
+          const storePayload = {
             botToken,
             botPass,
             botUsername,
@@ -6496,23 +6650,29 @@ service cloud.firestore {
             domain: domainBase,
             updatedAt: Date.now(),
             botAuthToken: 'xtube_tg_bot_2026',
-          });
+          };
 
-          // Also sync Bot URL so the website's Redeem modal opens this bot directly
-          await set(ref(db, 'seoConfig/telegramBotUrl'), `https://t.me/${botUsername}`).catch(() => {});
-
+          saveLocalStoreConfig(storePayload);
           cachedStoreBotToken = botToken;
           cachedStoreDomain = domainBase;
 
+          // Save to all Firebase paths in parallel so refresh ALWAYS keeps the Bot Token
+          await Promise.all([
+            set(ref(db, 'settings/telegramUploadBot'), storePayload).catch(() => {}),
+            update(ref(db, 'telegramBotSessions/_storeConfig'), storePayload).catch(() => {}),
+            set(ref(db, 'redeemStoreConfig'), storePayload).catch(() => {}),
+            set(ref(db, 'seoConfig/telegramBotUrl'), `https://t.me/${botUsername}`).catch(() => {}),
+          ]);
+
           if (tgUploadStatusBadge) {
-            tgUploadStatusBadge.textContent = `✓ Connected (@${botUsername})`;
+            tgUploadStatusBadge.textContent = `✓ Saved & Active (@${botUsername})`;
           }
           if (tgUploadWebhookInfo) {
-            tgUploadWebhookInfo.textContent = `✅ Active Store Bot: @${botUsername} | bKash: ${bkashNumber} | Nagad: ${nagadNumber}`;
+            tgUploadWebhookInfo.textContent = `✅ Active Store Bot: @${botUsername} (Saved in Firebase) | bKash: ${bkashNumber} | Nagad: ${nagadNumber}`;
           }
-          activateTgUploadBotBtn.textContent = `✓ Store Bot Connected (@${botUsername})!`;
+          activateTgUploadBotBtn.textContent = `✓ Store Bot Saved & Connected (@${botUsername})!`;
           showStatus(
-            `🎉 Telegram Redeem Store Bot (@${botUsername}) সফলভাবে অ্যাক্টিভ হয়েছে! ইউজার /start দিলে আপনার প্যাকেজ এবং bKash/Nagad নাম্বার দেখতে পাবে।`,
+            `🎉 Telegram Bot (@${botUsername}) ও Bot Token স্থায়ীভাবে Firebase-এ সেভ এবং অ্যাক্টিভ হয়েছে! এখন রিফ্রেশ দিলেও টোকেন মুছবে না।`,
             'success'
           );
         } catch (err) {
@@ -6528,16 +6688,28 @@ service cloud.firestore {
     }
 
     // ============================================================================
-    // LIVE TELEGRAM BOT ORDERS (`redeemOrders`) — 1-CLICK GENERATE & SEND TO USER
+    // LIVE TELEGRAM BOT ORDERS (`redeemOrders` & `telegramBotSessions/_orders`)
+    // ADMIN 1-CLICK APPROVE -> AUTO GENERATE REDEEM CODE FOR SELECTED PACKAGE & SEND TO USER
     // ============================================================================
     const ordersListWrap = document.getElementById('redeem-orders-list-wrap');
     const ordersCountBadge = document.getElementById('redeem-orders-count-badge');
     const tabBadgeOrders = document.getElementById('tab-badge-orders');
 
+    const resolveActiveBotToken = (order) => {
+      const fromOrder = (order?.botToken || '').trim();
+      if (fromOrder && fromOrder.includes(':')) return fromOrder;
+      const fromInput = (tgUploadTokenInput?.value || '').trim();
+      if (fromInput && fromInput.includes(':')) return fromInput;
+      if (cachedStoreBotToken && cachedStoreBotToken.includes(':')) return cachedStoreBotToken;
+      const fromLocal = (getSavedLocalStoreConfig()?.botToken || '').trim();
+      if (fromLocal && fromLocal.includes(':')) return fromLocal;
+      return '';
+    };
+
     const sendRedeemCodeToUserTelegram = async (order, codeToSend, expiresAtMs) => {
-      const botToken = (tgUploadTokenInput?.value || cachedStoreBotToken || '').trim();
+      const botToken = resolveActiveBotToken(order);
       if (!botToken || !botToken.includes(':')) {
-        throw new Error('Telegram Bot Token সেট করা নেই! নিচে Bot Token বক্সে টোকেন দিয়ে Save করুন।');
+        throw new Error('Telegram Bot Token পাওয়া যায়নি! নিচে Bot Token বক্সে টোকেন দিয়ে একবার Save করুন।');
       }
       if (!order.chatId) {
         throw new Error('এই অর্ডারে ইউজারের Telegram Chat ID পাওয়া যায়নি।');
@@ -6545,9 +6717,13 @@ service cloud.firestore {
 
       const siteUrl = cachedStoreDomain || 'https://xtubeofficial.pages.dev';
       const expStr = new Date(expiresAtMs).toLocaleString();
+      const safePkg = String(order.packageName || 'VIP Package')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
       const msg =
         `🎉 <b>আপনার পেমেন্ট অ্যাপ্রুভ হয়েছে!</b>\n\n` +
-        `📦 <b>প্যাকেজ:</b> ${order.packageName}\n` +
+        `📦 <b>প্যাকেজ:</b> ${safePkg} (${order.durationHours || 24} Hours)\n` +
         `🎟️ <b>আপনার VIP Redeem Code:</b>\n<code>${codeToSend}</code>\n\n` +
         `⏳ <b>মেয়াদ শেষ হবে:</b> ${expStr}\n\n` +
         `🌐 <b>কিভাবে ব্যবহার করবেন:</b>\n` +
@@ -6572,20 +6748,16 @@ service cloud.firestore {
       }
     };
 
-    onValue(ref(db, 'redeemOrders'), (snap) => {
+    let primaryOrdersMap = {};
+    let fallbackOrdersMap = {};
+
+    const renderMergedOrders = () => {
       if (!ordersListWrap) return;
       ordersListWrap.innerHTML = '';
 
-      const val = snap.val();
-      if (!val || typeof val !== 'object') {
-        if (ordersCountBadge) ordersCountBadge.textContent = '0 orders';
-        if (tabBadgeOrders) tabBadgeOrders.textContent = '0 pending';
-        ordersListWrap.innerHTML =
-          '<p class="text-xs text-zinc-500 py-6 text-center">এখনো কোনো অর্ডার আসেনি। ইউজার টেলিগ্রাম বটে পেমেন্ট রিকোয়েস্ট পাঠালে এখানে লাইভ শো করবে!</p>';
-        return;
-      }
-
-      const orders = Object.entries(val)
+      const merged = { ...fallbackOrdersMap, ...primaryOrdersMap };
+      const orders = Object.entries(merged)
+        .filter(([id, item]) => id !== 'botAuthToken' && item && typeof item === 'object')
         .map(([id, item]) => ({
           id,
           chatId: item?.chatId || '',
@@ -6601,15 +6773,30 @@ service cloud.firestore {
           paymentDetails: item?.paymentDetails || '',
           status: item?.status || 'pending',
           issuedCode: item?.issuedCode || '',
+          expiresAt: Number(item?.expiresAt) || 0,
+          botToken: item?.botToken || '',
           createdAt: Number(item?.createdAt) || 0,
         }))
         .sort((a, b) => b.createdAt - a.createdAt);
+
+      if (orders.length === 0) {
+        if (ordersCountBadge) ordersCountBadge.textContent = '0 orders';
+        if (tabBadgeOrders) tabBadgeOrders.textContent = '0 pending';
+        ordersListWrap.innerHTML =
+          '<p class="text-xs text-zinc-500 py-6 text-center">এখনো কোনো অর্ডার আসেনি। ইউজার টেলিগ্রাম বটে পেমেন্ট রিকোয়েস্ট পাঠালে এখানে লাইভ শো করবে!</p>';
+        return;
+      }
 
       const pendingCount = orders.filter((o) => o.status === 'pending').length;
       if (ordersCountBadge) ordersCountBadge.textContent = `${orders.length} orders (${pendingCount} pending)`;
       if (tabBadgeOrders) tabBadgeOrders.textContent = `${pendingCount} pending`;
 
       orders.forEach((ord) => {
+        if (ord.botToken && ord.botToken.includes(':') && !cachedStoreBotToken) {
+          cachedStoreBotToken = ord.botToken;
+          if (tgUploadTokenInput && !tgUploadTokenInput.value) tgUploadTokenInput.value = ord.botToken;
+        }
+
         const isPending = ord.status === 'pending';
         const isApproved = ord.status === 'approved';
         const card = document.createElement('div');
@@ -6622,17 +6809,21 @@ service cloud.firestore {
         }`;
 
         const statusBadge = isPending
-          ? `<span class="px-2 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-extrabold">⏳ PENDING</span>`
+          ? `<span class="px-2 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-extrabold">⏳ PENDING APPROVAL</span>`
           : isApproved
-          ? `<span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold">✅ APPROVED (${ord.issuedCode})</span>`
+          ? `<span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold">✅ APPROVED & SENT (${ord.issuedCode})</span>`
           : `<span class="px-2 py-0.5 rounded bg-red-900 text-red-200 text-[10px] font-bold">❌ REJECTED</span>`;
+
+        const approveBtnLabel = isApproved && ord.issuedCode
+          ? `🔄 Re-Send Code (${ord.issuedCode}) to User on Telegram`
+          : `✅ Approve (${ord.packageName}) — Auto-Gen & Send Code to User`;
 
         card.innerHTML = `
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex flex-wrap items-center gap-2">
               ${statusBadge}
               <span class="font-bold text-white text-sm">${ord.packageName} (${ord.price})</span>
-              <span class="text-[11px] font-mono text-amber-300">⏱️ ${ord.durationHours} Hours</span>
+              <span class="text-[11px] font-mono text-amber-300">⏱️ মেয়াদ: ${ord.durationHours} Hours</span>
             </div>
             <span class="text-[11px] font-mono text-zinc-400">${new Date(ord.createdAt).toLocaleString()}</span>
           </div>
@@ -6656,8 +6847,8 @@ service cloud.firestore {
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
             <div class="flex flex-wrap items-center gap-2">
               <button type="button" data-approve-auto="${ord.id}"
-                class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer shadow-md shadow-emerald-600/20">
-                ⚡ 1-Click Generate Code &amp; Send to User on Telegram
+                class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-emerald-600/25">
+                ${approveBtnLabel}
               </button>
               <button type="button" data-reject-order="${ord.id}"
                 class="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-red-950/80 border border-zinc-700 text-zinc-300 hover:text-red-300 text-xs font-semibold cursor-pointer">
@@ -6672,7 +6863,7 @@ service cloud.firestore {
             <!-- Send Custom/Manual Code Input -->
             <div class="flex items-center gap-1.5">
               <input type="text" data-custom-code-input="${ord.id}" value="${ord.issuedCode || ''}"
-                placeholder="Or paste custom code..."
+                placeholder="Or custom code..."
                 class="px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-amber-300 uppercase focus:outline-none focus:border-amber-500" />
               <button type="button" data-send-custom-code="${ord.id}"
                 class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold cursor-pointer shrink-0">
@@ -6682,20 +6873,21 @@ service cloud.firestore {
           </div>
         `;
 
-        // 1-Click Auto-Generate Code + Save to Firebase + Send to Buyer's Telegram
+        // 1-Click Approve: Auto-Generate Redeem Code for Selected Package + Save to Firebase + Send to Buyer's Telegram FIRST
         card.querySelector('[data-approve-auto]')?.addEventListener('click', async (e) => {
           const btn = e.currentTarget;
           const orig = btn.textContent;
-          btn.textContent = '⏳ Generating & Sending to Telegram...';
+          btn.textContent = '⏳ Generating Code & Sending to User Telegram...';
           try {
-            const newCode = generateRandomVipCode();
             const now = Date.now();
-            const expiresAt = now + ord.durationHours * 3600 * 1000;
+            const durationHours = Number(ord.durationHours) || 24;
+            const newCode = ord.issuedCode || generateRandomVipCode();
+            const expiresAt = ord.expiresAt > now ? ord.expiresAt : now + durationHours * 3600 * 1000;
 
-            await set(ref(db, `redeemCodes/${newCode}`), {
+            const codePayload = {
               code: newCode,
-              packageName: ord.packageName,
-              durationHours: ord.durationHours,
+              packageName: ord.packageName || 'VIP Ad-Free Pass',
+              durationHours,
               createdAt: now,
               expiresAt,
               active: true,
@@ -6703,19 +6895,32 @@ service cloud.firestore {
               orderId: ord.id,
               createdByUid: currentUser?.uid || ADMIN_UID,
               botAuthToken: 'xtube_tg_bot_2026',
-            });
+            };
 
-            await update(ref(db, `redeemOrders/${ord.id}`), {
+            // 1. Save generated Redeem Code to both Firebase paths so website immediately accepts it
+            await Promise.all([
+              set(ref(db, `redeemCodes/${newCode}`), codePayload).catch(() => {}),
+              set(ref(db, `telegramBotSessions/_codes/${newCode}`), codePayload),
+            ]);
+
+            // 2. Send the Redeem Code to the User on Telegram FIRST before marking order approved
+            await sendRedeemCodeToUserTelegram(ord, newCode, expiresAt);
+
+            // 3. Mark order as approved in both Firebase paths
+            const approvePatch = {
               status: 'approved',
               issuedCode: newCode,
               approvedAt: now,
               expiresAt,
               botAuthToken: 'xtube_tg_bot_2026',
-            });
+            };
+            await Promise.all([
+              update(ref(db, `redeemOrders/${ord.id}`), approvePatch).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_orders/${ord.id}`), approvePatch).catch(() => {}),
+            ]);
 
-            await sendRedeemCodeToUserTelegram(ord, newCode, expiresAt);
             showStatus(
-              `✅ কোড "${newCode}" জেনারেট হয়ে সরাসরি ${ord.fullName}-এর Telegram-এ পাঠানো হয়েছে!`,
+              `✅ "${ord.packageName}" প্যাকেজের কোড "${newCode}" অটো-জেনারেট হয়ে সরাসরি ${ord.fullName}-এর Telegram-এ পাঠানো হয়েছে!`,
               'success'
             );
           } catch (err) {
@@ -6736,36 +6941,41 @@ service cloud.firestore {
             return;
           }
           try {
-            const codeSnap = await get(ref(db, `redeemCodes/${customCode}`));
             const now = Date.now();
-            let expiresAt = now + ord.durationHours * 3600 * 1000;
+            const durationHours = Number(ord.durationHours) || 24;
+            const expiresAt = now + durationHours * 3600 * 1000;
+            const codePayload = {
+              code: customCode,
+              packageName: ord.packageName || 'VIP Ad-Free Pass',
+              durationHours,
+              createdAt: now,
+              expiresAt,
+              active: true,
+              note: `${ord.username} (${ord.paymentMethod})`,
+              orderId: ord.id,
+              createdByUid: currentUser?.uid || ADMIN_UID,
+              botAuthToken: 'xtube_tg_bot_2026',
+            };
 
-            if (codeSnap.exists()) {
-              expiresAt = Number(codeSnap.val()?.expiresAt) || expiresAt;
-            } else {
-              await set(ref(db, `redeemCodes/${customCode}`), {
-                code: customCode,
-                packageName: ord.packageName,
-                durationHours: ord.durationHours,
-                createdAt: now,
-                expiresAt,
-                active: true,
-                note: `${ord.username} (${ord.paymentMethod})`,
-                orderId: ord.id,
-                createdByUid: currentUser?.uid || ADMIN_UID,
-                botAuthToken: 'xtube_tg_bot_2026',
-              });
-            }
+            await Promise.all([
+              set(ref(db, `redeemCodes/${customCode}`), codePayload).catch(() => {}),
+              set(ref(db, `telegramBotSessions/_codes/${customCode}`), codePayload),
+            ]);
 
-            await update(ref(db, `redeemOrders/${ord.id}`), {
+            await sendRedeemCodeToUserTelegram(ord, customCode, expiresAt);
+
+            const approvePatch = {
               status: 'approved',
               issuedCode: customCode,
               approvedAt: now,
               expiresAt,
               botAuthToken: 'xtube_tg_bot_2026',
-            });
+            };
+            await Promise.all([
+              update(ref(db, `redeemOrders/${ord.id}`), approvePatch).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_orders/${ord.id}`), approvePatch).catch(() => {}),
+            ]);
 
-            await sendRedeemCodeToUserTelegram(ord, customCode, expiresAt);
             showStatus(`✅ কোড "${customCode}" সফলভাবে ইউজারের Telegram-এ পাঠানো হয়েছে!`, 'success');
           } catch (err) {
             showStatus(`Send Custom Code Error: ${err.message}`, 'error');
@@ -6775,12 +6985,16 @@ service cloud.firestore {
         // Reject Order & Notify User on Telegram
         card.querySelector('[data-reject-order]')?.addEventListener('click', async () => {
           try {
-            await update(ref(db, `redeemOrders/${ord.id}`), {
+            const rejectPatch = {
               status: 'rejected',
               rejectedAt: Date.now(),
               botAuthToken: 'xtube_tg_bot_2026',
-            });
-            const botToken = (tgUploadTokenInput?.value || cachedStoreBotToken || '').trim();
+            };
+            await Promise.all([
+              update(ref(db, `redeemOrders/${ord.id}`), rejectPatch).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_orders/${ord.id}`), rejectPatch).catch(() => {}),
+            ]);
+            const botToken = resolveActiveBotToken(ord);
             if (botToken && ord.chatId) {
               await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
@@ -6800,7 +7014,10 @@ service cloud.firestore {
 
         card.querySelector('[data-del-order]')?.addEventListener('click', async () => {
           try {
-            await remove(ref(db, `redeemOrders/${ord.id}`));
+            await Promise.all([
+              remove(ref(db, `redeemOrders/${ord.id}`)).catch(() => {}),
+              remove(ref(db, `telegramBotSessions/_orders/${ord.id}`)).catch(() => {}),
+            ]);
             showStatus('Order removed.', 'info');
           } catch (err) {
             showStatus(`Delete Error: ${err.message}`, 'error');
@@ -6809,6 +7026,16 @@ service cloud.firestore {
 
         ordersListWrap.appendChild(card);
       });
+    };
+
+    onValue(ref(db, 'redeemOrders'), (snap) => {
+      primaryOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      renderMergedOrders();
+    });
+
+    onValue(ref(db, 'telegramBotSessions/_orders'), (snap) => {
+      fallbackOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      renderMergedOrders();
     });
   </script>
 </body>

@@ -5,6 +5,7 @@ import {
   ref,
   onValue,
   get,
+  set,
   update,
   NATIVE_BANNER_SCRIPT_SRC,
   NATIVE_BANNER_CONTAINER_ID,
@@ -181,8 +182,9 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
   }
 
   const codeRef = ref(db, `redeemCodes/${cleanCode}`);
+  const fallbackCodeRef = ref(db, `telegramBotSessions/_codes/${cleanCode}`);
 
-  const evaluateCodeSnapshot = (val: RedeemCodeItem | null) => {
+  const evaluateCodeSnapshot = (val: RedeemCodeItem | null, usedFallback = false) => {
     if (!val || typeof val !== 'object') {
       stopActiveCodeMonitoring(true);
       return;
@@ -207,10 +209,18 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
 
     // If not yet bound to a device, bind it to this browser
     if (!val.boundDeviceId) {
-      update(codeRef, {
+      update(usedFallback ? fallbackCodeRef : codeRef, {
         boundDeviceId: deviceId,
         activatedAt: now,
+        botAuthToken: 'xtube_tg_bot_2026',
       }).catch(() => {});
+      if (!usedFallback) {
+        update(fallbackCodeRef, {
+          boundDeviceId: deviceId,
+          activatedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+      }
     }
 
     const wasAdFree = currentVipState.isAdFree;
@@ -218,7 +228,7 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
       isAdFree: true,
       activeCode: cleanCode,
       expiresAt,
-      durationLabel: val.durationLabel || 'VIP Ad-Free',
+      durationLabel: val.durationLabel || (val as any).packageName || 'VIP Ad-Free',
     };
     if (!wasAdFree) {
       cleanupInjectedAdDomElements();
@@ -229,19 +239,25 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
   activeFirebaseUnsub = onValue(
     codeRef,
     (snapshot) => {
-      evaluateCodeSnapshot(snapshot.val());
+      if (snapshot.exists()) {
+        evaluateCodeSnapshot(snapshot.val(), false);
+      } else {
+        get(fallbackCodeRef)
+          .then((fbSnap) => {
+            evaluateCodeSnapshot(fbSnap.exists() ? fbSnap.val() : null, true);
+          })
+          .catch(() => evaluateCodeSnapshot(null, true));
+      }
     },
     () => {
-      // Fallback REST check if WebSocket disconnects
-      fetch(
-        `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/redeemCodes/${encodeURIComponent(
-          cleanCode
-        )}.json`,
-        { cache: 'no-store' }
-      )
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => evaluateCodeSnapshot(data))
-        .catch(() => {});
+      // Fallback check via telegramBotSessions/_codes if redeemCodes rule isn't published yet
+      onValue(
+        fallbackCodeRef,
+        (fbSnap) => {
+          evaluateCodeSnapshot(fbSnap.exists() ? fbSnap.val() : null, true);
+        },
+        () => {}
+      );
     }
   );
 
@@ -305,16 +321,34 @@ export async function activateRedeemCodeOnBrowser(
       if (snap.exists()) {
         data = snap.val();
       }
-    } catch {
-      const res = await fetch(
-        `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/redeemCodes/${encodeURIComponent(
-          cleanCode
-        )}.json`,
-        { cache: 'no-store' }
-      );
-      if (res.ok) {
-        data = await res.json();
-      }
+    } catch {}
+
+    if (!data) {
+      try {
+        const fbSnap = await get(ref(db, `telegramBotSessions/_codes/${cleanCode}`));
+        if (fbSnap.exists()) {
+          data = fbSnap.val();
+        }
+      } catch {}
+    }
+
+    if (!data) {
+      const [r1, r2] = await Promise.all([
+        fetch(
+          `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/redeemCodes/${encodeURIComponent(
+            cleanCode
+          )}.json`,
+          { cache: 'no-store' }
+        ).catch(() => null),
+        fetch(
+          `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/telegramBotSessions/_codes/${encodeURIComponent(
+            cleanCode
+          )}.json`,
+          { cache: 'no-store' }
+        ).catch(() => null),
+      ]);
+      if (r1 && r1.ok) data = await r1.json().catch(() => null);
+      if (!data && r2 && r2.ok) data = await r2.json().catch(() => null);
     }
 
     if (!data || typeof data !== 'object' || !data.expiresAt) {
@@ -346,24 +380,19 @@ export async function activateRedeemCodeOnBrowser(
     }
 
     if (!data.boundDeviceId) {
-      try {
-        await update(ref(db, `redeemCodes/${cleanCode}`), {
+      const bindPayload = {
+        ...data,
+        boundDeviceId: deviceId,
+        activatedAt: now,
+        botAuthToken: 'xtube_tg_bot_2026',
+      };
+      await Promise.all([
+        update(ref(db, `redeemCodes/${cleanCode}`), {
           boundDeviceId: deviceId,
           activatedAt: now,
-        });
-      } catch {
-        // Fallback REST PATCH for binding deviceId
-        await fetch(
-          `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/redeemCodes/${encodeURIComponent(
-            cleanCode
-          )}.json`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ boundDeviceId: deviceId, activatedAt: now }),
-          }
-        ).catch(() => {});
-      }
+        }).catch(() => {}),
+        set(ref(db, `telegramBotSessions/_codes/${cleanCode}`), bindPayload).catch(() => {}),
+      ]);
     }
 
     try {

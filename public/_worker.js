@@ -438,6 +438,12 @@ export default {
           });
         }
 
+        const escHtml = (str) =>
+          String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
         const tgApi = async (method, payload) => {
           const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
             method: 'POST',
@@ -447,23 +453,67 @@ export default {
           return res.json().catch(() => ({}));
         };
 
-        const loadStoreData = async () => {
-          const [pkgRes, cfgRes] = await Promise.all([
+        const runInBackground = (promise) => {
+          if (ctx && typeof ctx.waitUntil === 'function') {
+            ctx.waitUntil(promise.catch(() => {}));
+          } else {
+            promise.catch(() => {});
+          }
+        };
+
+        // Fast Edge-Cached Store Data Loader (10s cache + fallback to telegramBotSessions/_storeConfig)
+        let memoStoreData = null;
+        const loadStoreData = async (forceFresh = false) => {
+          if (memoStoreData && !forceFresh) return memoStoreData;
+          const storeCacheKey = `${CANONICAL_SITE_URL}/__tg_store_cfg_cache_v3`;
+          if (!forceFresh) {
+            try {
+              const cached = await caches.default.match(storeCacheKey);
+              if (cached) {
+                const parsed = await cached.json();
+                if (parsed && Array.isArray(parsed.packages)) {
+                  memoStoreData = parsed;
+                  return parsed;
+                }
+              }
+            } catch {}
+          }
+
+          const [pkgRes, cfgRes, fallbackCfgRes] = await Promise.all([
             fetch(`${FIREBASE_RTDB_BASE}/redeemPackages.json`).catch(() => null),
             fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`).catch(() => null),
+            fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`).catch(() => null),
           ]);
+
           const rawPkgs = pkgRes && pkgRes.ok ? await pkgRes.json().catch(() => null) : null;
           const rawCfg = cfgRes && cfgRes.ok ? await cfgRes.json().catch(() => null) : null;
+          const fbCfg =
+            fallbackCfgRes && fallbackCfgRes.ok
+              ? await fallbackCfgRes.json().catch(() => null)
+              : null;
+
+          const mergedCfg = {
+            ...(fbCfg && typeof fbCfg === 'object' ? fbCfg : {}),
+            ...(rawCfg && typeof rawCfg === 'object' ? rawCfg : {}),
+          };
+
+          const pkgSource =
+            rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
+              ? rawPkgs
+              : mergedCfg.packages && typeof mergedCfg.packages === 'object'
+              ? mergedCfg.packages
+              : null;
 
           let packages = [];
-          if (rawPkgs && typeof rawPkgs === 'object') {
-            packages = Object.entries(rawPkgs)
+          if (pkgSource && typeof pkgSource === 'object') {
+            packages = Object.entries(pkgSource)
+              .filter(([k, p]) => k !== 'botAuthToken' && p && typeof p === 'object')
               .map(([id, p]) => ({
                 id,
                 name: String(p?.name || 'VIP Ad-Free Package'),
-                price: String(p?.price || '50 TK'),
+                price: String(p?.price || '৳50'),
                 durationHours: Number(p?.durationHours) || 168,
-                durationLabel: String(p?.durationLabel || '7 Days'),
+                durationLabel: String(p?.durationLabel || `${p?.durationHours || 168} Hours`),
               }))
               .sort((a, b) => a.durationHours - b.durationHours);
           }
@@ -471,37 +521,53 @@ export default {
           if (packages.length === 0) {
             packages = [
               {
-                id: 'pkg3d',
-                name: '🔥 3 Days VIP Ad-Free',
-                price: '30 TK',
-                durationHours: 72,
-                durationLabel: '3 Days',
+                id: 'pkg1d',
+                name: '🔥 1 Day VIP Ad-Free',
+                price: '৳20',
+                durationHours: 24,
+                durationLabel: '1 Day (24h)',
               },
               {
                 id: 'pkg7d',
-                name: '👑 7 Days VIP Ad-Free',
-                price: '50 TK',
+                name: '💎 7 Days VIP Ad-Free',
+                price: '৳50',
                 durationHours: 168,
-                durationLabel: '7 Days',
+                durationLabel: '7 Days VIP',
               },
               {
                 id: 'pkg30d',
-                name: '💎 30 Days VIP Ad-Free',
-                price: '150 TK',
+                name: '👑 30 Days VIP Ad-Free',
+                price: '৳150',
                 durationHours: 720,
-                durationLabel: '30 Days',
+                durationLabel: '30 Days VIP',
               },
             ];
           }
 
-          const storeCfg = rawCfg && typeof rawCfg === 'object' ? rawCfg : {};
-          return {
+          const result = {
             packages,
-            bkashNumber: storeCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)',
-            nagadNumber: storeCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)',
-            adminChatId: String(storeCfg.adminChatId || queryAdminId || '').trim(),
-            botPass: String(storeCfg.botPass || requiredPass || 'Muttakin').trim(),
+            bkashNumber: mergedCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)',
+            nagadNumber: mergedCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)',
+            paymentNote:
+              mergedCfg.paymentNote ||
+              'Send Money করার পর নিচের বাটনে ক্লিক করে আপনার নাম্বার ও TrxID পাঠান।',
+            adminChatId: String(mergedCfg.adminChatId || queryAdminId || '').trim(),
+            botPass: String(mergedCfg.botPass || requiredPass || 'Muttakin').trim(),
           };
+
+          memoStoreData = result;
+          runInBackground(
+            caches.default.put(
+              storeCacheKey,
+              new Response(JSON.stringify(result), {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'public, max-age=10',
+                },
+              })
+            )
+          );
+          return result;
         };
 
         const getChatSession = async (chatId) => {
@@ -543,13 +609,13 @@ export default {
               })
             );
           } catch {}
-          try {
-            await fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/${chatId}.json`, {
+          runInBackground(
+            fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/${chatId}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
-            });
-          } catch {}
+            })
+          );
         };
 
         const buildPackagesKeyboard = (packages) => {
@@ -563,17 +629,17 @@ export default {
           return { inline_keyboard: rows };
         };
 
-        const sendStoreWelcome = async (chatId) => {
-          const { packages } = await loadStoreData();
+        const sendStoreWelcome = async (chatId, preloadedPackages = null) => {
+          const packages = preloadedPackages || (await loadStoreData()).packages;
           await tgApi('sendMessage', {
             chat_id: chatId,
             text:
-              `👑 *X Tube Official — VIP Ad-Free Redeem Code Store*-এ স্বাগতম!\n\n` +
-              `✨ *Redeem Code ব্যবহারের সুবিধা:*\n` +
+              `👑 <b>X Tube Official — VIP Ad-Free Redeem Code Store</b>-এ স্বাগতম!\n\n` +
+              `✨ <b>Redeem Code ব্যবহারের সুবিধা:</b>\n` +
               `• ওয়েবসাইটে কোনো প্রকার বিজ্ঞাপন (Ads / Popunder / Smartlink) আসবে না!\n` +
               `• ১ ক্লিকেই সব Full Video ও Shorts সরাসরি প্লে হবে!\n\n` +
-              `👇 *নিচের তালিকা থেকে আপনার পছন্দের Ad-Free প্যাকেজটি সিলেক্ট করুন:*`,
-            parse_mode: 'Markdown',
+              `👇 <b>নিচের তালিকা থেকে আপনার পছন্দের Ad-Free প্যাকেজটি সিলেক্ট করুন:</b>`,
+            parse_mode: 'HTML',
             reply_markup: buildPackagesKeyboard(packages),
           });
         };
@@ -585,13 +651,17 @@ export default {
           const data = String(cb.data || '');
           if (!chatId) return new Response('OK', { status: 200 });
 
-          const { packages, bkashNumber, nagadNumber, adminChatId } = await loadStoreData();
-          const session = await getChatSession(chatId);
+          const [{ packages, bkashNumber, nagadNumber, paymentNote }, session] = await Promise.all([
+            loadStoreData(),
+            getChatSession(chatId),
+          ]);
 
           if (data === 'back_to_packages') {
-            await saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null });
-            await tgApi('answerCallbackQuery', { callback_query_id: cb.id });
-            await sendStoreWelcome(chatId);
+            await Promise.all([
+              saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null }),
+              tgApi('answerCallbackQuery', { callback_query_id: cb.id }),
+              sendStoreWelcome(chatId, packages),
+            ]);
             return new Response('OK', { status: 200 });
           }
 
@@ -600,38 +670,39 @@ export default {
             const pkg = packages.find((p) => p.id === pkgId) || packages[0];
             if (!pkg) return new Response('OK', { status: 200 });
 
-            await saveChatSession(chatId, {
-              ...session,
-              step: 'choose_payment',
-              selectedPkg: pkg,
-            });
-
-            await tgApi('answerCallbackQuery', {
-              callback_query_id: cb.id,
-              text: `${pkg.name} সিলেক্ট করা হয়েছে`,
-            });
-
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text:
-                `📦 *সিলেক্ট করা প্যাকেজ:* ${pkg.name}\n` +
-                `⏱ *মেয়াদ (Validity):* ${pkg.durationLabel}\n` +
-                `💰 *মূল্য (Price):* ${pkg.price}\n\n` +
-                `💳 *পেমেন্ট নাম্বারসমূহ (Send Money):*\n` +
-                `📲 *bKash:* \`${bkashNumber}\`\n` +
-                `🟠 *Nagad:* \`${nagadNumber}\`\n\n` +
-                `👇 আপনি কোন মাধ্যমে পেমেন্ট করতে চান সিলেক্ট করুন:`,
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    { text: '📲 bKash Payment', callback_data: 'pay_method_bKash' },
-                    { text: '🟠 Nagad Payment', callback_data: 'pay_method_Nagad' },
+            await Promise.all([
+              saveChatSession(chatId, {
+                ...session,
+                step: 'choose_payment',
+                selectedPkg: pkg,
+              }),
+              tgApi('answerCallbackQuery', {
+                callback_query_id: cb.id,
+                text: `${pkg.name} সিলেক্ট করা হয়েছে`,
+              }),
+              tgApi('sendMessage', {
+                chat_id: chatId,
+                text:
+                  `📦 <b>সিলেক্ট করা প্যাকেজ:</b> ${escHtml(pkg.name)}\n` +
+                  `⏱ <b>মেয়াদ (Validity):</b> ${escHtml(pkg.durationLabel)}\n` +
+                  `💰 <b>মূল্য (Price):</b> ${escHtml(pkg.price)}\n\n` +
+                  `💳 <b>পেমেন্ট নাম্বারসমূহ (Send Money):</b>\n` +
+                  `📲 <b>bKash:</b> <code>${escHtml(bkashNumber)}</code>\n` +
+                  `🟠 <b>Nagad:</b> <code>${escHtml(nagadNumber)}</code>\n\n` +
+                  `📌 ${escHtml(paymentNote)}\n` +
+                  `👇 আপনি কোন মাধ্যমে পেমেন্ট করতে চান সিলেক্ট করুন:`,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '📲 bKash Payment', callback_data: 'pay_method_bKash' },
+                      { text: '🟠 Nagad Payment', callback_data: 'pay_method_Nagad' },
+                    ],
+                    [{ text: '🔙 অন্য প্যাকেজ দেখুন', callback_data: 'back_to_packages' }],
                   ],
-                  [{ text: '🔙 অন্য প্যাকেজ দেখুন', callback_data: 'back_to_packages' }],
-                ],
-              },
-            });
+                },
+              }),
+            ]);
             return new Response('OK', { status: 200 });
           }
 
@@ -640,53 +711,47 @@ export default {
             const pkg = session.selectedPkg || packages[0];
             const targetNumber = method === 'bKash' ? bkashNumber : nagadNumber;
 
-            await saveChatSession(chatId, {
-              ...session,
-              step: 'awaiting_trx',
-              selectedPkg: pkg,
-              paymentMethod: method,
-            });
-
-            await tgApi('answerCallbackQuery', {
-              callback_query_id: cb.id,
-              text: `${method} সিলেক্ট হয়েছে`,
-            });
-
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text:
-                `✅ *পেমেন্ট মাধ্যম:* ${method}\n` +
-                `📦 *প্যাকেজ:* ${pkg.name} (${pkg.durationLabel})\n` +
-                `💰 *পরিমাণ:* ${pkg.price}\n` +
-                `📞 *${method} নাম্বার (ট্যাপ করে কপি করুন):* \`${targetNumber}\`\n\n` +
-                `✍️ উপরের নাম্বারে *${pkg.price}* Send Money করার পর, *যে নাম্বার থেকে টাকা পাঠিয়েছেন (Sender Number) এবং Transaction ID (TrxID)* নিচে এক লাইনে লিখে মেসেজ পাঠান:\n` +
-                `*(উদাহরণ: 01712345678 TrxID98765)*`,
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '🔙 প্যাকেজ পরিবর্তন করুন', callback_data: 'back_to_packages' }],
-                ],
-              },
-            });
+            await Promise.all([
+              saveChatSession(chatId, {
+                ...session,
+                step: 'awaiting_trx',
+                selectedPkg: pkg,
+                paymentMethod: method,
+              }),
+              tgApi('answerCallbackQuery', {
+                callback_query_id: cb.id,
+                text: `${method} সিলেক্ট হয়েছে`,
+              }),
+              tgApi('sendMessage', {
+                chat_id: chatId,
+                text:
+                  `✅ <b>পেমেন্ট মাধ্যম:</b> ${escHtml(method)}\n` +
+                  `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+                  `💰 <b>পরিমাণ:</b> ${escHtml(pkg.price)}\n` +
+                  `📞 <b>${escHtml(method)} নাম্বার (ট্যাপ করে কপি করুন):</b> <code>${escHtml(targetNumber)}</code>\n\n` +
+                  `✍️ উপরের নাম্বারে <b>${escHtml(pkg.price)}</b> Send Money করার পর, <b>যে নাম্বার থেকে টাকা পাঠিয়েছেন (Sender Number) এবং Transaction ID (TrxID)</b> নিচে এক লাইনে লিখে মেসেজ পাঠান:\n` +
+                  `<i>(উদাহরণ: 01712345678 TrxID98765)</i>`,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '🔙 প্যাকেজ পরিবর্তন করুন', callback_data: 'back_to_packages' }],
+                  ],
+                },
+              }),
+            ]);
             return new Response('OK', { status: 200 });
           }
 
           // Admin 1-Click Approve & Auto-Send Redeem Code directly inside Telegram
           if (data.startsWith('admin_approve_')) {
-            const isCallerAdmin =
-              session.isAdmin || (adminChatId && String(chatId) === String(adminChatId));
-            if (!isCallerAdmin) {
-              await tgApi('answerCallbackQuery', {
-                callback_query_id: cb.id,
-                text: '❌ শুধুমাত্র Admin এটি অনুমোদন করতে পারবেন!',
-                show_alert: true,
-              });
-              return new Response('OK', { status: 200 });
-            }
-
             const orderId = data.replace('admin_approve_', '');
-            const orderRes = await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`);
-            const orderData = orderRes.ok ? await orderRes.json().catch(() => null) : null;
+            const [orderRes, fbOrderRes] = await Promise.all([
+              fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`).catch(() => null),
+              fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_orders/${encodeURIComponent(orderId)}.json`).catch(() => null),
+            ]);
+            const o1 = orderRes && orderRes.ok ? await orderRes.json().catch(() => null) : null;
+            const o2 = fbOrderRes && fbOrderRes.ok ? await fbOrderRes.json().catch(() => null) : null;
+            const orderData = o1 && o1.chatId ? o1 : o2;
 
             if (!orderData || !orderData.chatId) {
               await tgApi('answerCallbackQuery', {
@@ -700,108 +765,142 @@ export default {
             const now = Date.now();
             const durationHours = Number(orderData.durationHours) || 168;
             const expiresAt = now + durationHours * 3600 * 1000;
-            const randPart1 = Math.random().toString(36).slice(2, 6).toUpperCase();
-            const randPart2 = Math.random().toString(36).slice(2, 6).toUpperCase();
-            const generatedCode = `XTUBE-${randPart1}-${randPart2}`;
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const pick = (len) =>
+              Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            const generatedCode = `VIP-${pick(4)}-${pick(4)}`;
 
-            await fetch(`${FIREBASE_RTDB_BASE}/redeemCodes/${generatedCode}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                code: generatedCode,
-                createdAt: now,
-                expiresAt,
-                durationLabel: orderData.durationLabel || `${durationHours} Hours`,
-                active: true,
-                maxDevices: 1,
-                boundDeviceId: '',
-                orderId,
-                userChatId: String(orderData.chatId),
-                botAuthToken: 'xtube_tg_bot_2026',
-              }),
-            });
+            const codePayload = {
+              code: generatedCode,
+              packageName: orderData.packageName || 'VIP Ad-Free Pass',
+              durationHours,
+              durationLabel: orderData.durationLabel || `${durationHours} Hours`,
+              createdAt: now,
+              expiresAt,
+              active: true,
+              maxDevices: 1,
+              boundDeviceId: '',
+              orderId,
+              userChatId: String(orderData.chatId),
+              note: `${orderData.username || ''} (${orderData.paymentMethod || ''})`,
+              botAuthToken: 'xtube_tg_bot_2026',
+            };
 
-            await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status: 'approved',
-                redeemCode: generatedCode,
-                expiresAt,
-                approvedAt: now,
-                botAuthToken: 'xtube_tg_bot_2026',
-              }),
-            });
+            const updatedOrderPayload = {
+              ...orderData,
+              status: 'approved',
+              issuedCode: generatedCode,
+              redeemCode: generatedCode,
+              expiresAt,
+              approvedAt: now,
+              botAuthToken: 'xtube_tg_bot_2026',
+            };
+
+            await Promise.all([
+              fetch(`${FIREBASE_RTDB_BASE}/redeemCodes/${generatedCode}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(codePayload),
+              }).catch(() => {}),
+              fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_codes/${generatedCode}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(codePayload),
+              }).catch(() => {}),
+              fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedOrderPayload),
+              }).catch(() => {}),
+              fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_orders/${encodeURIComponent(orderId)}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedOrderPayload),
+              }).catch(() => {}),
+            ]);
 
             const expDateStr = new Date(expiresAt).toLocaleString('en-GB', {
               timeZone: 'Asia/Dhaka',
             });
 
-            await tgApi('sendMessage', {
-              chat_id: orderData.chatId,
-              text:
-                `🎉 *অভিনন্দন! আপনার পেমেন্ট অনুমোদিত হয়েছে!* ✅\n\n` +
-                `📦 *প্যাকেজ:* ${orderData.packageName}\n` +
-                `🎟️ *আপনার VIP Redeem Code (ট্যাপ করে কপি করুন):*\n` +
-                `\`${generatedCode}\`\n\n` +
-                `⏰ *মেয়াদ শেষ হবে:* ${expDateStr} (BD Time)\n\n` +
-                `🚀 *কিভাবে ব্যবহার করবেন:*\n` +
-                `১. নিচের বাটনে ক্লিক করে ওয়েবসাইটে যান\n` +
-                `২. উপরে ডান পাশে *🎟️ Redeem Code* বাটনে ক্লিক করুন\n` +
-                `৩. আপনার কোডটি (\`${generatedCode}\`) বসিয়ে *Activate Code* চাপুন!`,
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '🌐 ওয়েবসাইটে গিয়ে Redeem Code বসান', url: CANONICAL_SITE_URL }],
-                ],
-              },
-            });
-
-            await tgApi('answerCallbackQuery', {
-              callback_query_id: cb.id,
-              text: `✅ Code ${generatedCode} sent to user!`,
-            });
-
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: `✅ অর্ডার #${orderId} অনুমোদিত হয়েছে এবং ইউজারকে Redeem Code (\`${generatedCode}\`) পাঠানো হয়েছে!`,
-              parse_mode: 'Markdown',
-            });
+            await Promise.all([
+              tgApi('sendMessage', {
+                chat_id: orderData.chatId,
+                text:
+                  `🎉 <b>অভিনন্দন! আপনার পেমেন্ট অনুমোদিত হয়েছে!</b> ✅\n\n` +
+                  `📦 <b>প্যাকেজ:</b> ${escHtml(orderData.packageName)}\n` +
+                  `🎟️ <b>আপনার VIP Redeem Code (ট্যাপ করে কপি করুন):</b>\n` +
+                  `<code>${generatedCode}</code>\n\n` +
+                  `⏰ <b>মেয়াদ শেষ হবে:</b> ${escHtml(expDateStr)} (BD Time)\n\n` +
+                  `🚀 <b>কিভাবে ব্যবহার করবেন:</b>\n` +
+                  `১. নিচের বাটনে ক্লিক করে ওয়েবসাইটে যান\n` +
+                  `২. উপরে <b>🎟️ Redeem Code</b> বাটনে ক্লিক করুন\n` +
+                  `৩. কোডটি (<code>${generatedCode}</code>) বসিয়ে <b>Activate</b> চাপুন!`,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '🌐 ওয়েবসাইটে গিয়ে Redeem Code বসান', url: CANONICAL_SITE_URL }],
+                  ],
+                },
+              }),
+              tgApi('answerCallbackQuery', {
+                callback_query_id: cb.id,
+                text: `✅ Code ${generatedCode} sent to user!`,
+              }),
+              tgApi('sendMessage', {
+                chat_id: chatId,
+                text: `✅ অর্ডার <code>#${escHtml(orderId)}</code> অনুমোদিত হয়েছে এবং ইউজারকে Redeem Code (<code>${generatedCode}</code>) পাঠানো হয়েছে!`,
+                parse_mode: 'HTML',
+              }),
+            ]);
             return new Response('OK', { status: 200 });
           }
 
           if (data.startsWith('admin_reject_')) {
-            const isCallerAdmin =
-              session.isAdmin || (adminChatId && String(chatId) === String(adminChatId));
-            if (!isCallerAdmin) return new Response('OK', { status: 200 });
-
             const orderId = data.replace('admin_reject_', '');
-            const orderRes = await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`);
-            const orderData = orderRes.ok ? await orderRes.json().catch(() => null) : null;
+            const [orderRes, fbOrderRes] = await Promise.all([
+              fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`).catch(() => null),
+              fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_orders/${encodeURIComponent(orderId)}.json`).catch(() => null),
+            ]);
+            const o1 = orderRes && orderRes.ok ? await orderRes.json().catch(() => null) : null;
+            const o2 = fbOrderRes && fbOrderRes.ok ? await fbOrderRes.json().catch(() => null) : null;
+            const orderData = o1 && o1.chatId ? o1 : o2;
 
             if (orderData && orderData.chatId) {
-              await fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${orderId}.json`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  status: 'rejected',
-                  rejectedAt: Date.now(),
-                  botAuthToken: 'xtube_tg_bot_2026',
+              const rejPayload = {
+                ...orderData,
+                status: 'rejected',
+                rejectedAt: Date.now(),
+                botAuthToken: 'xtube_tg_bot_2026',
+              };
+              await Promise.all([
+                fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(rejPayload),
+                }).catch(() => {}),
+                fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_orders/${encodeURIComponent(orderId)}.json`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(rejPayload),
+                }).catch(() => {}),
+                tgApi('sendMessage', {
+                  chat_id: orderData.chatId,
+                  text: `❌ দুঃখিত! আপনার পেমেন্ট রিকোয়েস্ট (#${escHtml(orderId)}) যাচাই করা সম্ভব হয়নি। অনুগ্রহ করে সঠিক নাম্বার ও Transaction ID দিয়ে আবার চেষ্টা করুন (/start)।`,
+                  parse_mode: 'HTML',
                 }),
-              });
-              await tgApi('sendMessage', {
-                chat_id: orderData.chatId,
-                text: `❌ দুঃখিত! আপনার পেমেন্ট রিকোয়েস্ট (#${orderId}) যাচাই করা সম্ভব হয়নি। অনুগ্রহ করে সঠিক নাম্বার ও Transaction ID দিয়ে আবার চেষ্টা করুন (/start)।`,
-              });
+              ]);
             }
-            await tgApi('answerCallbackQuery', {
-              callback_query_id: cb.id,
-              text: 'Order Rejected',
-            });
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: `❌ অর্ডার #${orderId} বাতিল (Rejected) করা হয়েছে।`,
-            });
+            await Promise.all([
+              tgApi('answerCallbackQuery', {
+                callback_query_id: cb.id,
+                text: 'Order Rejected',
+              }),
+              tgApi('sendMessage', {
+                chat_id: chatId,
+                text: `❌ অর্ডার #${escHtml(orderId)} বাতিল (Rejected) করা হয়েছে।`,
+              }),
+            ]);
             return new Response('OK', { status: 200 });
           }
 
@@ -815,49 +914,64 @@ export default {
 
         const chatId = msg.chat.id;
         const text = String(msg.text || '').trim();
-        const { packages, adminChatId, botPass } = await loadStoreData();
-        const session = await getChatSession(chatId);
+        const [{ packages, adminChatId, botPass }, session] = await Promise.all([
+          loadStoreData(),
+          getChatSession(chatId),
+        ]);
 
         // /myid command so Admin can see their Chat ID easily
         if (text === '/myid' || text === '/id') {
           await tgApi('sendMessage', {
             chat_id: chatId,
-            text: `🆔 আপনার Telegram Chat ID হলো:\n\`${chatId}\`\n\n(এই ID-টি Admin Panel-এর Admin ID বক্সে বসাতে পারবেন)`,
-            parse_mode: 'Markdown',
+            text: `🆔 আপনার Telegram Chat ID হলো:\n<code>${chatId}</code>\n\n(এই ID-টি Admin Panel-এর Admin ID বক্সে বসাতে পারবেন)`,
+            parse_mode: 'HTML',
           });
           return new Response('OK', { status: 200 });
         }
 
-        // /start or /packages or /buy command -> Always show available Redeem Code packages
+        // /start or /packages or /buy command -> Always show available Redeem Code packages immediately
         if (text.startsWith('/start') || text === '/packages' || text === '/buy') {
-          await saveChatSession(chatId, { ...session, step: 'idle' });
-          await sendStoreWelcome(chatId);
+          await Promise.all([
+            saveChatSession(chatId, { ...session, step: 'idle' }),
+            sendStoreWelcome(chatId, packages),
+          ]);
           return new Response('OK', { status: 200 });
         }
 
-        // Admin Password Check ("Muttakin" or configured botPass) -> Registers Admin Chat ID for Order Notifications
-        if (text.toLowerCase() === botPass.toLowerCase()) {
-          await saveChatSession(chatId, { ...session, step: 'idle', isAdmin: true });
-          await fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              adminChatId: String(chatId),
-              botAuthToken: 'xtube_tg_bot_2026',
-              updatedAt: Date.now(),
+        // Admin Password Check ("Muttakin" or "/admin Muttakin") -> Registers Admin Chat ID for Order Notifications
+        const cleanPassCheck = text.replace(/^\/admin\s*/i, '').trim();
+        if (cleanPassCheck.toLowerCase() === botPass.toLowerCase()) {
+          await Promise.all([
+            saveChatSession(chatId, { ...session, step: 'idle', isAdmin: true }),
+            fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                adminChatId: String(chatId),
+                botAuthToken: 'xtube_tg_bot_2026',
+                updatedAt: Date.now(),
+              }),
+            }).catch(() => {}),
+            fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                adminChatId: String(chatId),
+                botAuthToken: 'xtube_tg_bot_2026',
+                updatedAt: Date.now(),
+              }),
+            }).catch(() => {}),
+            tgApi('sendMessage', {
+              chat_id: chatId,
+              text:
+                `✅ <b>Admin Mode Activated! স্বাগতম ${escHtml(botPass)}</b> 👑\n\n` +
+                `🆔 আপনার Admin Chat ID (<code>${chatId}</code>) অটোমেটিক সেভ হয়েছে!\n` +
+                `• এখন কোনো ইউজার বট থেকে প্যাকেজ সিলেক্ট করে পেমেন্ট রিকোয়েস্ট পাঠালে সাথে সাথে আপনার এই টেলিগ্রামে এবং <b>Admin Panel (/ad.html)</b>-এ নোটিফিকেশন চলে আসবে!\n` +
+                `• আপনি Admin Panel থেকে অথবা সরাসরি এই বট থেকেই ১ ক্লিকে ইউজারকে Redeem Code পাঠাতে পারবেন।`,
+              parse_mode: 'HTML',
+              reply_markup: buildPackagesKeyboard(packages),
             }),
-          }).catch(() => {});
-
-          await tgApi('sendMessage', {
-            chat_id: chatId,
-            text:
-              `✅ *Admin Mode Activated! স্বাগতম ${botPass}* 👑\n\n` +
-              `🆔 আপনার Admin Chat ID (\`${chatId}\`) অটোমেটিক সেভ হয়েছে!\n` +
-              `• এখন কোনো ইউজার বট থেকে প্যাকেজ সিলেক্ট করে পেমেন্ট রিকোয়েস্ট পাঠালে সাথে সাথে আপনার এই টেলিগ্রামে এবং *Admin Panel (/ad.html)*-এ নোটিফিকেশন চলে আসবে!\n` +
-              `• আপনি Admin Panel থেকে অথবা সরাসরি এই বট থেকেই ১ ক্লিকে ইউজারকে Redeem Code পাঠাতে পারবেন।`,
-            parse_mode: 'Markdown',
-            reply_markup: buildPackagesKeyboard(packages),
-          });
+          ]);
           return new Response('OK', { status: 200 });
         }
 
@@ -877,56 +991,56 @@ export default {
           const pkg = session.selectedPkg;
           const paymentMethod = session.paymentMethod || 'bKash/Nagad';
           const username = msg.from?.username ? `@${msg.from.username}` : 'No Username';
-          const firstName =
+          const fullName =
             [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || 'User';
 
           const orderPayload = {
             id: orderId,
             chatId: String(chatId),
             username,
-            firstName,
+            fullName,
+            firstName: fullName,
             packageId: pkg.id,
             packageName: pkg.name,
             price: pkg.price,
             durationHours: Number(pkg.durationHours) || 168,
             durationLabel: pkg.durationLabel || '7 Days',
             paymentMethod,
+            senderNumber: text,
+            trxId: text,
             paymentDetails: text,
+            botToken,
             status: 'pending',
             createdAt: now,
             botAuthToken: 'xtube_tg_bot_2026',
           };
 
-          const saveRes = await fetch(
-            `${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`,
-            {
+          // Save to both redeemOrders and telegramBotSessions/_orders so it works even before Firebase Rules are updated!
+          await Promise.all([
+            fetch(`${FIREBASE_RTDB_BASE}/redeemOrders/${encodeURIComponent(orderId)}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(orderPayload),
-            }
-          );
-
-          if (!saveRes.ok) {
-            await tgApi('sendMessage', {
-              chat_id: chatId,
-              text: '❌ অর্ডার সেভ করতে সমস্যা হয়েছে। অনুগ্রহ করে Admin-কে জানান (Firebase Rules আপডেট করতে হবে)।',
-            });
-            return new Response('OK', { status: 200 });
-          }
-
-          await saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null });
+            }).catch(() => {}),
+            fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_orders/${encodeURIComponent(orderId)}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(orderPayload),
+            }).catch(() => {}),
+            saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null }),
+          ]);
 
           await tgApi('sendMessage', {
             chat_id: chatId,
             text:
-              `✅ *আপনার পেমেন্ট রিকোয়েস্ট সফলভাবে জমা হয়েছে!* 🎉\n\n` +
-              `🆔 *Order ID:* \`#${orderId}\`\n` +
-              `📦 *প্যাকেজ:* ${pkg.name} (${pkg.durationLabel})\n` +
-              `💰 *মূল্য:* ${pkg.price}\n` +
-              `💳 *মাধ্যম:* ${paymentMethod}\n` +
-              `📝 *পেমেন্ট তথ্য:* \`${text}\`\n\n` +
-              `⏳ Admin আপনার পেমেন্ট যাচাই করে খুব শীঘ্রই এই চ্যাটে আপনার *VIP Redeem Code* পাঠিয়ে দেবেন!`,
-            parse_mode: 'Markdown',
+              `✅ <b>আপনার পেমেন্ট রিকোয়েস্ট সফলভাবে জমা হয়েছে!</b> 🎉\n\n` +
+              `🆔 <b>Order ID:</b> <code>#${escHtml(orderId)}</code>\n` +
+              `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+              `💰 <b>মূল্য:</b> ${escHtml(pkg.price)}\n` +
+              `💳 <b>মাধ্যম:</b> ${escHtml(paymentMethod)}\n` +
+              `📝 <b>পেমেন্ট তথ্য:</b> <code>${escHtml(text)}</code>\n\n` +
+              `⏳ Admin আপনার পেমেন্ট Approve করলেই সাথে সাথে এই চ্যাটে আপনার <b>VIP Redeem Code</b> চলে আসবে!`,
+            parse_mode: 'HTML',
           });
 
           // Notify Admin on Telegram if adminChatId is configured
@@ -935,20 +1049,20 @@ export default {
             await tgApi('sendMessage', {
               chat_id: targetAdminChat,
               text:
-                `🔔 *নতুন Redeem Code অর্ডার এসেছে!* 🎟️\n\n` +
-                `👤 *ইউজার:* ${firstName} (${username})\n` +
-                `🆔 *User Chat ID:* \`${chatId}\`\n` +
-                `📦 *প্যাকেজ:* ${pkg.name} (${pkg.durationLabel})\n` +
-                `💰 *মূল্য:* ${pkg.price}\n` +
-                `💳 *মাধ্যম:* ${paymentMethod}\n` +
-                `📝 *Sender & TrxID:* \`${text}\`\n\n` +
-                `👇 আপনি নিচের বাটনে ক্লিক করে অথবা *Admin Panel (/ad.html)* থেকে ১-ক্লিকে Redeem Code জেনারেট করে ইউজারকে পাঠাতে পারেন:`,
-              parse_mode: 'Markdown',
+                `🔔 <b>নতুন Redeem Code অর্ডার এসেছে!</b> 🎟️\n\n` +
+                `👤 <b>ইউজার:</b> ${escHtml(fullName)} (${escHtml(username)})\n` +
+                `🆔 <b>User Chat ID:</b> <code>${chatId}</code>\n` +
+                `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+                `💰 <b>মূল্য:</b> ${escHtml(pkg.price)}\n` +
+                `💳 <b>মাধ্যম:</b> ${escHtml(paymentMethod)}\n` +
+                `📝 <b>Sender &amp; TrxID:</b> <code>${escHtml(text)}</code>\n\n` +
+                `👇 নিচের বাটনে ক্লিক করলে অথবা <b>Admin Panel (/ad.html)</b> থেকে Approve করলেই অটোমেটিক কোড জেনারেট হয়ে ইউজারের কাছে চলে যাবে:`,
+              parse_mode: 'HTML',
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: '⚡ Approve & Auto-Send Redeem Code',
+                      text: '✅ Approve (Auto Code Gen & Send to User)',
                       callback_data: `admin_approve_${orderId}`,
                     },
                   ],
@@ -962,7 +1076,7 @@ export default {
         }
 
         // Default fallback: show packages
-        await sendStoreWelcome(chatId);
+        await sendStoreWelcome(chatId, packages);
         return new Response('OK', { status: 200 });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: String(err) }), {
