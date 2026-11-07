@@ -169,22 +169,25 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
     }
   } catch {}
 
-  // Browser fallback when opened outside Telegram
-  let visitorShortId = '84920145';
+  // Browser fallback when opened outside Telegram: generate a persistent Web Visitor tag (`Web-vXXXXXX`)
+  let webVisitorTag = 'Web-v849201';
   try {
-    const existingVid = localStorage.getItem('bd_collection_visitor_id') || '';
-    const digits = existingVid.replace(/\D/g, '');
-    if (digits.length >= 6) {
-      visitorShortId = digits.slice(0, 10);
+    const savedWebTag = localStorage.getItem('xtube_web_visitor_tag') || '';
+    if (savedWebTag && /^Web-v\d{4,8}$/.test(savedWebTag)) {
+      webVisitorTag = savedWebTag;
+    } else {
+      const randDigits = String(Math.floor(100000 + Math.random() * 900000));
+      webVisitorTag = `Web-v${randDigits}`;
+      localStorage.setItem('xtube_web_visitor_tag', webVisitorTag);
     }
   } catch {}
 
   return {
-    id: visitorShortId,
-    firstName: 'WebApp',
-    lastName: 'User',
-    fullName: 'WebApp User',
-    username: `user_${visitorShortId.slice(0, 6)}`,
+    id: webVisitorTag,
+    firstName: 'Web',
+    lastName: 'Visitor',
+    fullName: `Web Visitor (${webVisitorTag})`,
+    username: webVisitorTag.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
     photoUrl: '',
     isRealTelegramUser: false,
   };
@@ -1652,30 +1655,66 @@ export default function App() {
         .catch(() => {});
     }
 
-    // 3. Track Live Online User Presence in Firebase `presence/$visitorId` + Server Heartbeat
-    const userPresenceRef = ref(db, `presence/${visitorId}`);
+    // 3. Track Live Online User Presence in Firebase `presence/$visitorId` + `telegramBotSessions/_online/$visitorId` + Server Heartbeat
+    const presenceKey = tgProfile.isRealTelegramUser
+      ? `tg_${tgProfile.id.replace(/[^a-zA-Z0-9_-]/g, '')}`
+      : `web_${tgProfile.id.replace(/[^a-zA-Z0-9_-]/g, '') || visitorId}`;
+    const userPresenceRef = ref(db, `presence/${presenceKey}`);
+    const fallbackOnlineRef = ref(db, `telegramBotSessions/_online/${presenceKey}`);
     const allPresenceRef = ref(db, 'presence');
     const connectedRef = ref(db, '.info/connected');
 
+    const detectDeviceSummary = () => {
+      if (typeof navigator === 'undefined') return 'Web Browser';
+      const ua = navigator.userAgent || '';
+      const os = /Android/i.test(ua)
+        ? 'Android'
+        : /iPhone|iPad|iPod/i.test(ua)
+        ? 'iOS'
+        : /Windows/i.test(ua)
+        ? 'Windows'
+        : /Mac/i.test(ua)
+        ? 'Mac'
+        : 'Linux';
+      const browser = /Telegram/i.test(ua)
+        ? 'Telegram WebView'
+        : /Chrome/i.test(ua)
+        ? 'Chrome'
+        : /Safari/i.test(ua)
+        ? 'Safari'
+        : /Firefox/i.test(ua)
+        ? 'Firefox'
+        : 'Browser';
+      return `${browser} · ${os}`;
+    };
+
     const writePresence = () => {
       setIsUserOnline(typeof navigator !== 'undefined' ? navigator.onLine !== false : true);
-      set(userPresenceRef, {
+      const now = Date.now();
+      const isTg = Boolean(tgProfile.isRealTelegramUser);
+      const presencePayload = {
         online: true,
-        lastSeen: Date.now(),
-        tgId: tgProfile.id,
-        fullName: tgProfile.fullName,
+        lastSeen: now,
+        visitorId: presenceKey,
+        isTelegram: isTg,
+        tgId: isTg ? tgProfile.id : '',
+        webId: !isTg ? tgProfile.id : '',
+        fullName: isTg ? tgProfile.fullName : `Web Visitor (${tgProfile.id})`,
         username: tgProfile.username,
-      }).catch(() => {});
+        page: viewMode,
+        vipActive: Boolean(isAdFree),
+        vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
+        device: detectDeviceSummary(),
+        botAuthToken: 'xtube_tg_bot_2026',
+      };
+
+      set(userPresenceRef, presencePayload).catch(() => {});
+      set(fallbackOnlineRef, presencePayload).catch(() => {});
 
       fetch('/api/visitor-ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitorId,
-          tgId: tgProfile.id,
-          username: tgProfile.username,
-          page: window.location.pathname + window.location.search,
-        }),
+        body: JSON.stringify(presencePayload),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
@@ -1691,6 +1730,9 @@ export default function App() {
       if (connected) {
         setIsUserOnline(true);
         onDisconnect(userPresenceRef)
+          .remove()
+          .catch(() => {});
+        onDisconnect(fallbackOnlineRef)
           .remove()
           .catch(() => {});
         writePresence();
@@ -1729,14 +1771,15 @@ export default function App() {
     window.addEventListener('offline', handleBrowserOffline);
 
     writePresence();
-    const heartbeatTimer = window.setInterval(writePresence, 20000);
+    const heartbeatTimer = window.setInterval(writePresence, 15000);
 
     const handleBeforeUnload = () => {
       remove(userPresenceRef).catch(() => {});
+      remove(fallbackOnlineRef).catch(() => {});
       try {
         navigator.sendBeacon?.(
           '/api/visitor-ping',
-          new Blob([JSON.stringify({ visitorId, offline: true })], {
+          new Blob([JSON.stringify({ visitorId: presenceKey, offline: true })], {
             type: 'application/json',
           })
         );
@@ -1751,9 +1794,8 @@ export default function App() {
       window.removeEventListener('online', handleBrowserOnline);
       window.removeEventListener('offline', handleBrowserOffline);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      remove(userPresenceRef).catch(() => {});
     };
-  }, [tgProfile.id, tgProfile.fullName, tgProfile.username]);
+  }, [tgProfile.id, tgProfile.fullName, tgProfile.username, tgProfile.isRealTelegramUser, viewMode, isAdFree, expiresAt]);
 
   // Sync ALL Shorts from Firebase Realtime Database (`shorts`)
   useEffect(() => {
@@ -1975,6 +2017,9 @@ export default function App() {
         createdAt: resolvedTime,
         addedAt: resolvedTime,
         author: !val.author || val.author === 'Bd Collection' ? 'X Tube' : val.author,
+        isTrending: Boolean(val.isTrending),
+        trendingRank: Number(val.trendingRank) || 9999,
+        trendingPinnedAt: Number(val.trendingPinnedAt) || 0,
       };
     };
 
@@ -2320,20 +2365,33 @@ export default function App() {
     setTimeout(() => setCopiedShare(false), 2000);
   };
 
-  // Triggered when user clicks "Trending" — ranks videos by YouTube Trending Velocity + user interest
+  // Triggered when user clicks "Trending" — always places Admin-pinned Trending videos (`isTrending: true`) at the VERY TOP sorted by `trendingRank`, followed by algorithmic trending videos
+  const sortTrendingWithAdminPins = (list: VideoItem[], randomizeUnpinned = false): VideoItem[] => {
+    const pinned = list
+      .filter((v) => v.isTrending)
+      .sort((a, b) => {
+        const rankDiff = (Number(a.trendingRank) || 9999) - (Number(b.trendingRank) || 9999);
+        if (rankDiff !== 0) return rankDiff;
+        return (Number(b.trendingPinnedAt) || b.createdAt) - (Number(a.trendingPinnedAt) || a.createdAt);
+      });
+
+    const unpinned = list
+      .filter((v) => !v.isTrending)
+      .sort((a, b) => {
+        const jitterB = randomizeUnpinned ? Math.random() * 18 : 0;
+        const jitterA = randomizeUnpinned ? Math.random() * 18 : 0;
+        return (
+          computeYouTubeTrendingScore(b, tasteProfile) +
+          jitterB -
+          (computeYouTubeTrendingScore(a, tasteProfile) + jitterA)
+        );
+      });
+
+    return [...pinned, ...unpinned];
+  };
+
   const handleSelectTrending = () => {
-    const currentTopId =
-      (sortByTrending && trendingVideos[0]?.id) || videos[0]?.id || undefined;
-    const rankedTrending = [...videos].sort((a, b) => {
-      const scoreB =
-        computeYouTubeTrendingScore(b, tasteProfile) + Math.random() * 18;
-      const scoreA =
-        computeYouTubeTrendingScore(a, tasteProfile) + Math.random() * 18;
-      return scoreB - scoreA;
-    });
-    if (rankedTrending.length > 1 && currentTopId && rankedTrending[0].id === currentTopId) {
-      [rankedTrending[0], rankedTrending[1]] = [rankedTrending[1], rankedTrending[0]];
-    }
+    const rankedTrending = sortTrendingWithAdminPins(videos, true);
     setTrendingVideos(rankedTrending);
     setTrendingSeed((prev) => prev + 1);
     setSortByTrending(true);
@@ -2345,21 +2403,8 @@ export default function App() {
     let sourceList = videos;
 
     if (sortByTrending) {
-      if (trendingVideos.length > 0) {
-        const videoMap = new Map<string, VideoItem>(videos.map((v) => [v.id, v]));
-        const syncedTrending = trendingVideos
-          .map((tv) => videoMap.get(tv.id))
-          .filter((v): v is VideoItem => Boolean(v));
-        const existingIds = new Set(syncedTrending.map((v) => v.id));
-        const newOnes = videos.filter((v) => !existingIds.has(v.id));
-        sourceList = [...syncedTrending, ...newOnes];
-      } else {
-        sourceList = [...videos].sort(
-          (a, b) =>
-            computeYouTubeTrendingScore(b, tasteProfile) -
-            computeYouTubeTrendingScore(a, tasteProfile)
-        );
-      }
+      // Always ensure any newly pinned/updated Admin Trending videos sit at the very top in real time!
+      sourceList = sortTrendingWithAdminPins(videos, false);
     } else if (videos.length > 0) {
       // Stabilized YouTube Home Feed order (updates when video count or Home refresh seed changes, never jumps during 3-click ad gate)
       if (
@@ -3167,7 +3212,7 @@ export default function App() {
                       </p>
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
                         <span className="inline-block px-2.5 py-0.5 rounded-md bg-[#232a38] text-slate-300 text-xs font-mono">
-                          TG ID: {tgProfile.id}
+                          {tgProfile.isRealTelegramUser ? `TG ID: ${tgProfile.id}` : `🌐 ${tgProfile.id}`}
                         </span>
                         <span
                           className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${
@@ -3214,6 +3259,153 @@ export default function App() {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* ============================================================================
+                  REDEEM CODE BOX & VIP EXPIRE TIME IN PROFILE SECTION
+                  ============================================================================ */}
+              <div className="rounded-3xl bg-[#161b24] border border-slate-800/90 p-5 sm:p-6 shadow-2xl space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80 pb-3.5">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        isAdFree
+                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
+                          : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
+                      }`}
+                    >
+                      {isAdFree ? <ShieldCheck className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-white">
+                        {isAdFree ? ui.vipAdFree : ui.redeemModalTitle}
+                      </h3>
+                      <p className="text-xs text-slate-400">{ui.redeemModalDesc}</p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-wide ${
+                      isAdFree
+                        ? 'bg-emerald-500 text-slate-950'
+                        : 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
+                    }`}
+                  >
+                    {isAdFree ? '● VIP ACTIVE' : '○ NO ACTIVE VIP'}
+                  </span>
+                </div>
+
+                {/* Live Expire Time & Countdown Box */}
+                <div
+                  className={`p-4 rounded-2xl border space-y-2.5 ${
+                    isAdFree
+                      ? 'bg-emerald-950/35 border-emerald-600/60'
+                      : 'bg-[#1e2430] border-slate-700/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                      <Clock className="w-4 h-4 text-emerald-400" />
+                      <span>VIP Time Remaining:</span>
+                    </span>
+                    <span
+                      className={`text-sm sm:text-base font-mono font-extrabold tabular-nums ${
+                        isAdFree ? 'text-emerald-400' : 'text-slate-400'
+                      }`}
+                    >
+                      {isAdFree ? formatVipCountdown(remainingMs) : '00:00:00 (Not Active)'}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-mono text-slate-300">
+                    <span>
+                      Code:{' '}
+                      <strong className={isAdFree ? 'text-amber-300' : 'text-slate-500'}>
+                        {isAdFree && activeCode ? activeCode : 'NONE'}
+                      </strong>
+                    </span>
+                    <span>
+                      Expire Time:{' '}
+                      <strong className={isAdFree ? 'text-emerald-300' : 'text-slate-500'}>
+                        {isAdFree && expiresAt
+                          ? new Date(expiresAt).toLocaleString()
+                          : 'No Active Expiry'}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Redeem Code Input Form Inside Profile */}
+                {isRedeemServiceEnabled && (
+                  <form onSubmit={handleActivateRedeemSubmit} className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-200 mb-1.5">
+                        {ui.enterRedeemCode}
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={redeemInput}
+                          onChange={(e) => setRedeemInput(e.target.value.toUpperCase())}
+                          placeholder="VIP-XXXX-XXXX"
+                          className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#1e2430] border border-slate-700 text-sm font-mono font-bold text-amber-300 uppercase placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                        />
+                        <button
+                          type="submit"
+                          disabled={redeemLoading || !redeemInput.trim()}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 disabled:opacity-50 text-slate-950 font-extrabold text-xs sm:text-sm cursor-pointer transition-all shrink-0 shadow-lg shadow-amber-500/20"
+                        >
+                          {redeemLoading ? t.loading : ui.activateCodeBtn}
+                        </button>
+                      </div>
+                    </div>
+
+                    {redeemFeedback && (
+                      <div
+                        className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                          redeemFeedback.ok
+                            ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                            : 'bg-red-950/60 border-red-800 text-red-200'
+                        }`}
+                      >
+                        {redeemFeedback.text}
+                      </div>
+                    )}
+
+                    {/* Available VIP Packages & Buy on Telegram Bot CTA */}
+                    <div className="pt-2 space-y-2.5">
+                      {redeemPackages.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {redeemPackages.map((pkg) => (
+                            <div
+                              key={`prof-pkg-${pkg.id}`}
+                              className="px-3 py-2 rounded-xl bg-[#1e2430] border border-slate-700/70 flex items-center justify-between text-xs"
+                            >
+                              <div className="min-w-0 pr-2">
+                                <span className="font-bold text-white block truncate">{pkg.name}</span>
+                                <span className="text-[10px] text-slate-400">{pkg.durationLabel}</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 font-mono font-bold text-amber-300 shrink-0">
+                                {pkg.price}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <a
+                        href={`https://t.me/${(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')}?start=buy`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
+                      >
+                        <span>
+                          {ui.buyOnTelegramBot} (@{(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')})
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      </a>
+                    </div>
+                  </form>
+                )}
               </div>
 
               {/* APP SETTINGS Section Matching Screenshot */}

@@ -49,7 +49,21 @@ async function startServer() {
 
   // Live in-memory + persistent visitor tracking fallback alongside Firebase RTDB
   const seenVisitorIds = new Set<string>();
-  const activeOnlineVisitors = new Map<string, { lastSeen: number; page: string }>();
+  const activeOnlineVisitors = new Map<
+    string,
+    {
+      visitorId: string;
+      lastSeen: number;
+      page: string;
+      isTelegram: boolean;
+      tgId: string;
+      webId: string;
+      fullName: string;
+      username: string;
+      vipActive: boolean;
+      device: string;
+    }
+  >();
 
   app.use(express.json({ limit: '64kb' }));
 
@@ -63,13 +77,33 @@ async function startServer() {
     const visitorId = String(req.body?.visitorId || '').trim().slice(0, 80);
     const page = String(req.body?.page || '/').trim().slice(0, 120);
     const offline = Boolean(req.body?.offline);
+    const isTelegram = Boolean(req.body?.isTelegram);
+    const tgId = String(req.body?.tgId || '').trim().slice(0, 40);
+    const webId = String(req.body?.webId || '').trim().slice(0, 40);
+    const fullName = String(req.body?.fullName || '').trim().slice(0, 80);
+    const username = String(req.body?.username || '').trim().slice(0, 80);
+    const vipActive = Boolean(req.body?.vipActive);
+    const device = String(req.body?.device || req.headers['user-agent'] || '')
+      .trim()
+      .slice(0, 100);
 
     if (visitorId) {
       seenVisitorIds.add(visitorId);
       if (offline) {
         activeOnlineVisitors.delete(visitorId);
       } else {
-        activeOnlineVisitors.set(visitorId, { lastSeen: Date.now(), page });
+        activeOnlineVisitors.set(visitorId, {
+          visitorId,
+          lastSeen: Date.now(),
+          page,
+          isTelegram,
+          tgId,
+          webId,
+          fullName,
+          username,
+          vipActive,
+          device,
+        });
       }
     }
 
@@ -96,6 +130,7 @@ async function startServer() {
       onlineUsers: activeOnlineVisitors.size,
       totalUsers: seenVisitorIds.size,
       onlineVisitorIds: Array.from(activeOnlineVisitors.keys()),
+      onlineUsersDetails: Array.from(activeOnlineVisitors.values()),
     });
   });
 

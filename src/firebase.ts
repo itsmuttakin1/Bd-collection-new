@@ -48,6 +48,9 @@ export interface VideoItem {
   addedAt?: number;
   author: string;
   isShort?: boolean;
+  isTrending?: boolean;
+  trendingRank?: number;
+  trendingPinnedAt?: number;
 }
 
 export interface ShortItem {

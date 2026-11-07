@@ -544,6 +544,32 @@
             </div>
           </div>
         </div>
+
+        <!-- LIVE ONLINE USERS LIST (SHOWS TELEGRAM USERS WITH TG ID & WEBSITE VISITORS Web-v...) -->
+        <div class="p-3.5 sm:p-4 rounded-xl border border-emerald-800/50 bg-zinc-950/95 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-extrabold tracking-wide">
+                🟢 LIVE ONLINE USERS
+              </span>
+              <h3 class="text-xs sm:text-sm font-bold text-white">
+                কে কে অনলাইনে আছে (Telegram ID ও Website Visitor `Web-v...`)
+              </h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+              <span id="stat-online-tg-badge" class="px-2.5 py-0.5 rounded-full bg-sky-950/90 border border-sky-700/70 text-sky-300 font-bold">
+                📱 Telegram: 0
+              </span>
+              <span id="stat-online-web-badge" class="px-2.5 py-0.5 rounded-full bg-amber-950/90 border border-amber-700/70 text-amber-300 font-bold">
+                🌐 Web Visitor: 0
+              </span>
+            </div>
+          </div>
+
+          <div id="live-online-users-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
+            <p class="text-xs text-zinc-500 py-3 col-span-full text-center">Checking live online users...</p>
+          </div>
+        </div>
       </section>
 
       <!-- ===================================================================== -->
@@ -840,18 +866,33 @@
                   class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-amber-500/40 text-sm font-mono font-bold text-amber-300 uppercase tracking-wider focus:outline-none focus:border-amber-400" />
               </div>
 
-              <!-- Quick Duration Preset Buttons (Auto-Sets Exact Date & Time Below) -->
-              <div class="space-y-1.5">
-                <label class="block text-[11px] text-zinc-400">১-ক্লিক মেয়াদ সিলেক্ট করুন (অথবা নিচে সরাসরি তারিখ ও সময় দিন):</label>
+              <!-- Quick Duration Preset Buttons (Minutes, Hours & Days -> Auto-Sets Exact Date & Time Below) -->
+              <div class="space-y-2">
+                <label class="block text-[11px] text-zinc-400">১-ক্লিক মেয়াদ সিলেক্ট করুন (মিনিট, ঘণ্টা বা দিন):</label>
                 <div class="grid grid-cols-4 gap-1.5">
+                  <button type="button" data-redeem-mins="5" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">5 Mins</button>
+                  <button type="button" data-redeem-mins="15" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">15 Mins</button>
+                  <button type="button" data-redeem-mins="30" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">30 Mins</button>
                   <button type="button" data-redeem-hours="1" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">1 Hour</button>
                   <button type="button" data-redeem-hours="6" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">6 Hours</button>
                   <button type="button" data-redeem-hours="24" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-[11px] font-bold text-amber-300 cursor-pointer">1 Day (24h)</button>
-                  <button type="button" data-redeem-hours="72" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">3 Days</button>
                   <button type="button" data-redeem-hours="168" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">7 Days</button>
-                  <button type="button" data-redeem-hours="360" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">15 Days</button>
                   <button type="button" data-redeem-hours="720" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">30 Days</button>
-                  <button type="button" data-redeem-hours="2160" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">90 Days</button>
+                </div>
+
+                <!-- Custom Minutes Input Box ("ar reedem code koto min o gen kora jabe") -->
+                <div class="p-2.5 rounded-xl bg-zinc-950 border border-emerald-800/60 space-y-1.5">
+                  <label class="block text-[11px] font-bold text-emerald-400">
+                    ⏱️ কাস্টম মিনিট সেট করুন (কত মিনিটের জন্য Redeem Code জেনারেট করবেন):
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input id="redeem-custom-minutes-input" type="number" min="1" max="525600" placeholder="যেমন: 10 বা 45 (মিনিট)"
+                      class="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-emerald-500" />
+                    <button id="apply-custom-minutes-btn" type="button"
+                      class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shrink-0">
+                      ⚡ Set Minutes
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1047,6 +1088,10 @@
                   <label class="block text-[11px] text-zinc-400 mb-1">Duration *</label>
                   <select id="pkg-hours-input"
                     class="w-full px-2.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500">
+                    <option value="0.25|15 Minutes VIP">15 Mins</option>
+                    <option value="0.5|30 Minutes VIP">30 Mins</option>
+                    <option value="1|1 Hour VIP">1 Hour</option>
+                    <option value="6|6 Hours VIP">6 Hours</option>
                     <option value="24|24 Hours (1 Day)">1 Day (24h)</option>
                     <option value="72|3 Days VIP">3 Days (72h)</option>
                     <option value="168|7 Days VIP" selected>7 Days (168h)</option>
@@ -1500,14 +1545,24 @@
                   </button>
                 </div>
 
-                <!-- Auto-Post Notice Checkbox on Video Upload -->
-                <label class="flex items-center gap-2.5 p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 cursor-pointer select-none">
-                  <input id="auto-post-notice-checkbox" type="checkbox" checked
-                    class="w-4 h-4 rounded accent-red-600 cursor-pointer" />
-                  <span class="text-xs text-zinc-200 font-medium">
-                    📢 ভিডিও আপলোড হলে অটোমেটিক Index পেইজের Notice Board-এ <strong class="text-emerald-300">"🔥 নতুন ভিডিও অ্যাড হয়েছে"</strong> নোটিশ পোস্ট হবে
-                  </span>
-                </label>
+                <!-- Auto-Post Notice Checkbox & Pin to Trending Top Checkbox on Video Upload -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label class="flex items-center gap-2.5 p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 cursor-pointer select-none">
+                    <input id="auto-post-notice-checkbox" type="checkbox" checked
+                      class="w-4 h-4 rounded accent-red-600 cursor-pointer" />
+                    <span class="text-xs text-zinc-200 font-medium">
+                      📢 আপলোড হলে Notice Board-এ <strong class="text-emerald-300">"🔥 নতুন ভিডিও"</strong> নোটিশ যাবে
+                    </span>
+                  </label>
+
+                  <label class="flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-950/30 border border-amber-600/50 cursor-pointer select-none">
+                    <input id="pin-trending-top-checkbox" type="checkbox"
+                      class="w-4 h-4 rounded accent-amber-500 cursor-pointer" />
+                    <span class="text-xs text-amber-200 font-semibold">
+                      🔥 <strong>Trending Top-এ রাখুন:</strong> ভিডিওটি Trending সেকশনের একদম উপরে শো করবে
+                    </span>
+                  </label>
+                </div>
 
                 <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-zinc-800/80">
                   <p id="upload-ready-hint" class="text-xs text-zinc-400">
@@ -1664,14 +1719,42 @@
       <!-- TAB PANEL: VIDEOS SECTION (ONLY SHOWS WHEN VIDEOS TAB IS CLICKED)     -->
       <!-- ===================================================================== -->
       <div id="admin-panel-videos" data-admin-panel="videos" class="hidden space-y-6">
+        <!-- CUSTOM TRENDING TOP VIDEOS MANAGER -->
+        <section class="p-4 sm:p-5 rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/30 via-zinc-900/80 to-zinc-950 space-y-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-500 text-white text-[11px] font-extrabold">
+                  🔥 TRENDING TOP CUSTOMIZER
+                </span>
+                <h2 class="text-sm sm:text-base font-bold text-white">
+                  Admin Customized Trending Top Videos (Trending সেকশনের একদম উপরে যে ভিডিওগুলো থাকবে)
+                </h2>
+              </div>
+              <p class="text-xs text-zinc-300 mt-0.5">
+                নিচের ভিডিও লিস্ট থেকে যেকোনো ভিডিওর <strong>🔥 Pin Trending</strong> বাটনে ক্লিক করলে বা Rank (`#1, #2, #3...`) সিলেক্ট করলে সেটি ওয়েবসাইটের <strong>Trending</strong> সেকশনের একদম উপরে শো করবে!
+              </p>
+            </div>
+            <span id="trending-pinned-count-badge" class="px-3 py-1 rounded-full bg-zinc-950 border border-amber-500/50 text-xs font-mono font-bold text-amber-300">
+              🔥 0 Pinned to Top
+            </span>
+          </div>
+
+          <div id="trending-pinned-list-wrap" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <p class="text-xs text-zinc-400 col-span-full py-2">
+              এখনো কোনো ভিডিও Trending Top-এ পিন করা হয়নি। নিচের টেবিল থেকে যেকোনো ভিডিওতে <strong>🔥 Pin Top</strong> ক্লিক করুন!
+            </p>
+          </div>
+        </section>
+
         <section class="p-4 sm:p-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-3">
             <div>
               <div class="flex items-center gap-2">
                 <span class="px-2 py-0.5 rounded bg-sky-600 text-white text-[11px] font-bold">🎬 VIDEOS SECTION</span>
-                <h2 class="text-sm sm:text-base font-bold text-white">Published Website Videos &amp; Old Video Editor (`/videos`)</h2>
+                <h2 class="text-sm sm:text-base font-bold text-white">Published Website Videos &amp; Trending Top Control (`/videos`)</h2>
               </div>
-              <p class="text-xs text-zinc-400 mt-0.5">যেকোনো ভিডিওর Share Link কপি, Title/Thumbnail/Views Edit অথবা Delete করুন</p>
+              <p class="text-xs text-zinc-400 mt-0.5">যেকোনো ভিডিও Trending Top-এ পিন করুন, Share Link কপি করুন অথবা Edit / Delete করুন</p>
             </div>
             <div class="flex flex-wrap items-center gap-2 sm:gap-3">
               <button id="download-sitemap-btn" type="button"
@@ -1687,10 +1770,10 @@
               <thead>
                 <tr class="border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
                   <th class="py-2.5 px-3">THUMBNAIL</th>
-                  <th class="py-2.5 px-3">TITLE &amp; KEYWORDS</th>
+                  <th class="py-2.5 px-3">TITLE &amp; TRENDING STATUS</th>
                   <th class="py-2.5 px-3">VIDEO STREAM URL (`url`)</th>
                   <th class="py-2.5 px-3 text-right">VIEWS / LIKES (ADMIN ONLY)</th>
-                  <th class="py-2.5 px-3 text-right">ACTIONS (EDIT / DELETE)</th>
+                  <th class="py-2.5 px-3 text-right">ACTIONS (TRENDING / SHARE / EDIT)</th>
                 </tr>
               </thead>
               <tbody id="catalog-table-body" class="divide-y divide-zinc-800/60 text-xs"></tbody>
@@ -1903,9 +1986,9 @@ export default {
       const adminOnly = `auth != null && auth.uid === '${ADMIN_UID}'`;
       const botOrAdmin = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')`;
       // Strict anti-hack rule for redeemCodes:
-      // 1. Only Admin or Bot can create/delete/modify a redeem code.
+      // 1. Only Admin or Bot can create/delete a redeem code, and Bot cannot extend an existing code's expiresAt.
       // 2. A browser activating an existing active code can ONLY bind its `boundDeviceId` ONCE, and CANNOT change `code`, `expiresAt`, or `active`!
-      const redeemCodeWriteRule = `(${botOrAdmin}) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val())`;
+      const redeemCodeWriteRule = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || data.child('expiresAt').val() === newData.child('expiresAt').val())) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val())`;
 
       return JSON.stringify(
         {
@@ -1984,7 +2067,7 @@ export default {
               }
             },
             presence: {
-              ".read": adminOnly,
+              ".read": true,
               "$visitorId": {
                 ".read": true,
                 ".write": `!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()) || (${adminOnly})`
@@ -4670,6 +4753,9 @@ service cloud.firestore {
         let createdShortId = '';
 
         // 3A. Publish to `videos` (Long Videos) if targetMode is 'long' or 'both'
+        const pinTrendingBox = document.getElementById('pin-trending-top-checkbox');
+        const shouldPinTrending = Boolean(pinTrendingBox && pinTrendingBox.checked);
+
         if (targetMode === 'long' || targetMode === 'both') {
           const newVideoRef = push(ref(db, 'videos'));
           createdLongId = newVideoRef.key;
@@ -4686,7 +4772,10 @@ service cloud.firestore {
             duration,
             views: 0,
             likes: 0,
-            author: 'X Tube'
+            author: 'X Tube',
+            isTrending: shouldPinTrending,
+            trendingRank: shouldPinTrending ? 1 : 9999,
+            trendingPinnedAt: shouldPinTrending ? now : 0,
           });
         }
 
@@ -4913,33 +5002,171 @@ service cloud.firestore {
     let settingsSavedUsers = 0;
     let serverTotalUsers = 0;
     let fbPresenceMap = {};
+    let fbFallbackOnlineMap = {};
     let serverOnlineIds = [];
+    let serverOnlineDetails = [];
+
+    const escSafeHtml = (str) =>
+      String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 
     const renderTrafficCounters = () => {
       const now = Date.now();
-      const activeIds = new Set();
+      const onlineMap = new Map();
 
-      Object.entries(fbPresenceMap || {}).forEach(([vid, info]) => {
+      const ingestPresenceSource = (srcObj) => {
+        Object.entries(srcObj || {}).forEach(([vid, info]) => {
+          if (vid === 'botAuthToken' || !info || typeof info !== 'object') return;
+          const lastSeen = Number(info.lastSeen) || 0;
+          if (info.online !== false && (lastSeen === 0 || now - lastSeen < 75000)) {
+            const rawTgId = String(info.tgId || '').trim();
+            const isTg =
+              Boolean(info.isTelegram) ||
+              (/^\d{5,20}$/.test(rawTgId) && rawTgId !== '84920145');
+            const webId =
+              String(info.webId || '').trim() ||
+              (!isTg && rawTgId ? rawTgId : `Web-v${String(vid).replace(/[^a-zA-Z0-9]/g, '').slice(-6)}`);
+            const key = isTg ? `tg_${rawTgId}` : `web_${webId}`;
+
+            onlineMap.set(key, {
+              key,
+              isTelegram: isTg,
+              tgId: isTg ? rawTgId : '',
+              webId: !isTg ? webId : '',
+              fullName: isTg
+                ? String(info.fullName || 'Telegram User').trim()
+                : `Web Visitor (${webId})`,
+              username: String(info.username || '').replace(/^@+/, '').trim(),
+              page: String(info.page || 'home').trim(),
+              vipActive: Boolean(info.vipActive),
+              device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
+              lastSeen: lastSeen || now,
+            });
+          }
+        });
+      };
+
+      ingestPresenceSource(fbFallbackOnlineMap);
+      ingestPresenceSource(fbPresenceMap);
+
+      (serverOnlineDetails || []).forEach((info) => {
         if (!info || typeof info !== 'object') return;
         const lastSeen = Number(info.lastSeen) || 0;
-        if (info.online && (lastSeen === 0 || now - lastSeen < 65000)) {
-          activeIds.add(vid);
+        if (now - lastSeen < 75000) {
+          const rawTgId = String(info.tgId || '').trim();
+          const isTg =
+            Boolean(info.isTelegram) ||
+            (/^\d{5,20}$/.test(rawTgId) && rawTgId !== '84920145');
+          const webId =
+            String(info.webId || '').trim() ||
+            (!isTg && rawTgId ? rawTgId : `Web-v${String(info.visitorId || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6)}`);
+          const key = isTg ? `tg_${rawTgId}` : `web_${webId}`;
+          if (!onlineMap.has(key)) {
+            onlineMap.set(key, {
+              key,
+              isTelegram: isTg,
+              tgId: isTg ? rawTgId : '',
+              webId: !isTg ? webId : '',
+              fullName: isTg
+                ? String(info.fullName || 'Telegram User').trim()
+                : `Web Visitor (${webId})`,
+              username: String(info.username || '').replace(/^@+/, '').trim(),
+              page: String(info.page || 'home').trim(),
+              vipActive: Boolean(info.vipActive),
+              device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
+              lastSeen: lastSeen || now,
+            });
+          }
         }
       });
 
-      (serverOnlineIds || []).forEach((id) => activeIds.add(id));
+      const onlineUsersArray = Array.from(onlineMap.values()).sort((a, b) => {
+        if (a.isTelegram !== b.isTelegram) return a.isTelegram ? -1 : 1;
+        return b.lastSeen - a.lastSeen;
+      });
 
-      const onlineCount = activeIds.size;
+      const onlineCount = Math.max(onlineUsersArray.length, (serverOnlineIds || []).length);
+      const tgOnlineCount = onlineUsersArray.filter((u) => u.isTelegram).length;
+      const webOnlineCount = onlineUsersArray.filter((u) => !u.isTelegram).length;
+
       const totalUsersCount = Math.max(fbTotalUsers, settingsSavedUsers, serverTotalUsers, onlineCount);
       const totalVisitsCount = Math.max(fbTotalVisits, totalUsersCount);
 
       const onlineEl = document.getElementById('stat-online-users');
       const totalUsersEl = document.getElementById('stat-total-users');
       const totalVisitsEl = document.getElementById('stat-total-visits');
+      const tgBadgeEl = document.getElementById('stat-online-tg-badge');
+      const webBadgeEl = document.getElementById('stat-online-web-badge');
+      const listWrapEl = document.getElementById('live-online-users-list');
 
       if (onlineEl) onlineEl.textContent = onlineCount.toLocaleString();
       if (totalUsersEl) totalUsersEl.textContent = totalUsersCount.toLocaleString();
       if (totalVisitsEl) totalVisitsEl.textContent = totalVisitsCount.toLocaleString();
+      if (tgBadgeEl) tgBadgeEl.textContent = `📱 Telegram: ${tgOnlineCount}`;
+      if (webBadgeEl) webBadgeEl.textContent = `🌐 Web Visitor: ${webOnlineCount}`;
+
+      if (listWrapEl) {
+        if (onlineUsersArray.length === 0) {
+          listWrapEl.innerHTML =
+            '<p class="text-xs text-zinc-500 py-3 col-span-full text-center">বর্তমানে কোনো ইউজার অনলাইনে নেই। কেউ অ্যাপ বা ওয়েবসাইট ওপেন করলেই সাথে সাথে তার Telegram ID বা Web Visitor ID এখানে শো করবে।</p>';
+        } else {
+          listWrapEl.innerHTML = onlineUsersArray
+            .map((u) => {
+              const secAgo = Math.max(1, Math.floor((now - u.lastSeen) / 1000));
+              const vipPill = u.vipActive
+                ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-bold text-amber-300">👑 VIP</span>`
+                : '';
+              if (u.isTelegram) {
+                return `
+                  <div class="p-2.5 rounded-xl bg-zinc-900/95 border border-sky-700/60 flex items-center justify-between gap-2 text-xs">
+                    <div class="min-w-0 space-y-0.5">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="px-1.5 py-0.5 rounded bg-sky-600 text-white text-[9px] font-extrabold">📱 TG USER</span>
+                        <span class="font-bold text-white truncate">${escSafeHtml(u.fullName)}</span>
+                        ${vipPill}
+                      </div>
+                      <p class="text-[11px] font-mono text-sky-300 truncate">
+                        TG ID: <strong class="text-white select-all">${escSafeHtml(u.tgId)}</strong>
+                        ${u.username ? ` · @${escSafeHtml(u.username)}` : ''}
+                      </p>
+                      <p class="text-[10px] text-zinc-400 font-mono">
+                        📍 ${escSafeHtml(u.page.toUpperCase())} · 🟢 Active (${secAgo}s ago)
+                      </p>
+                    </div>
+                    <button type="button" onclick="navigator.clipboard.writeText('${escSafeHtml(u.tgId)}')"
+                      class="px-2 py-1 rounded-lg bg-sky-950 hover:bg-sky-900 border border-sky-700/70 text-[10px] font-mono text-sky-200 cursor-pointer shrink-0">
+                      📋 Copy ID
+                    </button>
+                  </div>
+                `;
+              }
+              return `
+                <div class="p-2.5 rounded-xl bg-zinc-900/95 border border-zinc-800 flex items-center justify-between gap-2 text-xs">
+                  <div class="min-w-0 space-y-0.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="px-1.5 py-0.5 rounded bg-amber-600/80 text-white text-[9px] font-extrabold">🌐 WEB</span>
+                      <span class="font-bold text-zinc-100 truncate">${escSafeHtml(u.webId || 'Web-vVisitor')}</span>
+                      ${vipPill}
+                    </div>
+                    <p class="text-[11px] font-mono text-amber-300 truncate">
+                      Visitor: <strong class="text-zinc-200 select-all">${escSafeHtml(u.webId)}</strong> · ${escSafeHtml(u.device)}
+                    </p>
+                    <p class="text-[10px] text-zinc-400 font-mono">
+                      📍 ${escSafeHtml(u.page.toUpperCase())} · 🟢 Active (${secAgo}s ago)
+                    </p>
+                  </div>
+                  <span class="px-2 py-1 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-[10px] font-mono text-emerald-300 shrink-0">
+                    ● Online
+                  </span>
+                </div>
+              `;
+            })
+            .join('');
+        }
+      }
     };
 
     const initLiveUserTrafficMonitor = () => {
@@ -4969,6 +5196,15 @@ service cloud.firestore {
       );
 
       onValue(
+        ref(db, 'telegramBotSessions/_online'),
+        (snap) => {
+          fbFallbackOnlineMap = snap.val() || {};
+          renderTrafficCounters();
+        },
+        () => {}
+      );
+
+      onValue(
         ref(db, 'presence'),
         (snap) => {
           fbPresenceMap = snap.val() || {};
@@ -4979,13 +5215,7 @@ service cloud.firestore {
           }
           renderTrafficCounters();
         },
-        () => {
-          if (badgeEl) {
-            badgeEl.textContent = '⚠️ নতুন Rules কপি করে Firebase Console-এ Publish করুন';
-            badgeEl.className =
-              'px-2.5 py-0.5 rounded-md bg-amber-950/80 border border-amber-800/70 text-[11px] font-mono text-amber-300';
-          }
-        }
+        () => {}
       );
 
       const pollServerStats = async () => {
@@ -4995,6 +5225,7 @@ service cloud.firestore {
             const data = await res.json();
             serverTotalUsers = Number(data.totalUsers) || 0;
             serverOnlineIds = Array.isArray(data.onlineVisitorIds) ? data.onlineVisitorIds : [];
+            serverOnlineDetails = Array.isArray(data.onlineUsersDetails) ? data.onlineUsersDetails : [];
             const mergedMax = Math.max(fbTotalUsers, settingsSavedUsers, serverTotalUsers);
             if (mergedMax > settingsSavedUsers && currentUser?.uid === ADMIN_UID) {
               settingsSavedUsers = mergedMax;
@@ -5125,19 +5356,70 @@ service cloud.firestore {
         streamUrl: item.url || item.videoUrl || '',
         views: Number(item.views) || 0,
         likes: Number(item.likes) || 0,
-        time: Number(item.addedAt || item.createdAt) || 0
+        time: Number(item.addedAt || item.createdAt) || 0,
+        isTrending: Boolean(item.isTrending),
+        trendingRank: Number(item.trendingRank) || 9999,
+        trendingPinnedAt: Number(item.trendingPinnedAt) || 0,
       }));
-      list.sort((a, b) => b.time - a.time);
+      list.sort((a, b) => {
+        if (a.isTrending !== b.isTrending) return a.isTrending ? -1 : 1;
+        if (a.isTrending && b.isTrending && a.trendingRank !== b.trendingRank) {
+          return a.trendingRank - b.trendingRank;
+        }
+        return b.time - a.time;
+      });
       countEl.textContent = `${list.length} videos`;
 
       const sumViews = list.reduce((acc, item) => acc + (Number(item.views) || 0), 0);
       if (totalViewsEl) totalViewsEl.textContent = sumViews.toLocaleString();
       if (totalVideosSubEl) totalVideosSubEl.textContent = `${list.length} Videos`;
 
+      // Render Custom Trending Top Pinned Videos Summary Box
+      const pinnedTrendingList = list.filter((v) => v.isTrending);
+      const pinnedBadgeEl = document.getElementById('trending-pinned-count-badge');
+      const pinnedWrapEl = document.getElementById('trending-pinned-list-wrap');
+      if (pinnedBadgeEl) {
+        pinnedBadgeEl.textContent = `🔥 ${pinnedTrendingList.length} Pinned to Top`;
+      }
+      if (pinnedWrapEl) {
+        if (pinnedTrendingList.length === 0) {
+          pinnedWrapEl.innerHTML =
+            '<p class="text-xs text-zinc-400 col-span-full py-2">এখনো কোনো ভিডিও Trending Top-এ পিন করা হয়নি। নিচের টেবিল থেকে যেকোনো ভিডিওতে <strong>🔥 Pin Top</strong> বাটনে ক্লিক করুন!</p>';
+        } else {
+          pinnedWrapEl.innerHTML = '';
+          pinnedTrendingList.forEach((pv, idx) => {
+            const card = document.createElement('div');
+            card.className =
+              'p-2.5 rounded-xl bg-zinc-950 border border-amber-500/60 flex items-center justify-between gap-2 text-xs';
+            card.innerHTML = `
+              <div class="min-w-0 flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-mono font-extrabold shrink-0">
+                  #${pv.trendingRank < 999 ? pv.trendingRank : idx + 1}
+                </span>
+                <span class="font-bold text-white truncate">${pv.title}</span>
+              </div>
+              <button type="button" data-unpin-top="${pv.id}"
+                class="px-2 py-1 rounded bg-red-950/80 hover:bg-red-900 border border-red-700/60 text-red-200 text-[10px] font-bold cursor-pointer shrink-0">
+                ✕ Unpin
+              </button>
+            `;
+            card.querySelector('[data-unpin-top]')?.addEventListener('click', async () => {
+              await update(ref(db, `videos/${pv.id}`), {
+                isTrending: false,
+                trendingRank: 9999,
+                botAuthToken: 'xtube_tg_bot_2026',
+              });
+              showStatus(`Removed "${pv.title}" from Trending Top.`, 'info');
+            });
+            pinnedWrapEl.appendChild(card);
+          });
+        }
+      }
+
       list.forEach((v) => {
         const shareLink = window.buildVideoShareLink ? window.buildVideoShareLink(v.id) : `${window.location.origin}/?v=${encodeURIComponent(v.id)}`;
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-zinc-900/60';
+        tr.className = v.isTrending ? 'bg-amber-950/15 hover:bg-amber-950/25' : 'hover:bg-zinc-900/60';
         tr.innerHTML = `
           <td class="py-2.5 px-3">
             <div class="relative w-24 h-13 group">
@@ -5155,7 +5437,14 @@ service cloud.firestore {
             </div>
           </td>
           <td class="py-2.5 px-3">
-            <p class="font-medium text-white line-clamp-1">${v.title}</p>
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${
+                v.isTrending
+                  ? `<span class="px-1.5 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-extrabold">🔥 TRENDING TOP #${v.trendingRank < 999 ? v.trendingRank : 1}</span>`
+                  : ''
+              }
+              <p class="font-medium text-white line-clamp-1">${v.title}</p>
+            </div>
             <p class="text-[11px] text-zinc-500 line-clamp-1">${v.keywords}</p>
             <div class="flex items-center gap-1.5 mt-1">
               <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
@@ -5180,6 +5469,27 @@ service cloud.firestore {
             <span class="text-red-400 font-semibold">♥ ${v.likes.toLocaleString()}</span>
           </td>
           <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
+            <button data-toggle-trending="${v.id}" type="button" title="Pin or Unpin at Top of Trending Section"
+              class="px-2.5 py-1 rounded ${
+                v.isTrending
+                  ? 'bg-amber-500 text-zinc-950 font-extrabold shadow shadow-amber-500/30'
+                  : 'bg-zinc-800 hover:bg-amber-950 border border-amber-700/50 text-amber-300 font-semibold'
+              } text-[11px] cursor-pointer transition-colors">
+              ${v.isTrending ? '🔥 Pinned Top' : '🔥 Pin Top'}
+            </button>
+            ${
+              v.isTrending
+                ? `<select data-rank-trending="${v.id}" title="Trending Top Order (#1, #2, #3...)"
+                    class="px-1.5 py-1 rounded bg-zinc-950 border border-amber-500/60 text-amber-300 text-[11px] font-mono cursor-pointer">
+                    ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                      .map(
+                        (r) =>
+                          `<option value="${r}" ${(v.trendingRank || 1) === r ? 'selected' : ''}>#${r}</option>`
+                      )
+                      .join('')}
+                  </select>`
+                : ''
+            }
             <button data-share-vid="${v.id}" type="button" title="Copy Index Share Link"
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
               🔗 Share Link
@@ -5207,6 +5517,41 @@ service cloud.firestore {
             </button>
           </td>
         `;
+
+        tr.querySelector('[data-toggle-trending]')?.addEventListener('click', async () => {
+          const nextState = !v.isTrending;
+          try {
+            await update(ref(db, `videos/${v.id}`), {
+              isTrending: nextState,
+              trendingRank: nextState ? 1 : 9999,
+              trendingPinnedAt: nextState ? Date.now() : 0,
+              botAuthToken: 'xtube_tg_bot_2026',
+            });
+            showStatus(
+              nextState
+                ? `🔥 "${v.title}" এখন ওয়েবসাইটের Trending সেকশনের একদম উপরে শো করবে!`
+                : `Removed "${v.title}" from Trending Top.`,
+              nextState ? 'success' : 'info'
+            );
+          } catch (err) {
+            showStatus(`Trending Update Error: ${err.message}`, 'error');
+          }
+        });
+
+        tr.querySelector('[data-rank-trending]')?.addEventListener('change', async (e) => {
+          const newRank = Number(e.target.value) || 1;
+          try {
+            await update(ref(db, `videos/${v.id}`), {
+              isTrending: true,
+              trendingRank: newRank,
+              trendingPinnedAt: Date.now(),
+              botAuthToken: 'xtube_tg_bot_2026',
+            });
+            showStatus(`🔥 "${v.title}" এখন Trending #${newRank} পজিশনে সেট করা হয়েছে!`, 'success');
+          } catch (err) {
+            showStatus(`Rank Update Error: ${err.message}`, 'error');
+          }
+        });
 
         const handlePlayPublished = () => {
           if (!v.streamUrl) return;
@@ -6088,18 +6433,34 @@ service cloud.firestore {
       return `${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s left`;
     };
 
-    const setExpiryHoursFromNow = (hours) => {
-      selectedPresetHours = Number(hours) || 24;
-      const targetMs = Date.now() + selectedPresetHours * 3600 * 1000;
+    const setExpiryMinutesFromNow = (minutes) => {
+      const mins = Math.max(1, Number(minutes) || 10);
+      selectedPresetHours = Number((mins / 60).toFixed(4));
+      const targetMs = Date.now() + mins * 60 * 1000;
       if (redeemExpiryInput) {
         redeemExpiryInput.value = toLocalDateTimeInputValue(targetMs);
       }
       if (redeemExpiryPreview) {
-        redeemExpiryPreview.textContent = `⏳ মেয়াদ: ${selectedPresetHours} ঘণ্টা (শেষ হবে: ${new Date(targetMs).toLocaleString()})`;
+        redeemExpiryPreview.textContent =
+          mins < 60
+            ? `⏳ মেয়াদ: ${mins} মিনিট (শেষ হবে: ${new Date(targetMs).toLocaleString()})`
+            : `⏳ মেয়াদ: ${(mins / 60).toFixed(1)} ঘণ্টা (${mins} মিনিট) · শেষ হবে: ${new Date(targetMs).toLocaleString()}`;
+      }
+      if (redeemPkgLabelInput) {
+        redeemPkgLabelInput.value =
+          mins < 60
+            ? `${mins} Minutes VIP Ad-Free`
+            : mins % 1440 === 0
+            ? `${mins / 1440} Days VIP Ad-Free`
+            : mins % 60 === 0
+            ? `${mins / 60} Hours VIP Ad-Free`
+            : `${mins} Mins VIP Ad-Free`;
       }
       document.querySelectorAll('.redeem-preset-btn').forEach((b) => {
+        const m = Number(b.getAttribute('data-redeem-mins'));
         const h = Number(b.getAttribute('data-redeem-hours'));
-        if (h === selectedPresetHours) {
+        const isMatch = (m && m === mins) || (h && h * 60 === mins);
+        if (isMatch) {
           b.className =
             'redeem-preset-btn px-2 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-[11px] font-bold text-amber-300 cursor-pointer';
         } else {
@@ -6107,6 +6468,11 @@ service cloud.firestore {
             'redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer';
         }
       });
+    };
+
+    const setExpiryHoursFromNow = (hours) => {
+      const hrs = Number(hours) || 24;
+      setExpiryMinutesFromNow(Math.round(hrs * 60));
     };
 
     // Initialize default code and +24h expiry
@@ -6121,23 +6487,52 @@ service cloud.firestore {
       });
     }
 
+    document.querySelectorAll('[data-redeem-mins]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mins = Number(btn.getAttribute('data-redeem-mins')) || 10;
+        const customMinInput = document.getElementById('redeem-custom-minutes-input');
+        if (customMinInput) customMinInput.value = String(mins);
+        setExpiryMinutesFromNow(mins);
+      });
+    });
+
     document.querySelectorAll('[data-redeem-hours]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const hrs = Number(btn.getAttribute('data-redeem-hours')) || 24;
         setExpiryHoursFromNow(hrs);
-        if (redeemPkgLabelInput) {
-          redeemPkgLabelInput.value =
-            hrs >= 24 && hrs % 24 === 0 ? `${hrs / 24} Days VIP Ad-Free` : `${hrs} Hours VIP Ad-Free`;
-        }
       });
     });
+
+    const customMinutesInput = document.getElementById('redeem-custom-minutes-input');
+    const applyCustomMinutesBtn = document.getElementById('apply-custom-minutes-btn');
+    if (applyCustomMinutesBtn && customMinutesInput) {
+      const applyMins = () => {
+        const mins = Math.max(1, Number(customMinutesInput.value) || 0);
+        if (!customMinutesInput.value || mins <= 0) {
+          showStatus('অনুগ্রহ করে কত মিনিটের জন্য কোড জেনারেট করবেন তা লিখুন (যেমন: 5, 10, 30)!', 'error');
+          return;
+        }
+        setExpiryMinutesFromNow(mins);
+        showStatus(`⏱️ মেয়াদ ${mins} মিনিট সেট করা হয়েছে!`, 'success');
+      };
+      applyCustomMinutesBtn.addEventListener('click', applyMins);
+      customMinutesInput.addEventListener('input', () => {
+        const mins = Number(customMinutesInput.value);
+        if (Number.isFinite(mins) && mins >= 1) {
+          setExpiryMinutesFromNow(mins);
+        }
+      });
+    }
 
     if (redeemExpiryInput) {
       redeemExpiryInput.addEventListener('change', () => {
         const parsed = new Date(redeemExpiryInput.value).getTime();
         if (Number.isFinite(parsed) && redeemExpiryPreview) {
-          const hrs = Math.max(1, Math.round((parsed - Date.now()) / 3600000));
-          redeemExpiryPreview.textContent = `⏳ কাস্টম মেয়াদ (~${hrs} ঘণ্টা) · শেষ হবে: ${new Date(parsed).toLocaleString()}`;
+          const totalMins = Math.max(1, Math.round((parsed - Date.now()) / 60000));
+          redeemExpiryPreview.textContent =
+            totalMins < 60
+              ? `⏳ কাস্টম মেয়াদ (${totalMins} মিনিট) · শেষ হবে: ${new Date(parsed).toLocaleString()}`
+              : `⏳ কাস্টম মেয়াদ (~${(totalMins / 60).toFixed(1)} ঘণ্টা / ${totalMins} মিনিট) · শেষ হবে: ${new Date(parsed).toLocaleString()}`;
         }
       });
     }
@@ -6154,14 +6549,24 @@ service cloud.firestore {
           return;
         }
 
-        const expiryTs = new Date(redeemExpiryInput?.value || '').getTime();
+        // If custom minutes input is filled and user didn't manually pick a different date, ensure exact seconds precision
+        let expiryTs = new Date(redeemExpiryInput?.value || '').getTime();
+        const customMinsVal = Number(document.getElementById('redeem-custom-minutes-input')?.value || 0);
+        if (customMinsVal >= 1 && Math.abs(expiryTs - (Date.now() + customMinsVal * 60000)) < 90000) {
+          expiryTs = Date.now() + customMinsVal * 60 * 1000;
+        }
+
         if (!Number.isFinite(expiryTs) || expiryTs <= Date.now()) {
-          showStatus('অনুগ্রহ করে বর্তমান সময়ের পরের একটি সঠিক Expire Date & Time সিলেক্ট করুন!', 'error');
+          showStatus('অনুগ্রহ করে বর্তমান সময়ের পরের একটি সঠিক Expire Date & Time বা মিনিট সিলেক্ট করুন!', 'error');
           return;
         }
 
-        const durationHours = Math.max(1, Math.round((expiryTs - Date.now()) / 3600000));
-        const packageName = (redeemPkgLabelInput?.value || 'VIP Ad-Free Pass').trim();
+        const durationMinutes = Math.max(1, Math.round((expiryTs - Date.now()) / 60000));
+        const durationHours = Number((durationMinutes / 60).toFixed(2));
+        const packageName = (
+          redeemPkgLabelInput?.value ||
+          (durationMinutes < 60 ? `${durationMinutes} Minutes VIP Ad-Free` : 'VIP Ad-Free Pass')
+        ).trim();
         const note = (redeemNoteInput?.value || '').trim();
 
         try {
@@ -6169,7 +6574,9 @@ service cloud.firestore {
           const codePayload = {
             code: rawCode,
             packageName,
+            durationMinutes,
             durationHours,
+            durationLabel: durationMinutes < 60 ? `${durationMinutes} Minutes` : packageName,
             createdAt: now,
             expiresAt: expiryTs,
             active: true,
@@ -6184,7 +6591,7 @@ service cloud.firestore {
 
           navigator.clipboard.writeText(rawCode).catch(() => {});
           if (newlyGenBox && newlyGenDisplay) {
-            newlyGenDisplay.textContent = `${rawCode} (Expires: ${new Date(expiryTs).toLocaleString()})`;
+            newlyGenDisplay.textContent = `${rawCode} (${durationMinutes < 60 ? `${durationMinutes} Mins` : `${durationHours}h`} · Expires: ${new Date(expiryTs).toLocaleString()})`;
             newlyGenBox.classList.remove('hidden');
           }
           if (copyNewlyGenBtn) {
@@ -6196,7 +6603,7 @@ service cloud.firestore {
           if (redeemCodeInput) redeemCodeInput.value = generateRandomVipCode();
           if (redeemNoteInput) redeemNoteInput.value = '';
           showStatus(
-            `✅ Redeem Code "${rawCode}" সফলভাবে তৈরি ও কপি হয়েছে! (মেয়াদ শেষ হবে: ${new Date(expiryTs).toLocaleString()})`,
+            `✅ Redeem Code "${rawCode}" (${durationMinutes < 60 ? `${durationMinutes} মিনিট` : `${durationHours} ঘণ্টা`}) তৈরি ও কপি হয়েছে!`,
             'success'
           );
         } catch (err) {

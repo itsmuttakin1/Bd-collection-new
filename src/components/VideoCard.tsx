@@ -439,6 +439,14 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       >
         <div className="relative w-full aspect-video rounded-xl bg-zinc-900 overflow-hidden shadow-md">
           {renderThumbnailMedia()}
+          {video.isTrending && (
+            <span className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-extrabold tracking-wide shadow-lg flex items-center gap-1">
+              <span>🔥 TRENDING</span>
+              {video.trendingRank && video.trendingRank < 999 ? (
+                <span className="font-mono">#{video.trendingRank}</span>
+              ) : null}
+            </span>
+          )}
         </div>
 
         <div className="flex gap-3 items-start px-0.5">

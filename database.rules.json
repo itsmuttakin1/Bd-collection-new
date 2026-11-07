@@ -5,20 +5,7 @@
     "videos": {
       ".read": true,
       "$videoId": {
-        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
-        "views": {
-          ".read": true,
-          ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
-        },
-        "$other": {
-          ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
-        }
-      }
-    },
-    "shorts": {
-      ".read": true,
-      "$shortId": {
-        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')",
         "views": {
           ".read": true,
           ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
@@ -28,8 +15,53 @@
           ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
         },
         "$other": {
-          ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+          ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.parent().child('botAuthToken').val() === 'xtube_tg_bot_2026')"
         }
+      }
+    },
+    "shorts": {
+      ".read": true,
+      "$shortId": {
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')",
+        "views": {
+          ".read": true,
+          ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+        },
+        "likes": {
+          ".read": true,
+          ".write": "(data.parent().exists() && newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
+        },
+        "$other": {
+          ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.parent().child('botAuthToken').val() === 'xtube_tg_bot_2026')"
+        }
+      }
+    },
+    "redeemCodes": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$code": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || data.child('expiresAt').val() === newData.child('expiresAt').val())) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val())"
+      }
+    },
+    "redeemPackages": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$pkgId": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')"
+      }
+    },
+    "redeemStoreConfig": {
+      ".read": true,
+      ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')"
+    },
+    "redeemOrders": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$orderId": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')"
       }
     },
     "stats": {
@@ -42,11 +74,30 @@
       }
     },
     "presence": {
-      ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".read": true,
       "$visitorId": {
         ".read": true,
         ".write": "!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
       }
+    },
+    "notices": {
+      ".read": true,
+      ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')",
+      "$noticeId": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')"
+      }
+    },
+    "telegramBotSessions": {
+      ".read": true,
+      "$chatId": {
+        ".read": true,
+        ".write": "(auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')"
+      }
+    },
+    "seoConfig": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
     },
     "settings": {
       ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
