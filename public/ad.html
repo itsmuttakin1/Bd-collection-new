@@ -3416,7 +3416,6 @@ service cloud.firestore {
     window.encodeTgStartId = (rawId) => {
       return String(rawId || '')
         .trim()
-        .replace(/_/g, '__')
         .replace(/\./g, '_D_')
         .replace(/\+/g, '_P_')
         .replace(/[^A-Za-z0-9_-]/g, '');
@@ -3433,13 +3432,26 @@ service cloud.firestore {
       return 'xtubeofficial_bot';
     };
 
-    // Helper to build the Direct Telegram Mini App Video Share Link (`https://t.me/xtubeofficial_bot?startapp=vid_<videoId>`)
-    // Clicking this link in a Telegram Channel opens the WebApp directly without sending a bot chat message!
+    // Helper to build the Telegram Video Share Link
+    // Uses `?startapp=vid_<id>` if Main Mini App or `/app` short-name is configured, otherwise `?start=vid_<id>` so Telegram always opens the video reliably!
     window.buildVideoShareLink = (videoId) => {
       const cleanId = String(videoId || '').trim();
       const botUser = window.resolveActiveBotUsername();
       const safeStartId = window.encodeTgStartId(cleanId);
-      return `https://t.me/${botUser}?startapp=vid_${safeStartId}`;
+      let base = '';
+      let hasMainWebApp = false;
+      try {
+        base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim().replace(/\/+$/, '');
+        hasMainWebApp = localStorage.getItem('xtube_tg_has_main_webapp') === 'true';
+      } catch {}
+      const appPathMatch = base.match(/t\.me\/([A-Za-z0-9_]+)\/([A-Za-z0-9_]+)/i);
+      if (appPathMatch && appPathMatch[1] && appPathMatch[2]) {
+        return `https://t.me/${appPathMatch[1]}/${appPathMatch[2]}?startapp=vid_${safeStartId}`;
+      }
+      if (hasMainWebApp) {
+        return `https://t.me/${botUser}?startapp=vid_${safeStartId}`;
+      }
+      return `https://t.me/${botUser}?start=vid_${safeStartId}`;
     };
 
     window.copyVideoShareLink = async (videoId, title = '') => {
@@ -3476,7 +3488,7 @@ service cloud.firestore {
       }
 
       showStatus(
-        `Copied Direct Mini App Video Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `Copied Telegram Video Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
         'success'
       );
       return shareUrl;
@@ -3502,7 +3514,20 @@ service cloud.firestore {
       const cleanId = String(shortId || '').trim();
       const botUser = window.resolveActiveBotUsername();
       const safeStartId = window.encodeTgStartId(cleanId);
-      return `https://t.me/${botUser}?startapp=short_${safeStartId}`;
+      let base = '';
+      let hasMainWebApp = false;
+      try {
+        base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim().replace(/\/+$/, '');
+        hasMainWebApp = localStorage.getItem('xtube_tg_has_main_webapp') === 'true';
+      } catch {}
+      const appPathMatch = base.match(/t\.me\/([A-Za-z0-9_]+)\/([A-Za-z0-9_]+)/i);
+      if (appPathMatch && appPathMatch[1] && appPathMatch[2]) {
+        return `https://t.me/${appPathMatch[1]}/${appPathMatch[2]}?startapp=short_${safeStartId}`;
+      }
+      if (hasMainWebApp) {
+        return `https://t.me/${botUser}?startapp=short_${safeStartId}`;
+      }
+      return `https://t.me/${botUser}?start=short_${safeStartId}`;
     };
 
     window.copyShortShareLink = async (shortId, title = '') => {
@@ -6637,8 +6662,17 @@ service cloud.firestore {
         tgNoteInput.value = String(cfg.paymentNote);
       }
       if (cfg.domain) {
-        cachedStoreDomain = String(cfg.domain);
-        if (tgUploadDomainInput) tgUploadDomainInput.value = String(cfg.domain);
+        let cleanDom = String(cfg.domain).trim().replace(/\/+$/, '');
+        if (cleanDom.endsWith('.pages.') || cleanDom.endsWith('.pages.d') || cleanDom.endsWith('.pages.de')) {
+          cleanDom = 'https://xtubeofficial.pages.dev';
+        }
+        cachedStoreDomain = cleanDom;
+        if (tgUploadDomainInput) tgUploadDomainInput.value = cleanDom;
+      }
+      if (cfg.hasMainWebApp !== undefined) {
+        try {
+          localStorage.setItem('xtube_tg_has_main_webapp', cfg.hasMainWebApp ? 'true' : 'false');
+        } catch {}
       }
       if (tgUploadStatusBadge && cfg.botUsername) {
         tgUploadStatusBadge.textContent = `✓ Saved & Active (@${cfg.botUsername})`;
@@ -6699,7 +6733,10 @@ service cloud.firestore {
       const bkashNumber = (tgBkashInput?.value || '').trim();
       const nagadNumber = (tgNagadInput?.value || '').trim();
       const paymentNote = (tgNoteInput?.value || '').trim();
-      const domain = normalizeBaseUrl(tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev');
+      let domain = normalizeBaseUrl(tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev');
+      if (domain.endsWith('.pages.') || domain.endsWith('.pages.d') || domain.endsWith('.pages.de')) {
+        domain = 'https://xtubeofficial.pages.dev';
+      }
 
       if (botToken && botToken.includes(':')) {
         cachedStoreBotToken = botToken;
@@ -6750,9 +6787,13 @@ service cloud.firestore {
         const bkashNumber = (tgBkashInput?.value || '').trim() || 'Not Set';
         const nagadNumber = (tgNagadInput?.value || '').trim() || 'Not Set';
         const paymentNote = (tgNoteInput?.value || '').trim();
-        const domainBase = normalizeBaseUrl(
+        let domainBase = normalizeBaseUrl(
           tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev'
         );
+        if (domainBase.endsWith('.pages.') || domainBase.endsWith('.pages.d') || domainBase.endsWith('.pages.de')) {
+          domainBase = 'https://xtubeofficial.pages.dev';
+          if (tgUploadDomainInput) tgUploadDomainInput.value = domainBase;
+        }
 
         if (!botToken || !botToken.includes(':')) {
           showStatus(
@@ -6836,14 +6877,17 @@ service cloud.firestore {
           }
 
           const botUsername = meData.result?.username || 'xtubeofficial_bot';
+          const hasMainWebApp = Boolean(meData.result?.has_main_web_app);
           try {
             localStorage.setItem('xtube_tg_bot_username', botUsername);
             localStorage.setItem('bd_tg_miniapp_base', `https://t.me/${botUsername}`);
+            localStorage.setItem('xtube_tg_has_main_webapp', hasMainWebApp ? 'true' : 'false');
           } catch {}
           const storePayload = {
             botToken,
             botPass,
             botUsername,
+            hasMainWebApp,
             adminChatId,
             bkashNumber,
             nagadNumber,

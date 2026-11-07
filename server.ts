@@ -1260,7 +1260,7 @@ async function startServer() {
 
     if (text.startsWith('/start')) {
       const startArg = text.replace(/^\/start\s*/i, '').trim();
-      if (startArg) {
+      if (startArg && startArg !== 'buy' && startArg !== 'home') {
         let isShortLink = false;
         let rawTargetId = startArg;
         if (startArg.startsWith('vid_')) {
@@ -1273,35 +1273,63 @@ async function startServer() {
         }
 
         if (rawTargetId) {
-          const [vRes, sRes] = await Promise.all([
+          const altId = rawTargetId.replace(/__/g, '_');
+          const [vRes, sRes, vAltRes, sAltRes] = await Promise.all([
             fetch(`${firebaseRtdbBase}/videos/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
             fetch(`${firebaseRtdbBase}/shorts/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
+            altId !== rawTargetId
+              ? fetch(`${firebaseRtdbBase}/videos/${encodeURIComponent(altId)}.json`).catch(() => null)
+              : Promise.resolve(null),
+            altId !== rawTargetId
+              ? fetch(`${firebaseRtdbBase}/shorts/${encodeURIComponent(altId)}.json`).catch(() => null)
+              : Promise.resolve(null),
           ]);
           const vData: any = vRes && vRes.ok ? await vRes.json().catch(() => null) : null;
           const sData: any = sRes && sRes.ok ? await sRes.json().catch(() => null) : null;
-          const mediaItem = vData || sData;
-          if (!vData && sData) isShortLink = true;
+          const vAltData: any = vAltRes && vAltRes.ok ? await vAltRes.json().catch(() => null) : null;
+          const sAltData: any = sAltRes && sAltRes.ok ? await sAltRes.json().catch(() => null) : null;
+
+          const matchedId = vData || sData ? rawTargetId : vAltData || sAltData ? altId : altId;
+          const mediaItem = vData || sData || vAltData || sAltData;
+          if (!vData && !vAltData && (sData || sAltData)) isShortLink = true;
 
           const videoTitle = String(mediaItem?.title || 'Exclusive Viral Video 🔥').trim();
           const videoDuration = String(mediaItem?.duration || '').trim();
           const miniAppWatchUrl = buildUserWebAppUrl(
-            isShortLink
-              ? `/?short=${encodeURIComponent(rawTargetId)}`
-              : `/?v=${encodeURIComponent(rawTargetId)}`,
+            `/?v=${encodeURIComponent(matchedId)}`,
             msg.from || { id: chatId },
             userLang
           );
           const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
 
           await Promise.all([
-            saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, msg.from),
+            saveChatSession(
+              chatId,
+              {
+                ...session,
+                lang: userLang,
+                step: 'idle',
+                pendingVideoId: matchedId,
+                pendingIsShort: isShortLink,
+                pendingAt: Date.now(),
+              },
+              msg.from
+            ),
+            tgApi('setChatMenuButton', {
+              chat_id: chatId,
+              menu_button: {
+                type: 'web_app',
+                text: isEn ? '▶️ Watch Video' : '▶️ ভিডিও দেখুন',
+                web_app: { url: miniAppWatchUrl },
+              },
+            }).catch(() => {}),
             tgApi('sendMessage', {
               chat_id: chatId,
               text: isEn
                 ? `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                  `👇 Tap <b>▶️ Watch Video Now</b> below to open the Mini App:`
+                  `👇 Tap <b>▶️ Watch Video Now</b> below to open the video directly in the Mini App:`
                 : `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                  `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App-এ ভিডিওটি ওপেন হবে:`,
+                  `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App-এ এই ভিডিওটি ওপেন হবে:`,
               parse_mode: 'HTML',
               reply_markup: {
                 inline_keyboard: [
@@ -1329,8 +1357,21 @@ async function startServer() {
         }
       }
 
+      const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
       await Promise.all([
-        saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, msg.from),
+        saveChatSession(
+          chatId,
+          { ...session, lang: userLang, step: 'idle', pendingVideoId: null, pendingAt: null },
+          msg.from
+        ),
+        tgApi('setChatMenuButton', {
+          chat_id: chatId,
+          menu_button: {
+            type: 'web_app',
+            text: '📱 Open App',
+            web_app: { url: miniAppHomeUrl },
+          },
+        }).catch(() => {}),
         sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang),
       ]);
       return;

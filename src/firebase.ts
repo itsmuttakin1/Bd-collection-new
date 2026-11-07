@@ -104,6 +104,7 @@ export interface RedeemPackageItem {
 
 export interface RedeemStoreConfig {
   botUsername?: string;
+  hasMainWebApp?: boolean;
   bkashNumber?: string;
   nagadNumber?: string;
   serviceEnabled?: boolean;
@@ -112,8 +113,13 @@ export interface RedeemStoreConfig {
 
 let activeTelegramBotUsername = 'xtubeofficial_bot';
 let activeTelegramMiniAppBase = '';
+let activeTelegramHasMainWebApp = false;
 
-export const setActiveTelegramBotUsername = (username?: string, miniAppBase?: string) => {
+export const setActiveTelegramBotUsername = (
+  username?: string,
+  miniAppBase?: string,
+  hasMainWebApp?: boolean
+) => {
   const clean = String(username || '')
     .trim()
     .replace(/^@+/, '');
@@ -123,15 +129,18 @@ export const setActiveTelegramBotUsername = (username?: string, miniAppBase?: st
   if (typeof miniAppBase === 'string' && miniAppBase.trim().startsWith('https://t.me/')) {
     activeTelegramMiniAppBase = miniAppBase.trim().replace(/\/+$/, '');
   }
+  if (typeof hasMainWebApp === 'boolean') {
+    activeTelegramHasMainWebApp = hasMainWebApp;
+  }
 };
 
 export const getActiveTelegramBotUsername = (): string => activeTelegramBotUsername;
 
 export const encodeTgStartId = (rawId: string): string => {
   const clean = String(rawId || '').trim();
-  if (/^[A-Za-z0-9_-]+$/.test(clean)) return clean;
   return clean
-    .replace(/\./g, '__d__')
+    .replace(/\./g, '_D_')
+    .replace(/\+/g, '_P_')
     .replace(/[^A-Za-z0-9_-]/g, (ch) => `_x${ch.charCodeAt(0).toString(16)}_`);
 };
 
@@ -141,37 +150,53 @@ export const decodeTgStartId = (encoded: string): string => {
     .replace(/__d__/g, '.')
     .replace(/_D_/g, '.')
     .replace(/_P_/g, '+')
-    .replace(/__/g, '_')
     .replace(/_x([0-9a-fA-F]{2,4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 };
 
-const resolveTelegramDirectAppBase = (customBotUsername?: string): string => {
+const resolveTelegramDirectAppBase = (customBotUsername?: string): { base: string; useStartApp: boolean } => {
   if (typeof window !== 'undefined') {
     try {
       const savedBase = (localStorage.getItem('bd_tg_miniapp_base') || '').trim().replace(/\/+$/, '');
       if (savedBase && savedBase.startsWith('https://t.me/')) {
-        return savedBase.split('?')[0];
+        const cleanBase = savedBase.split('?')[0];
+        const pathParts = cleanBase.replace(/^https:\/\/t\.me\//i, '').split('/').filter(Boolean);
+        const hasShortNameApp = pathParts.length >= 2;
+        return {
+          base: cleanBase,
+          useStartApp: hasShortNameApp || activeTelegramHasMainWebApp,
+        };
       }
     } catch {}
   }
   if (activeTelegramMiniAppBase) {
-    return activeTelegramMiniAppBase.split('?')[0];
+    const cleanBase = activeTelegramMiniAppBase.split('?')[0];
+    const pathParts = cleanBase.replace(/^https:\/\/t\.me\//i, '').split('/').filter(Boolean);
+    const hasShortNameApp = pathParts.length >= 2;
+    return {
+      base: cleanBase,
+      useStartApp: hasShortNameApp || activeTelegramHasMainWebApp,
+    };
   }
   const botUser =
     String(customBotUsername || activeTelegramBotUsername || 'xtubeofficial_bot')
       .trim()
       .replace(/^@+/, '') || 'xtubeofficial_bot';
-  return `https://t.me/${botUser}`;
+  return {
+    base: `https://t.me/${botUser}`,
+    useStartApp: activeTelegramHasMainWebApp,
+  };
 };
 
 /**
- * Generates the Direct Telegram Mini App Link (`https://t.me/xtubeofficial_bot?startapp=vid_<videoId>`)
- * so clicking a video share link in a Telegram Channel launches the WebApp DIRECTLY without sending a bot chat message!
+ * Generates the Telegram Video Share Link (`https://t.me/xtubeofficial_bot?start=vid_<videoId>` or `?startapp=vid_<videoId>`)
+ * Automatically uses `?startapp=` when Main Mini App / `/app` shortname is configured in @BotFather,
+ * and `?start=` when `has_main_web_app` is false so Telegram ALWAYS opens the target video!
  */
 export const buildVideoShareLink = (videoId: string, customBotUsername?: string): string => {
   const cleanId = String(videoId || '').trim();
-  const base = resolveTelegramDirectAppBase(customBotUsername);
-  return `${base}?startapp=vid_${encodeTgStartId(cleanId)}`;
+  const { base, useStartApp } = resolveTelegramDirectAppBase(customBotUsername);
+  const paramName = useStartApp ? 'startapp' : 'start';
+  return `${base}?${paramName}=vid_${encodeTgStartId(cleanId)}`;
 };
 
 /**
@@ -187,12 +212,13 @@ export const buildWebVideoShareLink = (videoId: string): string => {
 };
 
 /**
- * Generates the Direct Telegram Mini App Short Link (`https://t.me/xtubeofficial_bot?startapp=short_<shortId>`)
+ * Generates the Telegram Short Share Link (`https://t.me/xtubeofficial_bot?start=short_<shortId>` or `?startapp=short_<shortId>`)
  */
 export const buildShortShareLink = (shortId: string, customBotUsername?: string): string => {
   const cleanId = String(shortId || '').trim();
-  const base = resolveTelegramDirectAppBase(customBotUsername);
-  return `${base}?startapp=short_${encodeTgStartId(cleanId)}`;
+  const { base, useStartApp } = resolveTelegramDirectAppBase(customBotUsername);
+  const paramName = useStartApp ? 'startapp' : 'start';
+  return `${base}?${paramName}=short_${encodeTgStartId(cleanId)}`;
 };
 
 /**

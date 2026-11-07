@@ -9,6 +9,7 @@ import {
   ref,
   onValue,
   set,
+  update,
   remove,
   runTransaction,
   onDisconnect,
@@ -189,8 +190,6 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
   };
 };
 
-let telegramStartParamConsumed = false;
-
 const extractTelegramStartParamRaw = (): string => {
   if (typeof window === 'undefined') return '';
   try {
@@ -199,37 +198,68 @@ const extractTelegramStartParamRaw = (): string => {
       params.get('tgWebAppStartParam') ||
       params.get('startapp') ||
       params.get('start_param') ||
-      (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (typeof fromQuery === 'string' && fromQuery.trim()) {
+      params.get('start') ||
+      (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param ||
+      (window as any).Telegram?.WebView?.initParams?.tgWebAppStartParam;
+    if (typeof fromQuery === 'string' && fromQuery.trim() && fromQuery.trim() !== 'home') {
       return fromQuery.trim();
     }
+
+    const webViewData = (window as any).Telegram?.WebView?.initParams?.tgWebAppData;
+    if (typeof webViewData === 'string' && webViewData.trim()) {
+      const wvParams = new URLSearchParams(webViewData);
+      const wvStart = wvParams.get('start_param');
+      if (wvStart && wvStart.trim() && wvStart.trim() !== 'home') return wvStart.trim();
+    }
+
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
       const fromHash =
         hashParams.get('tgWebAppStartParam') ||
         hashParams.get('startapp') ||
-        hashParams.get('start_param');
-      if (fromHash && fromHash.trim()) return fromHash.trim();
+        hashParams.get('start_param') ||
+        hashParams.get('start');
+      if (fromHash && fromHash.trim() && fromHash.trim() !== 'home') return fromHash.trim();
       const tgWebAppData = hashParams.get('tgWebAppData');
       if (tgWebAppData) {
         const innerParams = new URLSearchParams(tgWebAppData);
         const innerStart = innerParams.get('start_param');
-        if (innerStart && innerStart.trim()) return innerStart.trim();
+        if (innerStart && innerStart.trim() && innerStart.trim() !== 'home') return innerStart.trim();
       }
     }
+
+    // Fallback to Telegram WebView sessionStorage (`__telegram__initParams`)
+    try {
+      const rawSessionInit = window.sessionStorage?.getItem('__telegram__initParams');
+      if (rawSessionInit) {
+        const parsedInit = JSON.parse(rawSessionInit);
+        if (
+          typeof parsedInit?.tgWebAppStartParam === 'string' &&
+          parsedInit.tgWebAppStartParam.trim() &&
+          parsedInit.tgWebAppStartParam.trim() !== 'home'
+        ) {
+          return parsedInit.tgWebAppStartParam.trim();
+        }
+        if (typeof parsedInit?.tgWebAppData === 'string' && parsedInit.tgWebAppData.trim()) {
+          const sParams = new URLSearchParams(parsedInit.tgWebAppData);
+          const sStart = sParams.get('start_param');
+          if (sStart && sStart.trim() && sStart.trim() !== 'home') return sStart.trim();
+        }
+      }
+    } catch {}
   } catch {}
   return '';
 };
 
 const cleanIncomingVideoParam = (raw: string): string => {
   const trimmed = String(raw || '').trim();
-  const stripped = trimmed.replace(/^(vid_|v_|video_)/i, '');
+  const stripped = trimmed.replace(/^(vid_|short_|v_|video_)/i, '');
   return decodeTgStartId(stripped);
 };
 
 const cleanIncomingShortParam = (raw: string): string => {
   const trimmed = String(raw || '').trim();
-  const stripped = trimmed.replace(/^short_/i, '');
+  const stripped = trimmed.replace(/^(short_|vid_|v_|video_)/i, '');
   return decodeTgStartId(stripped);
 };
 
@@ -240,10 +270,9 @@ const getRequestedShortIdFromUrl = (allowTelegramStartParam = false): string | n
     const s = params.get('short') || params.get('s');
     if (s && s.trim()) return cleanIncomingShortParam(s.trim());
 
-    if (allowTelegramStartParam && !telegramStartParamConsumed) {
+    if (allowTelegramStartParam) {
       const startParam = extractTelegramStartParamRaw();
       if (startParam && startParam.startsWith('short_')) {
-        telegramStartParamConsumed = true;
         return cleanIncomingShortParam(startParam);
       }
     }
@@ -258,19 +287,25 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
     const v = params.get('v') || params.get('video') || params.get('id');
     if (v && v.trim()) return cleanIncomingVideoParam(v.trim());
 
-    // Only read Telegram start_param ONCE on initial app launch so subsequent Firebase view updates never revert to the initial video
-    if (allowTelegramStartParam && !telegramStartParamConsumed) {
+    const s = params.get('short') || params.get('s');
+    if (s && s.trim() && s.trim() !== 'feed') return cleanIncomingShortParam(s.trim());
+
+    if (allowTelegramStartParam) {
       const tgParam = extractTelegramStartParamRaw();
-      if (tgParam && !tgParam.startsWith('short_') && tgParam !== 'buy') {
-        telegramStartParamConsumed = true;
+      if (tgParam && tgParam !== 'buy' && tgParam !== 'home') {
         return cleanIncomingVideoParam(tgParam);
       }
     }
 
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
-      const hv = hashParams.get('v') || hashParams.get('video') || hashParams.get('id');
-      if (hv && hv.trim()) return cleanIncomingVideoParam(hv.trim());
+      const hv =
+        hashParams.get('v') ||
+        hashParams.get('video') ||
+        hashParams.get('id') ||
+        hashParams.get('short') ||
+        hashParams.get('s');
+      if (hv && hv.trim() && hv.trim() !== 'feed') return cleanIncomingVideoParam(hv.trim());
     }
   } catch {}
   return null;
@@ -278,41 +313,53 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
 
 const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoItem | undefined => {
   if (!rawTarget) return undefined;
-  const target = rawTarget.trim();
+  const target = cleanIncomingVideoParam(rawTarget.trim());
   if (!target) return undefined;
 
   let decoded = target;
   try {
     decoded = decodeURIComponent(target).trim();
   } catch {}
+  const singleUnderscore = decoded.replace(/__/g, '_');
 
   // 1. Exact or decoded Firebase key / inner rawId match
   const exact = list.find(
     (v) =>
       v.id === target ||
       v.id === decoded ||
+      v.id === singleUnderscore ||
       v.id.trim() === target ||
       v.id.trim() === decoded ||
-      (v.rawId && (v.rawId === target || v.rawId === decoded))
+      v.id.trim() === singleUnderscore ||
+      (v.rawId &&
+        (v.rawId === target || v.rawId === decoded || v.rawId === singleUnderscore))
   );
   if (exact) return exact;
 
   // 2. Case-insensitive or underscore-stripped ID match (fixes Telegram Markdown stripped underscores)
   const lower = decoded.toLowerCase();
+  const lowerSingle = singleUnderscore.toLowerCase();
   const stripped = lower.replace(/_/g, '');
   const caseMatch = list.find(
     (v) =>
       v.id.toLowerCase() === lower ||
+      v.id.toLowerCase() === lowerSingle ||
       v.id.toLowerCase().replace(/_/g, '') === stripped ||
       (v.rawId &&
         (v.rawId.toLowerCase() === lower ||
+          v.rawId.toLowerCase() === lowerSingle ||
           v.rawId.toLowerCase().replace(/_/g, '') === stripped))
   );
   if (caseMatch) return caseMatch;
 
   // 3. Match by r2Key or stream URL filename
   return list.find((v) => {
-    if (v.r2Key && (v.r2Key === target || v.r2Key === decoded)) return true;
+    if (
+      v.r2Key &&
+      (v.r2Key === target || v.r2Key === decoded || v.r2Key === singleUnderscore)
+    ) {
+      return true;
+    }
     const stream = (v.url || v.videoUrl || '').trim();
     if (!stream) return false;
     return (
@@ -320,6 +367,7 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
       stream === decoded ||
       stream.endsWith(`/${target}`) ||
       stream.endsWith(`/${decoded}`) ||
+      stream.endsWith(`/${singleUnderscore}`) ||
       stream.endsWith(`/${encodeURIComponent(decoded)}`)
     );
   });
@@ -327,29 +375,44 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
 
 const findMatchingShort = (list: ShortItem[], rawTarget: string | null): ShortItem | undefined => {
   if (!rawTarget || rawTarget === 'feed') return undefined;
-  const target = rawTarget.trim();
+  const target = cleanIncomingShortParam(rawTarget.trim());
   if (!target) return undefined;
 
   let decoded = target;
   try {
     decoded = decodeURIComponent(target).trim();
   } catch {}
+  const singleUnderscore = decoded.replace(/__/g, '_');
 
   const exact = list.find(
-    (s) => s.id === target || s.id === decoded || s.id.trim() === target || s.id.trim() === decoded
+    (s) =>
+      s.id === target ||
+      s.id === decoded ||
+      s.id === singleUnderscore ||
+      s.id.trim() === target ||
+      s.id.trim() === decoded ||
+      s.id.trim() === singleUnderscore
   );
   if (exact) return exact;
 
   const lower = decoded.toLowerCase();
+  const lowerSingle = singleUnderscore.toLowerCase();
   const stripped = lower.replace(/_/g, '');
   const fuzzy = list.find(
     (s) =>
-      s.id.toLowerCase() === lower || s.id.toLowerCase().replace(/_/g, '') === stripped
+      s.id.toLowerCase() === lower ||
+      s.id.toLowerCase() === lowerSingle ||
+      s.id.toLowerCase().replace(/_/g, '') === stripped
   );
   if (fuzzy) return fuzzy;
 
   return list.find((s) => {
-    if (s.r2Key && (s.r2Key === target || s.r2Key === decoded)) return true;
+    if (
+      s.r2Key &&
+      (s.r2Key === target || s.r2Key === decoded || s.r2Key === singleUnderscore)
+    ) {
+      return true;
+    }
     const stream = (s.url || s.videoUrl || '').trim();
     if (!stream) return false;
     return (
@@ -357,9 +420,43 @@ const findMatchingShort = (list: ShortItem[], rawTarget: string | null): ShortIt
       stream === decoded ||
       stream.endsWith(`/${target}`) ||
       stream.endsWith(`/${decoded}`) ||
+      stream.endsWith(`/${singleUnderscore}`) ||
       stream.endsWith(`/${encodeURIComponent(decoded)}`)
     );
   });
+};
+
+const convertShortToVideoItem = (s: ShortItem): VideoItem => ({
+  id: s.id,
+  title: s.title || '🔥 দেশি ভাইরাল শর্টস 🥵💋',
+  description: s.hashtags || s.keywords || '',
+  category: 'Shorts',
+  keywords: s.keywords || s.hashtags || '',
+  hashtags: s.hashtags,
+  videoUrl: s.videoUrl || s.url,
+  url: s.url || s.videoUrl,
+  r2Key: s.r2Key,
+  thumbnailUrl: s.thumbnailUrl || s.thumbnail || '',
+  thumbnail: s.thumbnail || s.thumbnailUrl || '',
+  duration: s.duration || '00:30',
+  views: Number(s.views) || 0,
+  likes: Number(s.likes) || 0,
+  createdAt: Number(s.createdAt || s.addedAt) || Date.now(),
+  addedAt: Number(s.addedAt || s.createdAt) || Date.now(),
+  author: s.author || 'X Tube',
+  isShort: true,
+});
+
+const findMatchingVideoOrShort = (
+  videosList: VideoItem[],
+  shortsList: ShortItem[],
+  rawTarget: string | null
+): VideoItem | undefined => {
+  const fromVideos = findMatchingVideo(videosList, rawTarget);
+  if (fromVideos) return fromVideos;
+  const fromShorts = findMatchingShort(shortsList, rawTarget);
+  if (fromShorts) return convertShortToVideoItem(fromShorts);
+  return undefined;
 };
 
 // ============================================================================
@@ -550,14 +647,19 @@ const computeYouTubeTrendingScore = (
 
 export default function App() {
   // Read initial `?v=<videoId>`, `?short=<shortId>`, or one-time Telegram `start_param`
-  const initialShortId = useMemo(() => getRequestedShortIdFromUrl(true), []);
+  const initialShortId = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('short') || params.get('s');
+    return s && s.trim() === 'feed' ? 'feed' : null;
+  }, []);
   const initialUrlVidId = useMemo(
-    () => (initialShortId ? null : getRequestedVideoIdFromUrl(true)),
+    () => (initialShortId === 'feed' ? null : getRequestedVideoIdFromUrl(true)),
     [initialShortId]
   );
 
   const pendingSharedIdRef = useRef<string | null>(initialUrlVidId);
-  const initialSharedResolvedRef = useRef<boolean>(!initialUrlVidId);
+  const initialSharedResolvedRef = useRef<boolean>(false);
   const activeVideoIdRef = useRef<string | null>(initialUrlVidId);
   const userNavigatedRef = useRef<boolean>(false);
   const suggestedOrderRef = useRef<{ forVideoId: string; count: number; ids: string[] }>({
@@ -604,7 +706,7 @@ export default function App() {
   const [activeShortId, setActiveShortId] = useState<string | null>(initialShortId);
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    if (initialShortId) return 'shorts';
+    if (initialShortId === 'feed') return 'shorts';
     if (initialUrlVidId) return 'watch';
     return 'home';
   });
@@ -657,41 +759,82 @@ export default function App() {
   // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
   useEffect(() => {
     const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
-    if (!tg) return;
-    try {
-      tg.ready();
-      tg.expand();
-      if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0b0e14');
-      if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0b0e14');
-      const freshProfile = resolveTelegramUserProfile();
-      if (freshProfile.isRealTelegramUser) {
-        setTgProfile(freshProfile);
-        setAvatarLoadFailed(false);
-      }
+    let resolvedUserId = tgProfile.isRealTelegramUser ? tgProfile.id : '';
 
-      // Also check if Telegram populated initDataUnsafe.start_param for Direct Mini App links (?startapp=vid_...)
+    if (tg) {
+      try {
+        tg.ready();
+        tg.expand();
+        if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0b0e14');
+        if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0b0e14');
+        const freshProfile = resolveTelegramUserProfile();
+        if (freshProfile.isRealTelegramUser) {
+          resolvedUserId = freshProfile.id;
+          setTgProfile(freshProfile);
+          setAvatarLoadFailed(false);
+        }
+      } catch {}
+    }
+
+    // Check if Telegram populated initDataUnsafe.start_param for Direct Mini App links (?startapp=vid_... or ?startapp=short_...)
+    try {
       const rawStart = extractTelegramStartParamRaw();
-      if (rawStart && !userNavigatedRef.current) {
-        if (rawStart.startsWith('short_')) {
-          const sId = cleanIncomingShortParam(rawStart);
-          if (sId) {
-            setActiveShortId(sId);
-            setViewMode('shorts');
-          }
-        } else if (rawStart !== 'buy') {
-          const vId = cleanIncomingVideoParam(rawStart);
-          if (vId && !pendingSharedIdRef.current) {
-            pendingSharedIdRef.current = vId;
-            activeVideoIdRef.current = vId;
-            stepGatePendingIdRef.current = vId;
-            setSharedVideoId(vId);
-            setStepGatePendingId(vId);
-            setViewMode('watch');
-          }
+      if (rawStart && rawStart !== 'buy' && rawStart !== 'home' && !userNavigatedRef.current) {
+        const vId = cleanIncomingVideoParam(rawStart);
+        if (vId && !pendingSharedIdRef.current) {
+          initialSharedResolvedRef.current = false;
+          pendingSharedIdRef.current = vId;
+          activeVideoIdRef.current = vId;
+          stepGatePendingIdRef.current = vId;
+          setSharedVideoId(vId);
+          setStepGatePendingId(vId);
+          setCurrentStep(1);
+          setStepTimer(STEP_DURATION_SECONDS);
+          setViewMode('watch');
         }
       }
     } catch {}
-  }, []);
+
+    // Also check if the user clicked a `?start=vid_<id>` link in Telegram Bot and then opened the Mini App via the Menu Button!
+    if (resolvedUserId && /^\d+$/.test(resolvedUserId)) {
+      fetch(
+        `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/telegramBotSessions/${encodeURIComponent(
+          resolvedUserId
+        )}.json`,
+        { cache: 'no-store' }
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .then((sess) => {
+          if (!sess || typeof sess !== 'object') return;
+          const pendingVid = String(sess.pendingVideoId || '').trim();
+          const pendingAt = Number(sess.pendingAt || 0);
+          if (pendingVid && Date.now() - pendingAt < 30 * 60 * 1000) {
+            // Clear pendingVideoId in Firebase so future Home visits don't re-open it
+            update(ref(db, `telegramBotSessions/${resolvedUserId}`), {
+              pendingVideoId: null,
+              pendingAt: null,
+              botAuthToken: 'xtube_tg_bot_2026',
+            }).catch(() => {});
+
+            if (!userNavigatedRef.current && !pendingSharedIdRef.current) {
+              const cleanVid = cleanIncomingVideoParam(pendingVid);
+              if (cleanVid) {
+                initialSharedResolvedRef.current = false;
+                pendingSharedIdRef.current = cleanVid;
+                activeVideoIdRef.current = cleanVid;
+                stepGatePendingIdRef.current = cleanVid;
+                setSharedVideoId(cleanVid);
+                setStepGatePendingId(cleanVid);
+                setCurrentStep(1);
+                setStepTimer(STEP_DURATION_SECONDS);
+                setViewMode('watch');
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [tgProfile.id, tgProfile.isRealTelegramUser]);
 
   // Sync Telegram Mini App native BackButton with Watch/Shorts/Profile/StepGate vs Home view
   useEffect(() => {
@@ -778,19 +921,48 @@ export default function App() {
 
   const isRedeemServiceEnabled = storeConfig.serviceEnabled !== false;
 
-  // Auto-bypass 3-Step Verification if user activates a valid VIP Ad-Free Redeem Code
+  // Reactive resolver: whenever `videos` or `shorts` load OR `stepGatePendingId` is set from URL/Telegram,
+  // immediately match the target across both Videos and Shorts and set `activeVideo` + `stepGateVideo`!
   useEffect(() => {
-    if (isAdFree && (stepGateVideo || stepGatePendingId)) {
-      const target = stepGateVideo;
+    const pendingId = stepGatePendingId || pendingSharedIdRef.current;
+    if (!pendingId || userNavigatedRef.current) return;
+    if (videos.length === 0 && shorts.length === 0) return;
+
+    const matched = findMatchingVideoOrShort(videos, shorts, pendingId);
+    if (!matched) return;
+
+    initialSharedResolvedRef.current = true;
+    pendingSharedIdRef.current = matched.id;
+    activeVideoIdRef.current = matched.id;
+    setSharedVideoId(matched.id);
+    setActiveVideo(matched);
+    if (isAdFree || unlockedVideos[matched.id]) {
       stepGatePendingIdRef.current = null;
       setStepGatePendingId(null);
       setStepGateVideo(null);
+      setViewMode('watch');
+    } else {
+      if (!stepGateVideo || stepGateVideo.id !== matched.id) {
+        setStepGateVideo(matched);
+      }
+      setViewMode('watch');
+    }
+  }, [videos, shorts, stepGatePendingId, isAdFree, unlockedVideos, stepGateVideo]);
+
+  // Auto-bypass 3-Step Verification if user activates a valid VIP Ad-Free Redeem Code
+  useEffect(() => {
+    if (isAdFree && (stepGateVideo || stepGatePendingId)) {
+      const target =
+        stepGateVideo || findMatchingVideoOrShort(videos, shorts, stepGatePendingId);
       if (target) {
+        stepGatePendingIdRef.current = null;
+        setStepGatePendingId(null);
+        setStepGateVideo(null);
         setActiveVideo(target);
         setViewMode('watch');
       }
     }
-  }, [isAdFree, stepGateVideo, stepGatePendingId]);
+  }, [isAdFree, stepGateVideo, stepGatePendingId, videos, shorts]);
 
   // 20-Second Countdown Timer for Step 1, Step 2, Step 3
   useEffect(() => {
@@ -860,7 +1032,11 @@ export default function App() {
             : true,
       };
       if (merged.botUsername) {
-        setActiveTelegramBotUsername(merged.botUsername);
+        setActiveTelegramBotUsername(
+          merged.botUsername,
+          undefined,
+          Boolean(merged.hasMainWebApp)
+        );
       }
       setStoreConfig(merged);
       if (merged.serviceEnabled === false) {
@@ -1944,7 +2120,6 @@ export default function App() {
             });
         }
       } else {
-        initialSharedResolvedRef.current = true;
         setLoadingVideos(false);
       }
     };
@@ -2083,7 +2258,7 @@ export default function App() {
     // Step 3 completed -> Unlock and play the video!
     const target =
       stepGateVideo ||
-      (stepGatePendingId ? findMatchingVideo(videos, stepGatePendingId) : null) ||
+      (stepGatePendingId ? findMatchingVideoOrShort(videos, shorts, stepGatePendingId) : null) ||
       activeVideo;
 
     stepGatePendingIdRef.current = null;
@@ -2096,7 +2271,11 @@ export default function App() {
       setActiveVideo(target);
       setViewMode('watch');
       syncUrlWithVideo(target.id);
-      incrementVideoViews(target.id);
+      if (target.isShort) {
+        incrementShortViews(target.id);
+      } else {
+        incrementVideoViews(target.id);
+      }
       recordAlgorithmInteraction(target, 'watch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }

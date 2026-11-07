@@ -675,9 +675,16 @@ export default {
         const decodeTgStartId = (encoded) =>
           String(encoded || '')
             .trim()
+            .replace(/__d__/g, '.')
             .replace(/_D_/g, '.')
             .replace(/_P_/g, '+')
-            .replace(/__/g, '_');
+            .replace(/_x([0-9a-fA-F]{2})_/g, (_, hex) => {
+              try {
+                return String.fromCharCode(parseInt(hex, 16));
+              } catch {
+                return '';
+              }
+            });
 
         const buildUserWebAppUrl = (basePathQuery, userObj, lang = 'bn') => {
           const uid = String(userObj?.id || '').trim();
@@ -1290,35 +1297,71 @@ export default {
             }
 
             if (rawTargetId) {
-              const [vRes, sRes] = await Promise.all([
+              const altId = rawTargetId.replace(/__/g, '_');
+              const [vRes, sRes, vAltRes, sAltRes] = await Promise.all([
                 fetch(`${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
                 fetch(`${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
+                altId !== rawTargetId
+                  ? fetch(`${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(altId)}.json`).catch(() => null)
+                  : Promise.resolve(null),
+                altId !== rawTargetId
+                  ? fetch(`${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(altId)}.json`).catch(() => null)
+                  : Promise.resolve(null),
               ]);
               const vData = vRes && vRes.ok ? await vRes.json().catch(() => null) : null;
               const sData = sRes && sRes.ok ? await sRes.json().catch(() => null) : null;
-              const mediaItem = vData || sData;
-              if (!vData && sData) isShortLink = true;
+              const vAltData = vAltRes && vAltRes.ok ? await vAltRes.json().catch(() => null) : null;
+              const sAltData = sAltRes && sAltRes.ok ? await sAltRes.json().catch(() => null) : null;
+
+              let matchedId = rawTargetId;
+              let mediaItem = vData || sData;
+              if (!mediaItem && (vAltData || sAltData)) {
+                matchedId = altId;
+                mediaItem = vAltData || sAltData;
+              }
+              if ((!vData && sData) || (!vData && !sData && !vAltData && sAltData)) {
+                isShortLink = true;
+              }
 
               const videoTitle = String(mediaItem?.title || 'Exclusive Viral Video 🔥').trim();
               const videoDuration = String(mediaItem?.duration || '').trim();
               const miniAppWatchUrl = buildUserWebAppUrl(
                 isShortLink
-                  ? `/?short=${encodeURIComponent(rawTargetId)}`
-                  : `/?v=${encodeURIComponent(rawTargetId)}`,
+                  ? `/?short=${encodeURIComponent(matchedId)}`
+                  : `/?v=${encodeURIComponent(matchedId)}`,
                 msg.from || { id: chatId },
                 userLang
               );
               const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
 
               await Promise.all([
-                saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, msg.from),
+                saveChatSession(
+                  chatId,
+                  {
+                    ...session,
+                    lang: userLang,
+                    step: 'idle',
+                    pendingVideoId: matchedId,
+                    pendingIsShort: isShortLink,
+                    pendingAt: Date.now(),
+                  },
+                  msg.from
+                ),
+                tgApi('setChatMenuButton', {
+                  chat_id: chatId,
+                  menu_button: {
+                    type: 'web_app',
+                    text: isEn ? '▶️ Watch Video' : '▶️ ভিডিও দেখুন',
+                    web_app: { url: miniAppWatchUrl },
+                  },
+                }).catch(() => null),
                 tgApi('sendMessage', {
                   chat_id: chatId,
                   text: isEn
                     ? `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                      `👇 Tap <b>▶️ Watch Video Now</b> below to open the Mini App:`
+                      `👇 Tap <b>▶️ Watch Video Now</b> below to open the Mini App and complete the 3-Step Verification to play this video:`
                     : `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                      `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App-এ ভিডিওটি ওপেন হবে:`,
+                      `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App ওপেন হবে এবং ৩টি ধাপ সম্পন্ন করলেই এই ভিডিওটি চালু হবে:`,
                   parse_mode: 'HTML',
                   reply_markup: {
                     inline_keyboard: [
@@ -1347,7 +1390,17 @@ export default {
           }
 
           await Promise.all([
-            saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, msg.from),
+            saveChatSession(
+              chatId,
+              {
+                ...session,
+                lang: userLang,
+                step: 'idle',
+                pendingVideoId: null,
+                pendingAt: null,
+              },
+              msg.from
+            ),
             sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang),
           ]);
           return new Response('OK', { status: 200 });
@@ -1667,8 +1720,22 @@ export default {
         return assetRes;
       }
 
-      const vidParam = url.searchParams.get('v');
-      const shortParam = url.searchParams.get('short');
+      let vidParam = url.searchParams.get('v') || url.searchParams.get('video');
+      let shortParam = url.searchParams.get('short');
+      const tgStartRaw =
+        url.searchParams.get('tgWebAppStartParam') ||
+        url.searchParams.get('startapp') ||
+        url.searchParams.get('start') ||
+        '';
+      if (!vidParam && !shortParam && tgStartRaw) {
+        if (tgStartRaw.startsWith('short_')) {
+          shortParam = tgStartRaw.slice(6).replace(/__d__/g, '.').replace(/_D_/g, '.').replace(/_P_/g, '+');
+        } else if (tgStartRaw.startsWith('vid_')) {
+          vidParam = tgStartRaw.slice(4).replace(/__d__/g, '.').replace(/_D_/g, '.').replace(/_P_/g, '+');
+        } else {
+          vidParam = tgStartRaw.replace(/__d__/g, '.').replace(/_D_/g, '.').replace(/_P_/g, '+');
+        }
+      }
 
       try {
         let html = await assetRes.text();
