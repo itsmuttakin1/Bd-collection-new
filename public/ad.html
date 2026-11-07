@@ -3352,14 +3352,32 @@ service cloud.firestore {
       });
     };
 
-    // Helper to build the exact Index Watch Share Link (`https://<origin>/?v=<videoId>`)
+    window.encodeTgStartId = (rawId) => {
+      return String(rawId || '')
+        .trim()
+        .replace(/_/g, '__')
+        .replace(/\./g, '_D_')
+        .replace(/\+/g, '_P_')
+        .replace(/[^A-Za-z0-9_-]/g, '');
+    };
+
+    window.resolveActiveBotUsername = () => {
+      try {
+        const savedUser = (localStorage.getItem('xtube_tg_bot_username') || '').replace(/^@/, '').trim();
+        if (savedUser) return savedUser;
+        const base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
+        const match = base.match(/t\.me\/([A-Za-z0-9_]+)/i);
+        if (match && match[1]) return match[1];
+      } catch {}
+      return 'zeroloder_bot';
+    };
+
+    // Helper to build the direct Telegram Bot Video Share Link (`https://t.me/<bot>?start=vid_<videoId>`)
     window.buildVideoShareLink = (videoId) => {
       const cleanId = String(videoId || '').trim();
-      const origin =
-        typeof window !== 'undefined' && window.location && window.location.origin
-          ? window.location.origin
-          : 'https://xtubeofficial.pages.dev';
-      return `${origin}/?v=${encodeURIComponent(cleanId)}`;
+      const botUser = window.resolveActiveBotUsername();
+      const safeStartId = window.encodeTgStartId(cleanId);
+      return `https://t.me/${botUser}?start=vid_${safeStartId}`;
     };
 
     window.copyVideoShareLink = async (videoId, title = '') => {
@@ -3396,7 +3414,7 @@ service cloud.firestore {
       }
 
       showStatus(
-        `Copied Index Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `Copied Telegram Bot Video Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
         'success'
       );
       return shareUrl;
@@ -3411,58 +3429,18 @@ service cloud.firestore {
     };
 
     window.buildTelegramVideoShareLink = (videoId) => {
-      const cleanId = String(videoId || '').trim();
-      const base = window.getTelegramMiniAppBaseUrl().replace(/\/+$/, '');
-      if (!base) {
-        return window.buildVideoShareLink(cleanId);
-      }
-      const sep = base.includes('?') ? '&' : '?';
-      return `${base}${sep}startapp=${encodeURIComponent(cleanId)}`;
+      return window.buildVideoShareLink(videoId);
     };
 
     window.copyTelegramVideoShareLink = async (videoId, title = '') => {
-      if (!videoId) return '';
-      const base = window.getTelegramMiniAppBaseUrl();
-      if (!base) {
-        showStatus(
-          'প্রথমে উপরের "Telegram Mini App & Bot Setup" বক্সে আপনার Bot লিংক (যেমন: https://t.me/YourBot/app) দিয়ে Save করুন!',
-          'error'
-        );
-        const inputEl = document.getElementById('tg-bot-base-input');
-        if (inputEl) {
-          inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          inputEl.focus();
-        }
-        return '';
-      }
-      const tgUrl = window.buildTelegramVideoShareLink(videoId);
-      try {
-        await navigator.clipboard.writeText(tgUrl);
-      } catch {
-        const ta = document.createElement('textarea');
-        ta.value = tgUrl;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      showStatus(
-        `Copied Telegram Mini App Video Link${title ? ` for "${title}"` : ''}: ${tgUrl}`,
-        'success'
-      );
-      return tgUrl;
+      return window.copyVideoShareLink(videoId, title);
     };
 
     window.buildShortShareLink = (shortId) => {
       const cleanId = String(shortId || '').trim();
-      const origin =
-        typeof window !== 'undefined' && window.location && window.location.origin
-          ? window.location.origin
-          : 'https://xtubeofficial.pages.dev';
-      return `${origin}/?short=${encodeURIComponent(cleanId)}`;
+      const botUser = window.resolveActiveBotUsername();
+      const safeStartId = window.encodeTgStartId(cleanId);
+      return `https://t.me/${botUser}?start=short_${safeStartId}`;
     };
 
     window.copyShortShareLink = async (shortId, title = '') => {
@@ -3482,7 +3460,7 @@ service cloud.firestore {
         document.body.removeChild(ta);
       }
       showStatus(
-        `Copied Short Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `Copied Telegram Bot Short Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
         'success'
       );
       return shareUrl;

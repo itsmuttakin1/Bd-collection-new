@@ -21,13 +21,15 @@ import {
   buildShortShareLink,
   copyTextToClipboard,
   sanitizeServerThumbnail,
+  STEP_SMARTLINKS,
+  decodeTgStartId,
+  setActiveTelegramBotUsername,
 } from './firebase';
 import {
   NativeBannerAd,
   Banner320x50Ad,
   SocialBarLoader,
   AntiAdBlockGuard,
-  triggerSmartlinkAd,
   useAdFreeVip,
   formatVipCountdown,
 } from './components/AdUnits';
@@ -56,18 +58,157 @@ import {
   Clock,
   ExternalLink,
   X,
+  User,
+  Settings,
+  Moon,
+  Sun,
+  Lock,
+  CheckCircle2,
+  RefreshCw,
+  ArrowLeft,
 } from 'lucide-react';
 
-type ViewMode = 'home' | 'watch' | 'shorts';
+type ViewMode = 'home' | 'watch' | 'shorts' | 'profile';
+
+export interface TelegramUserProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  username: string;
+  photoUrl: string;
+  isRealTelegramUser: boolean;
+}
+
+const TG_PROFILE_STORAGE_KEY = 'xtube_tg_user_profile_v1';
+
+const resolveTelegramUserProfile = (): TelegramUserProfile => {
+  if (typeof window === 'undefined') {
+    return {
+      id: 'Guest',
+      firstName: 'Telegram',
+      lastName: 'User',
+      fullName: 'Telegram User',
+      username: 'telegram_user',
+      photoUrl: '',
+      isRealTelegramUser: false,
+    };
+  }
+
+  try {
+    const tg = (window as any).Telegram?.WebApp;
+    let rawUser = tg?.initDataUnsafe?.user;
+
+    // Fallback: parse raw initData query string if initDataUnsafe wasn't populated
+    if (!rawUser && typeof tg?.initData === 'string' && tg.initData.includes('user=')) {
+      const initParams = new URLSearchParams(tg.initData);
+      const rawUserJson = initParams.get('user');
+      if (rawUserJson) {
+        rawUser = JSON.parse(rawUserJson);
+      }
+    }
+
+    if (rawUser && rawUser.id) {
+      const firstName = String(rawUser.first_name || '').trim();
+      const lastName = String(rawUser.last_name || '').trim();
+      const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Telegram User';
+      const username = String(rawUser.username || '').trim().replace(/^@+/, '');
+      const id = String(rawUser.id).trim();
+      const photoUrl = String(rawUser.photo_url || '').trim();
+
+      const profile: TelegramUserProfile = {
+        id,
+        firstName: firstName || fullName,
+        lastName,
+        fullName,
+        username: username || `user_${id}`,
+        photoUrl: photoUrl || `/api/tg-avatar?userId=${encodeURIComponent(id)}`,
+        isRealTelegramUser: true,
+      };
+      try {
+        localStorage.setItem(TG_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      } catch {}
+      return profile;
+    }
+
+    // Fallback 2: Check URL parameters injected by the Telegram Bot (`?tg_id=...&tg_name=...&tg_user=...`)
+    const params = new URLSearchParams(window.location.search);
+    const paramId = (params.get('tg_id') || '').trim();
+    const paramName = (params.get('tg_name') || '').trim();
+    const paramUser = (params.get('tg_user') || '').trim().replace(/^@+/, '');
+    const paramPhoto = (params.get('tg_photo') || '').trim();
+
+    if (paramId && /^[0-9]{4,20}$/.test(paramId)) {
+      const fullName = paramName || 'Telegram User';
+      const profile: TelegramUserProfile = {
+        id: paramId,
+        firstName: fullName.split(' ')[0] || fullName,
+        lastName: fullName.split(' ').slice(1).join(' '),
+        fullName,
+        username: paramUser || `user_${paramId}`,
+        photoUrl: paramPhoto || `/api/tg-avatar?userId=${encodeURIComponent(paramId)}`,
+        isRealTelegramUser: true,
+      };
+      try {
+        localStorage.setItem(TG_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      } catch {}
+      return profile;
+    }
+
+    // Fallback 3: Restore previously authenticated Telegram user from localStorage
+    const savedRaw = localStorage.getItem(TG_PROFILE_STORAGE_KEY);
+    if (savedRaw) {
+      const parsed = JSON.parse(savedRaw);
+      if (parsed && parsed.id && parsed.isRealTelegramUser) {
+        return {
+          ...parsed,
+          photoUrl: parsed.photoUrl || `/api/tg-avatar?userId=${encodeURIComponent(parsed.id)}`,
+        };
+      }
+    }
+  } catch {}
+
+  // Browser fallback when opened outside Telegram
+  let visitorShortId = '84920145';
+  try {
+    const existingVid = localStorage.getItem('bd_collection_visitor_id') || '';
+    const digits = existingVid.replace(/\D/g, '');
+    if (digits.length >= 6) {
+      visitorShortId = digits.slice(0, 10);
+    }
+  } catch {}
+
+  return {
+    id: visitorShortId,
+    firstName: 'WebApp',
+    lastName: 'User',
+    fullName: 'WebApp User',
+    username: `user_${visitorShortId.slice(0, 6)}`,
+    photoUrl: '',
+    isRealTelegramUser: false,
+  };
+};
 
 let telegramStartParamConsumed = false;
+
+const cleanIncomingVideoParam = (raw: string): string => {
+  const trimmed = String(raw || '').trim();
+  const stripped = trimmed.replace(/^(vid_|v_|video_)/i, '');
+  return decodeTgStartId(stripped);
+};
+
+const cleanIncomingShortParam = (raw: string): string => {
+  const trimmed = String(raw || '').trim();
+  const stripped = trimmed.replace(/^short_/i, '');
+  return decodeTgStartId(stripped);
+};
 
 const getRequestedShortIdFromUrl = (allowTelegramStartParam = false): string | null => {
   if (typeof window === 'undefined') return null;
   try {
     const params = new URLSearchParams(window.location.search);
     const s = params.get('short') || params.get('s');
-    if (s && s.trim()) return s.trim();
+    if (s && s.trim()) return cleanIncomingShortParam(s.trim());
 
     if (allowTelegramStartParam && !telegramStartParamConsumed) {
       const startParam =
@@ -76,7 +217,7 @@ const getRequestedShortIdFromUrl = (allowTelegramStartParam = false): string | n
         (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
       if (typeof startParam === 'string' && startParam.trim().startsWith('short_')) {
         telegramStartParamConsumed = true;
-        return startParam.trim().replace(/^short_/, '');
+        return cleanIncomingShortParam(startParam.trim());
       }
     }
   } catch {}
@@ -88,7 +229,7 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
   try {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('v') || params.get('video') || params.get('id');
-    if (v && v.trim()) return v.trim();
+    if (v && v.trim()) return cleanIncomingVideoParam(v.trim());
 
     // Only read Telegram start_param ONCE on initial app launch so subsequent Firebase view updates never revert to the initial video
     if (allowTelegramStartParam && !telegramStartParamConsumed) {
@@ -96,16 +237,21 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
         params.get('tgWebAppStartParam') ||
         params.get('startapp') ||
         (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
-      if (typeof tgParam === 'string' && tgParam.trim() && !tgParam.trim().startsWith('short_')) {
+      if (
+        typeof tgParam === 'string' &&
+        tgParam.trim() &&
+        !tgParam.trim().startsWith('short_') &&
+        tgParam.trim() !== 'buy'
+      ) {
         telegramStartParamConsumed = true;
-        return tgParam.trim();
+        return cleanIncomingVideoParam(tgParam.trim());
       }
     }
 
     if (window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
       const hv = hashParams.get('v') || hashParams.get('video') || hashParams.get('id');
-      if (hv && hv.trim()) return hv.trim();
+      if (hv && hv.trim()) return cleanIncomingVideoParam(hv.trim());
     }
   } catch {}
   return null;
@@ -449,6 +595,46 @@ export default function App() {
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
+  // Real Telegram User Profile & Live Online Presence State
+  const [tgProfile, setTgProfile] = useState<TelegramUserProfile>(() =>
+    resolveTelegramUserProfile()
+  );
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState<boolean>(false);
+  const [isUserOnline, setIsUserOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine !== false : true
+  );
+  const [liveOnlineCount, setLiveOnlineCount] = useState<number>(1);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('xtube_theme_mode') !== 'light';
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const root = document.documentElement;
+      if (isDarkMode) {
+        root.classList.add('dark');
+        localStorage.setItem('xtube_theme_mode', 'dark');
+      } else {
+        root.classList.remove('dark');
+        localStorage.setItem('xtube_theme_mode', 'light');
+      }
+    } catch {}
+  }, [isDarkMode]);
+
+  // 3-Step Smartlink Verification State (Step 1 -> Step 2 -> Step 3, 20s each + Mini WebView)
+  const STEP_DURATION_SECONDS = 20;
+  const [stepGateVideo, setStepGateVideo] = useState<VideoItem | null>(null);
+  const [stepGatePendingId, setStepGatePendingId] = useState<string | null>(initialUrlVidId);
+  const stepGatePendingIdRef = useRef<string | null>(initialUrlVidId);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [stepTimer, setStepTimer] = useState<number>(STEP_DURATION_SECONDS);
+  const [webviewReloadKey, setWebviewReloadKey] = useState<number>(0);
+  const [unlockedVideos, setUnlockedVideos] = useState<Record<string, boolean>>({});
+
   // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
   useEffect(() => {
     const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
@@ -456,18 +642,30 @@ export default function App() {
     try {
       tg.ready();
       tg.expand();
-      if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#050505');
-      if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#050505');
+      if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0b0e14');
+      if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0b0e14');
+      const freshProfile = resolveTelegramUserProfile();
+      if (freshProfile.isRealTelegramUser) {
+        setTgProfile(freshProfile);
+        setAvatarLoadFailed(false);
+      }
     } catch {}
   }, []);
 
-  // Sync Telegram Mini App native BackButton with Watch/Shorts vs Home view
+  // Sync Telegram Mini App native BackButton with Watch/Shorts/Profile/StepGate vs Home view
   useEffect(() => {
     const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
     const backButton = tg?.BackButton;
     if (!backButton) return;
 
     const handleBack = () => {
+      if (stepGateVideo || stepGatePendingId) {
+        stepGatePendingIdRef.current = null;
+        setStepGatePendingId(null);
+        setStepGateVideo(null);
+        setViewMode('home');
+        return;
+      }
       userNavigatedRef.current = true;
       pendingSharedIdRef.current = null;
       activeVideoIdRef.current = null;
@@ -481,7 +679,12 @@ export default function App() {
     };
 
     try {
-      if (viewMode === 'watch' || viewMode === 'shorts') {
+      if (
+        viewMode === 'watch' ||
+        viewMode === 'shorts' ||
+        viewMode === 'profile' ||
+        Boolean(stepGateVideo || stepGatePendingId)
+      ) {
         backButton.show();
         backButton.onClick(handleBack);
       } else {
@@ -494,7 +697,8 @@ export default function App() {
         backButton.offClick(handleBack);
       } catch {}
     };
-  }, [viewMode]);
+  }, [viewMode, stepGateVideo, stepGatePendingId]);
+
   const [sortByTrending, setSortByTrending] = useState<boolean>(false);
   const [trendingSeed, setTrendingSeed] = useState<number>(0);
   const [trendingVideos, setTrendingVideos] = useState<VideoItem[]>([]);
@@ -502,9 +706,6 @@ export default function App() {
   // Language State (34+ languages, auto-detected by Visitor Country / Timezone)
   const [langCode, setLangCode] = useState<string>(() => detectInitialLanguage());
   const t = LANGUAGES[langCode] || LANGUAGES.bn;
-
-  // Per-video Smartlink click counter (requires 3 clicks before opening the Watch page)
-  const [smartlinkCounts, setSmartlinkCounts] = useState<Record<string, number>>({});
 
   // Search & Like State (Supports Google SearchAction ?q= parameter)
   const [searchQuery, setSearchQuery] = useState<string>(() => {
@@ -534,6 +735,34 @@ export default function App() {
   const [storeConfig, setStoreConfig] = useState<RedeemStoreConfig>({ serviceEnabled: true });
 
   const isRedeemServiceEnabled = storeConfig.serviceEnabled !== false;
+
+  // Auto-bypass 3-Step Verification if user activates a valid VIP Ad-Free Redeem Code
+  useEffect(() => {
+    if (isAdFree && (stepGateVideo || stepGatePendingId)) {
+      const target = stepGateVideo;
+      stepGatePendingIdRef.current = null;
+      setStepGatePendingId(null);
+      setStepGateVideo(null);
+      if (target) {
+        setActiveVideo(target);
+        setViewMode('watch');
+      }
+    }
+  }, [isAdFree, stepGateVideo, stepGatePendingId]);
+
+  // 20-Second Countdown Timer for Step 1, Step 2, Step 3
+  useEffect(() => {
+    const isStepModalOpen = Boolean(stepGateVideo || stepGatePendingId) && !isAdFree;
+    if (!isStepModalOpen) return;
+
+    if (stepTimer <= 0) return;
+
+    const timerId = window.setInterval(() => {
+      setStepTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [stepGateVideo, stepGatePendingId, currentStep, stepTimer, isAdFree]);
 
   useEffect(() => {
     let primaryPkgs: Record<string, any> = {};
@@ -588,6 +817,9 @@ export default function App() {
             ? fallbackCfg.serviceEnabled !== false
             : true,
       };
+      if (merged.botUsername) {
+        setActiveTelegramBotUsername(merged.botUsername);
+      }
       setStoreConfig(merged);
       if (merged.serviceEnabled === false) {
         setRedeemModalOpen(false);
@@ -1177,12 +1409,17 @@ export default function App() {
 
     // 3. Track Live Online User Presence in Firebase `presence/$visitorId` + Server Heartbeat
     const userPresenceRef = ref(db, `presence/${visitorId}`);
+    const allPresenceRef = ref(db, 'presence');
     const connectedRef = ref(db, '.info/connected');
 
     const writePresence = () => {
+      setIsUserOnline(typeof navigator !== 'undefined' ? navigator.onLine !== false : true);
       set(userPresenceRef, {
         online: true,
         lastSeen: Date.now(),
+        tgId: tgProfile.id,
+        fullName: tgProfile.fullName,
+        username: tgProfile.username,
       }).catch(() => {});
 
       fetch('/api/visitor-ping', {
@@ -1190,19 +1427,61 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           visitorId,
+          tgId: tgProfile.id,
+          username: tgProfile.username,
           page: window.location.pathname + window.location.search,
         }),
-      }).catch(() => {});
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data && typeof data.onlineUsers === 'number' && data.onlineUsers > 0) {
+            setLiveOnlineCount((prev) => Math.max(prev, data.onlineUsers));
+          }
+        })
+        .catch(() => {});
     };
 
     const unsubConnected = onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
+      const connected = snap.val() === true;
+      if (connected) {
+        setIsUserOnline(true);
         onDisconnect(userPresenceRef)
           .remove()
           .catch(() => {});
         writePresence();
       }
     });
+
+    const unsubAllPresence = onValue(
+      allPresenceRef,
+      (snap) => {
+        const val = snap.val();
+        if (!val || typeof val !== 'object') {
+          setLiveOnlineCount(1);
+          return;
+        }
+        const now = Date.now();
+        let activeCount = 0;
+        for (const item of Object.values(val) as any[]) {
+          if (item && item.online !== false && now - (Number(item.lastSeen) || now) < 180000) {
+            activeCount++;
+          }
+        }
+        setLiveOnlineCount(Math.max(1, activeCount));
+      },
+      () => {}
+    );
+
+    const handleBrowserOnline = () => {
+      setIsUserOnline(true);
+      writePresence();
+    };
+    const handleBrowserOffline = () => {
+      setIsUserOnline(false);
+    };
+
+    window.addEventListener('online', handleBrowserOnline);
+    window.addEventListener('offline', handleBrowserOffline);
 
     writePresence();
     const heartbeatTimer = window.setInterval(writePresence, 20000);
@@ -1222,11 +1501,14 @@ export default function App() {
 
     return () => {
       unsubConnected();
+      unsubAllPresence();
       window.clearInterval(heartbeatTimer);
+      window.removeEventListener('online', handleBrowserOnline);
+      window.removeEventListener('offline', handleBrowserOffline);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       remove(userPresenceRef).catch(() => {});
     };
-  }, []);
+  }, [tgProfile.id, tgProfile.fullName, tgProfile.username]);
 
   // Sync ALL Shorts from Firebase Realtime Database (`shorts`)
   useEffect(() => {
@@ -1489,6 +1771,9 @@ export default function App() {
           activeVideoIdRef.current = targetVideo.id;
           setSharedVideoId(targetVideo.id);
           setActiveVideo(targetVideo);
+          if (stepGatePendingIdRef.current) {
+            setStepGateVideo(targetVideo);
+          }
           setViewMode('watch');
           syncUrlWithVideo(targetVideo.id, true);
           if (!initialSharedViewCounted) {
@@ -1560,6 +1845,9 @@ export default function App() {
                 activeVideoIdRef.current = resolvedVid.id;
                 setSharedVideoId(resolvedVid.id);
                 setActiveVideo(resolvedVid);
+                if (stepGatePendingIdRef.current) {
+                  setStepGateVideo(resolvedVid);
+                }
                 setViewMode('watch');
                 syncUrlWithVideo(resolvedVid.id, true);
                 if (!initialSharedViewCounted) {
@@ -1567,11 +1855,17 @@ export default function App() {
                   incrementVideoViews(resolvedVid.id);
                 }
               } else if (finalVideos.length > 0) {
+                stepGatePendingIdRef.current = null;
+                setStepGatePendingId(null);
+                setStepGateVideo(null);
                 setViewMode('home');
               }
             })
             .catch(() => {
               initialSharedResolvedRef.current = true;
+              stepGatePendingIdRef.current = null;
+              setStepGatePendingId(null);
+              setStepGateVideo(null);
               if (finalVideos.length > 0) {
                 setViewMode('home');
               }
@@ -1669,25 +1963,10 @@ export default function App() {
     setProfileRevision((r) => r + 1);
   };
 
-  // 3x Smartlink clicks on any full video card before opening Watch page (Bypassed when Redeem Code Ad-Free VIP is active)
-  // Uses functional state updater and locks onto the exact clicked `video.id`
-  const handleVideoCardClick = (video: VideoItem) => {
+  // Opens the 3-Step Smartlink Verification Screen (Step 1 -> Step 2 -> Step 3, 20s each in Mini WebView)
+  // No popup/redirect ads trigger on click; once Step 3 completes, the video plays immediately!
+  const startVideoStepVerification = (video: VideoItem) => {
     if ((!isAdFree && adBlockActive) || !video) return;
-
-    if (!isAdFree) {
-      const currentClicks = smartlinkCounts[video.id] || 0;
-      if (currentClicks < 3) {
-        const nextClicks = currentClicks + 1;
-        triggerSmartlinkAd();
-        setSmartlinkCounts((prev) => ({
-          ...prev,
-          [video.id]: nextClicks,
-        }));
-        if (nextClicks < 3) {
-          return;
-        }
-      }
-    }
 
     userNavigatedRef.current = true;
     initialSharedResolvedRef.current = true;
@@ -1696,11 +1975,66 @@ export default function App() {
     setActiveVideo(video);
     setSharedVideoId(video.id);
     setActiveShortId(null);
-    setViewMode('watch');
     syncUrlWithVideo(video.id);
-    incrementVideoViews(video.id);
-    recordAlgorithmInteraction(video, 'watch');
+
+    if (isAdFree || unlockedVideos[video.id]) {
+      stepGatePendingIdRef.current = null;
+      setStepGatePendingId(null);
+      setStepGateVideo(null);
+      setViewMode('watch');
+      incrementVideoViews(video.id);
+      recordAlgorithmInteraction(video, 'watch');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    stepGatePendingIdRef.current = video.id;
+    setStepGatePendingId(video.id);
+    setStepGateVideo(video);
+    setCurrentStep(1);
+    setStepTimer(STEP_DURATION_SECONDS);
+    setWebviewReloadKey((k) => k + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCompleteCurrentStep = () => {
+    if (stepTimer > 0) return;
+    if (currentStep === 1) {
+      setCurrentStep(2);
+      setStepTimer(STEP_DURATION_SECONDS);
+      setWebviewReloadKey((k) => k + 1);
+      return;
+    }
+    if (currentStep === 2) {
+      setCurrentStep(3);
+      setStepTimer(STEP_DURATION_SECONDS);
+      setWebviewReloadKey((k) => k + 1);
+      return;
+    }
+    // Step 3 completed -> Unlock and play the video!
+    const target =
+      stepGateVideo ||
+      (stepGatePendingId ? findMatchingVideo(videos, stepGatePendingId) : null) ||
+      activeVideo;
+
+    stepGatePendingIdRef.current = null;
+    setStepGatePendingId(null);
+    setStepGateVideo(null);
+
+    if (target) {
+      setUnlockedVideos((prev) => ({ ...prev, [target.id]: true }));
+      activeVideoIdRef.current = target.id;
+      setActiveVideo(target);
+      setViewMode('watch');
+      syncUrlWithVideo(target.id);
+      incrementVideoViews(target.id);
+      recordAlgorithmInteraction(target, 'watch');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleVideoCardClick = (video: VideoItem) => {
+    startVideoStepVerification(video);
   };
 
   const handleVideoPlaySuccess = (video: VideoItem) => {
@@ -1718,35 +2052,12 @@ export default function App() {
     if (notice.videoId) {
       const targetVid = findMatchingVideo(videos, notice.videoId);
       if (targetVid) {
-        userNavigatedRef.current = true;
-        initialSharedResolvedRef.current = true;
-        pendingSharedIdRef.current = targetVid.id;
-        activeVideoIdRef.current = targetVid.id;
-        setActiveVideo(targetVid);
-        setSharedVideoId(targetVid.id);
-        setActiveShortId(null);
-        setViewMode('watch');
-        syncUrlWithVideo(targetVid.id);
-        incrementVideoViews(targetVid.id);
-        recordAlgorithmInteraction(targetVid, 'watch');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        startVideoStepVerification(targetVid);
         return;
       }
     }
     if (videos.length > 0) {
-      const newestVid = videos[0];
-      userNavigatedRef.current = true;
-      initialSharedResolvedRef.current = true;
-      pendingSharedIdRef.current = newestVid.id;
-      activeVideoIdRef.current = newestVid.id;
-      setActiveVideo(newestVid);
-      setSharedVideoId(newestVid.id);
-      setActiveShortId(null);
-      setViewMode('watch');
-      syncUrlWithVideo(newestVid.id);
-      incrementVideoViews(newestVid.id);
-      recordAlgorithmInteraction(newestVid, 'watch');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      startVideoStepVerification(videos[0]);
     }
   };
 
@@ -2061,27 +2372,199 @@ export default function App() {
     return ordered;
   }, [shorts, videos, shortsSessionSeed, activeShortId]);
 
+  const isStepGateActive = Boolean((stepGateVideo || stepGatePendingId) && !isAdFree);
+  const currentSmartlinkUrl = STEP_SMARTLINKS[currentStep - 1] || STEP_SMARTLINKS[0];
+  const stepProgressPercent = Math.min(
+    100,
+    Math.max(0, Math.round(((STEP_DURATION_SECONDS - stepTimer) / STEP_DURATION_SECONDS) * 100))
+  );
+  const watchedVideosCount = Object.keys(tasteProfile.watchedHistory || {}).length;
+
   return (
     <div
-      className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#0f0f0f] text-zinc-100 flex flex-col ${
-        adBlockActive ? 'h-screen overflow-hidden' : ''
-      }`}
+      className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-16 md:pb-0 ${
+        isDarkMode ? 'bg-[#0b0e14] text-zinc-100' : 'bg-slate-50 text-slate-900'
+      } flex flex-col ${adBlockActive ? 'h-screen overflow-hidden' : ''}`}
       dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
     >
       {/* Anti-AdBlocker & Anti-AdGuard DNS Full-Screen Lock Wall */}
       <AntiAdBlockGuard onBlockStateChange={setAdBlockActive} />
 
-      {/* Social Bar Ad activates on Watch & Shorts pages */}
-      <SocialBarLoader active={viewMode === 'watch' || viewMode === 'shorts'} />
+      {/* Social Bar Ad activates only on Shorts page */}
+      <SocialBarLoader active={viewMode === 'shorts' && !isStepGateActive} />
 
-      {/* YouTube-Style Top Navigation Bar (Responsive for Telegram Mini App & Mobile) */}
-      <header className="h-14 px-2.5 sm:px-4 w-full max-w-full overflow-hidden flex items-center justify-between gap-2 sm:gap-3 bg-[#0f0f0f] sticky top-0 z-40 border-b border-zinc-900">
+      {/* ============================================================================
+          3-STEP SMARTLINK VERIFICATION + 20S TIMER + MINI WEBVIEW SCREEN
+          ============================================================================ */}
+      {isStepGateActive && (
+        <div className="fixed inset-0 z-50 bg-[#0b0e14] text-zinc-100 flex flex-col w-full h-full overflow-hidden">
+          {/* Top Verification Header with 20s Countdown & Locked/Unlocked Next Step Button */}
+          <div className="bg-[#131822] border-b border-slate-800 px-3 sm:px-5 py-2.5 sm:py-3 shrink-0 space-y-2.5 shadow-xl">
+            {/* Row 1: Back Button + Target Video Title + Step 1 / 2 / 3 Indicators */}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  stepGatePendingIdRef.current = null;
+                  setStepGatePendingId(null);
+                  setStepGateVideo(null);
+                  goHome();
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
+
+              <div className="flex-1 min-w-0 px-1 text-center">
+                <p className="text-xs sm:text-sm font-bold text-white truncate">
+                  🎬 {stepGateVideo?.title || 'Unlocking Video...'}
+                </p>
+              </div>
+
+              {/* Step 1, 2, 3 Badges */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                {[1, 2, 3].map((stepNum) => {
+                  const isDone = currentStep > stepNum || (currentStep === stepNum && stepTimer === 0);
+                  const isCurrent = currentStep === stepNum;
+                  return (
+                    <div
+                      key={stepNum}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                        isDone
+                          ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                          : isCurrent
+                          ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                          : 'bg-slate-800/80 border border-slate-700/70 text-slate-400'
+                      }`}
+                    >
+                      {isDone ? (
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                      ) : (
+                        <span className="font-mono">{stepNum}</span>
+                      )}
+                      <span className="hidden sm:inline">Step {stepNum}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Row 2: 20s Countdown Timer on Left + Locked/Unlocked Next Step CTA on Right */}
+            <div className="flex items-center justify-between gap-2.5 bg-[#0b0e14] border border-slate-800/90 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-extrabold shrink-0 ${
+                    stepTimer > 0
+                      ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
+                      : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                  }`}
+                >
+                  {stepTimer > 0 ? `${stepTimer}s` : '✓'}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-white truncate">
+                    {stepTimer > 0
+                      ? `Step ${currentStep} of 3 Running (${stepTimer}s)...`
+                      : `Step ${currentStep} of 3 Completed!`}
+                  </p>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    {stepTimer > 0
+                      ? 'নিচের Mini WebView স্ক্রিনে ২০ সেকেন্ড অপেক্ষা করুন'
+                      : currentStep < 3
+                      ? `এখন ডানপাশের Next Step ${currentStep + 1} বাটনে ক্লিক করুন`
+                      : 'এখন Play Video বাটনে ক্লিক করে ভিডিওটি দেখুন!'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={stepTimer > 0}
+                onClick={handleCompleteCurrentStep}
+                className={`px-3.5 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shrink-0 transition-all ${
+                  stepTimer > 0
+                    ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed opacity-80'
+                    : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 cursor-pointer active:scale-95'
+                }`}
+              >
+                {stepTimer > 0 ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {currentStep < 3
+                        ? `Next Step Locked (${stepTimer}s)`
+                        : `Video Locked (${stepTimer}s)`}
+                    </span>
+                  </>
+                ) : currentStep < 3 ? (
+                  <>
+                    <span>Next: Step {currentStep + 1}</span>
+                    <ChevronRight className="w-4 h-4 shrink-0" />
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-current shrink-0" />
+                    <span>Play Video Now</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Smooth 20-Second Progress Bar */}
+            <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  stepTimer === 0 ? 'bg-emerald-400' : 'bg-red-500'
+                }`}
+                style={{ width: `${stepProgressPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Mini WebView Screen Toolbar */}
+          <div className="bg-[#161b26] border-b border-slate-800/80 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px] text-slate-300 shrink-0">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold">
+                MINI WEBVIEW
+              </span>
+              <span className="truncate font-mono text-slate-400">
+                Smartlink {currentStep}/3 · {currentSmartlinkUrl}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWebviewReloadKey((k) => k + 1)}
+              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1 cursor-pointer shrink-0"
+              title="Reload Mini WebView"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Reload</span>
+            </button>
+          </div>
+
+          {/* Mini WebView Iframe Screen Running Smartlink 1, 2, or 3 */}
+          <div className="flex-1 w-full relative bg-white overflow-hidden">
+            <iframe
+              key={`step-webview-${currentStep}-${webviewReloadKey}`}
+              src={currentSmartlinkUrl}
+              title={`Smartlink Step ${currentStep} Mini WebView`}
+              className="w-full h-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
+              allow="autoplay; encrypted-media; fullscreen"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Telegram Mini App Top Navigation Bar */}
+      <header className="h-14 px-2.5 sm:px-4 w-full max-w-full overflow-hidden flex items-center justify-between gap-2 sm:gap-3 bg-[#0f131c]/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-800/80">
         {/* Left: Menu + Brand Logo */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="hidden sm:inline-flex p-2 rounded-full hover:bg-zinc-800 text-zinc-200 transition-colors cursor-pointer"
+            className="hidden sm:inline-flex p-2 rounded-full hover:bg-slate-800 text-zinc-200 transition-colors cursor-pointer"
             aria-label="Toggle Menu"
           >
             <Menu className="w-5 h-5" />
@@ -2096,7 +2579,7 @@ export default function App() {
             }}
             className="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0"
           >
-            <div className="w-7 h-5 sm:w-8 sm:h-6 rounded-lg bg-red-600 flex items-center justify-center shrink-0">
+            <div className="w-7 h-5 sm:w-8 sm:h-6 rounded-lg bg-red-600 flex items-center justify-center shrink-0 shadow-md shadow-red-600/30">
               <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-white text-white ml-0.5" />
             </div>
             <span className="text-sm sm:text-lg font-bold tracking-tight text-white font-display">
@@ -2106,7 +2589,7 @@ export default function App() {
         </div>
 
         {/* Center: Search Bar */}
-        <div className="flex-1 min-w-0 max-w-xl mx-auto">
+        <div className="flex-1 min-w-0 max-w-md mx-auto">
           <div className="flex items-center w-full">
             <div className="relative flex-1 min-w-0">
               <input
@@ -2117,21 +2600,21 @@ export default function App() {
                   if (viewMode !== 'home') goHome();
                 }}
                 placeholder={t.searchPlaceholder}
-                className="w-full min-w-0 pl-3 sm:pl-4 pr-2 sm:pr-6 py-1.5 rounded-l-full bg-[#121212] border border-zinc-800 text-xs sm:text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                className="w-full min-w-0 pl-3 sm:pl-4 pr-2 sm:pr-6 py-1.5 rounded-l-full bg-[#161b26] border border-slate-800 text-xs sm:text-sm text-white placeholder:text-slate-400 focus:outline-none focus:border-slate-600"
               />
             </div>
             <button
               type="button"
               onClick={() => goHome()}
-              className="px-2.5 sm:px-4 py-1.5 rounded-r-full bg-zinc-800 hover:bg-zinc-700 border border-l-0 border-zinc-800 text-zinc-200 transition-colors cursor-pointer shrink-0"
+              className="px-2.5 sm:px-3.5 py-1.5 rounded-r-full bg-slate-800 hover:bg-slate-700 border border-l-0 border-slate-800 text-zinc-200 transition-colors cursor-pointer shrink-0"
               aria-label="Search"
             >
-              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Search className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Right: Redeem Code / VIP Button + Quick Shorts Button + Language Selector */}
+        {/* Right: Redeem Code (if enabled) + Real Telegram User Profile Pill with Live Online Indicator */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {isRedeemServiceEnabled && (
             <button
@@ -2142,7 +2625,7 @@ export default function App() {
               }}
               className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                 isAdFree
-                  ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300 shadow-lg shadow-emerald-600/15'
+                  ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300'
                   : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
               }`}
               title="Activate Redeem Code for Ad-Free VIP Mode"
@@ -2150,7 +2633,6 @@ export default function App() {
               {isAdFree ? (
                 <>
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="hidden md:inline">VIP Ad-Free:</span>
                   <span className="font-mono tabular-nums text-[11px]">
                     {formatVipCountdown(remainingMs)}
                   </span>
@@ -2158,41 +2640,47 @@ export default function App() {
               ) : (
                 <>
                   <Ticket className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Redeem</span>
-                  <span className="hidden sm:inline">Code</span>
+                  <span className="hidden sm:inline">Redeem</span>
                 </>
               )}
             </button>
           )}
 
+          {/* Telegram User Profile & Live Online Trigger */}
           <button
             type="button"
-            onClick={() => openShortsTab()}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-              viewMode === 'shorts'
-                ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
-                : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-100'
+            onClick={() => setViewMode('profile')}
+            className={`pl-1.5 pr-2.5 py-1 rounded-full border flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'profile'
+                ? 'bg-emerald-500/20 border-emerald-500/60 text-white'
+                : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-100'
             }`}
+            title="Open Telegram User Profile"
           >
-            <Smartphone className="w-3.5 h-3.5 text-red-500" />
-            <span>Shorts</span>
+            <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0">
+              {tgProfile.photoUrl && !avatarLoadFailed ? (
+                <img
+                  src={tgProfile.photoUrl}
+                  alt={tgProfile.fullName}
+                  referrerPolicy="no-referrer"
+                  onError={() => setAvatarLoadFailed(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-[11px] font-bold text-emerald-400">
+                  {(tgProfile.fullName || 'U').charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="text-left hidden xs:block max-w-[92px] sm:max-w-[130px]">
+              <p className="text-[11px] font-bold text-white leading-tight truncate">
+                {tgProfile.fullName}
+              </p>
+              <p className="text-[9px] font-medium text-emerald-400 leading-tight truncate">
+                {isUserOnline ? `● Online (${liveOnlineCount})` : '○ Offline'}
+              </p>
+            </div>
           </button>
-
-          <div className="relative flex items-center bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1.5 hover:border-zinc-700 transition-colors">
-            <Globe className="w-3.5 h-3.5 text-zinc-400 mr-1 shrink-0 pointer-events-none" />
-            <select
-              value={langCode}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              aria-label="Select Language"
-              className="bg-transparent text-[11px] sm:text-xs font-medium text-zinc-200 focus:outline-none cursor-pointer max-w-[78px] sm:max-w-[130px] truncate"
-            >
-              {Object.values(LANGUAGES).map((lang) => (
-                <option key={lang.code} value={lang.code} className="bg-zinc-900 text-white">
-                  {lang.nativeName} ({lang.name})
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </header>
 
@@ -2222,7 +2710,7 @@ export default function App() {
                     {isAdFree ? '👑 VIP Ad-Free Active' : '🎟️ Redeem Code (Ad-Free Mode)'}
                   </h2>
                   <p className="text-xs text-zinc-400">
-                    Redeem Code ব্যবহার করলে নির্ধারিত সময় পর্যন্ত কোনো Ads আসবে না
+                    Redeem Code ব্যবহার করলে নির্ধারিত সময় পর্যন্ত কোনো Step বা Ads আসবে না
                   </p>
                 </div>
               </div>
@@ -2235,7 +2723,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Active VIP Countdown Banner */}
             {isAdFree && (
               <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-700/70 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
@@ -2257,14 +2744,11 @@ export default function App() {
                 </div>
                 <div className="text-[11px] text-zinc-400 font-mono flex items-center justify-between pt-1 border-t border-emerald-800/50">
                   <span>Code: {activeCode}</span>
-                  <span>
-                    Expires: {new Date(expiresAt).toLocaleString()}
-                  </span>
+                  <span>Expires: {new Date(expiresAt).toLocaleString()}</span>
                 </div>
               </div>
             )}
 
-            {/* Redeem Code Input Form */}
             <form onSubmit={handleActivateRedeemSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-zinc-200 mb-1.5">
@@ -2275,7 +2759,7 @@ export default function App() {
                     type="text"
                     value={redeemInput}
                     onChange={(e) => setRedeemInput(e.target.value.toUpperCase())}
-                    placeholder="XTUBE-XXXX-XXXX"
+                    placeholder="VIP-XXXX-XXXX"
                     className="flex-1 px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-sm font-mono text-white uppercase placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
                   />
                   <button
@@ -2301,7 +2785,6 @@ export default function App() {
               )}
             </form>
 
-            {/* Buy Redeem Code via Telegram Bot Section */}
             <div className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-xs sm:text-sm font-bold text-white">
@@ -2312,7 +2795,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
-                বিজ্ঞাপন ছাড়া (Ad-Free) সরাসরি সব ভিডিও ও শর্টস দেখতে আমাদের <strong>Telegram Bot</strong> থেকে আপনার পছন্দের প্যাকেজ সিলেক্ট করে <strong>bKash / Nagad</strong>-এ পেমেন্ট করুন। Admin সাথে সাথে আপনাকে Redeem Code পাঠিয়ে দেবে!
+                Step ছাড়া সরাসরি সব ভিডিও ও শর্টস দেখতে আমাদের <strong>Telegram Bot</strong> থেকে আপনার পছন্দের প্যাকেজ সিলেক্ট করে <strong>bKash / Nagad</strong>-এ পেমেন্ট করুন।
               </p>
 
               {redeemPackages.length > 0 && (
@@ -2339,20 +2822,18 @@ export default function App() {
                 </div>
               )}
 
-              {storeConfig.botUsername ? (
+              {storeConfig.botUsername && (
                 <a
                   href={`https://t.me/${storeConfig.botUsername.replace(/^@/, '')}?start=buy`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
                 >
-                  <span>✈️ Buy Redeem Code on Telegram Bot (@{storeConfig.botUsername.replace(/^@/, '')})</span>
+                  <span>
+                    ✈️ Buy Redeem Code on Telegram Bot (@{storeConfig.botUsername.replace(/^@/, '')})
+                  </span>
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </a>
-              ) : (
-                <p className="text-[11px] text-amber-300/90 font-mono text-center pt-1">
-                  Telegram Bot থেকে Redeem Code সংগ্রহ করে উপরে বসিয়ে Activate করুন।
-                </p>
               )}
             </div>
           </div>
@@ -2361,9 +2842,9 @@ export default function App() {
 
       {/* Main Layout */}
       <div className="flex-1 flex w-full max-w-full overflow-x-hidden">
-        {/* YouTube Left Sidebar (Home, Shorts & Trending) */}
+        {/* Desktop Left Sidebar */}
         {viewMode === 'home' && sidebarOpen && (
-          <aside className="hidden md:flex flex-col w-52 shrink-0 p-3 space-y-1 border-r border-zinc-900/80 bg-[#0f0f0f]">
+          <aside className="hidden md:flex flex-col w-56 shrink-0 p-3 space-y-1 border-r border-slate-800/80 bg-[#0f131c]">
             <button
               type="button"
               onClick={() => {
@@ -2372,8 +2853,8 @@ export default function App() {
               }}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 viewMode === 'home' && !sortByTrending
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-300 hover:bg-zinc-900'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <Home className="w-5 h-5" />
@@ -2383,7 +2864,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => openShortsTab()}
-              className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-900 transition-colors cursor-pointer"
             >
               <Smartphone className="w-5 h-5 text-red-500" />
               <span>Shorts</span>
@@ -2394,18 +2875,202 @@ export default function App() {
               onClick={handleSelectTrending}
               className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 sortByTrending
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-300 hover:bg-zinc-900'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-300 hover:bg-slate-900'
               }`}
             >
               <Flame className="w-5 h-5 text-red-500" />
               <span>{t.trending}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('profile')}
+              className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-900 transition-colors cursor-pointer"
+            >
+              <User className="w-5 h-5 text-emerald-400" />
+              <span>Profile</span>
             </button>
           </aside>
         )}
 
         {/* Content Area */}
         <main className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden">
+          {/* ============================================================================
+              TELEGRAM WEBAPP REAL USER PROFILE VIEW (MATCHING SCREENSHOT)
+              ============================================================================ */}
+          {viewMode === 'profile' && (
+            <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Profile
+                </h1>
+                <button
+                  type="button"
+                  onClick={goHome}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#161b26] hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Videos</span>
+                </button>
+              </div>
+
+              {/* Main User Card matching uploaded screenshot */}
+              <div className="rounded-3xl bg-[#161b24] border border-slate-800/90 p-5 sm:p-6 shadow-2xl space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    {/* User Avatar */}
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shrink-0 shadow-lg flex items-center justify-center">
+                      {tgProfile.photoUrl && !avatarLoadFailed ? (
+                        <img
+                          src={tgProfile.photoUrl}
+                          alt={tgProfile.fullName}
+                          referrerPolicy="no-referrer"
+                          onError={() => setAvatarLoadFailed(true)}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-emerald-600/30 via-slate-900 to-slate-950 flex items-center justify-center text-2xl font-extrabold text-emerald-400">
+                          {(tgProfile.fullName || 'U').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Real Name, @username, TG ID & Online Status */}
+                    <div className="min-w-0 space-y-1">
+                      <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-wide uppercase truncate">
+                        {tgProfile.fullName}
+                      </h2>
+                      <p className="text-sm text-slate-400 truncate">
+                        @{tgProfile.username}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-[#232a38] text-slate-300 text-xs font-mono">
+                          TG ID: {tgProfile.id}
+                        </span>
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${
+                            isUserOnline
+                              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
+                              : 'bg-rose-500/15 border border-rose-500/30 text-rose-400'
+                          }`}
+                        >
+                          {isUserOnline ? '● Online' : '○ Offline'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Settings Icon */}
+                  <div className="text-emerald-400 p-2 rounded-xl bg-emerald-500/10 shrink-0">
+                    <Settings className="w-6 h-6" />
+                  </div>
+                </div>
+
+                {/* Two Stat Cards Inside Profile Box (Matching Screenshot Layout) */}
+                <div className="grid grid-cols-2 gap-3.5 pt-1">
+                  <div className="rounded-2xl bg-[#1e2430] border border-slate-700/60 p-4 space-y-1.5">
+                    <span className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase">
+                      ONLINE STATUS
+                    </span>
+                    <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono tabular-nums">
+                      {isUserOnline ? 'ONLINE' : 'OFFLINE'}
+                    </div>
+                    <span className="block text-[11px] text-slate-400 font-mono tabular-nums">
+                      {liveOnlineCount} Active Online Now
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl bg-[#1e2430] border border-slate-700/60 p-4 space-y-1.5">
+                    <span className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase">
+                      WATCHED VIDEOS
+                    </span>
+                    <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono tabular-nums">
+                      {watchedVideosCount}
+                    </div>
+                    <span className="block text-[11px] text-slate-400">
+                      {isAdFree ? '👑 VIP Ad-Free' : '3-Step Verified'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* APP SETTINGS Section Matching Screenshot */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold tracking-wider text-slate-300 uppercase px-1">
+                  APP SETTINGS
+                </h3>
+
+                <div className="rounded-3xl bg-[#161b24] border border-slate-800/90 divide-y divide-slate-800/80 overflow-hidden shadow-xl">
+                  {/* Language Row */}
+                  <div className="p-4 sm:px-5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm sm:text-base font-bold text-white">
+                          Language / ভাষা
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {LANGUAGES[langCode]?.name || 'English'} ({LANGUAGES[langCode]?.nativeName})
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <select
+                        value={langCode}
+                        onChange={(e) => handleLanguageChange(e.target.value)}
+                        aria-label="Select Language"
+                        className="bg-[#1e2430] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-white focus:outline-none cursor-pointer"
+                      >
+                        {Object.values(LANGUAGES).map((lang) => (
+                          <option key={lang.code} value={lang.code} className="bg-slate-900 text-white">
+                            {lang.nativeName} ({lang.name})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Theme Mode Row */}
+                  <div className="p-4 sm:px-5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                        {isDarkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm sm:text-base font-bold text-white">
+                          Theme Mode
+                        </p>
+                        <p className="text-xs text-slate-400 uppercase font-mono">
+                          {isDarkMode ? 'DARK MODE' : 'LIGHT MODE'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsDarkMode((prev) => !prev)}
+                      aria-label="Toggle Theme Mode"
+                      className={`w-13 h-7 rounded-full p-1 transition-colors cursor-pointer flex items-center ${
+                        isDarkMode ? 'bg-emerald-500/30 justify-end' : 'bg-slate-700 justify-start'
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full transition-transform shadow-md ${
+                          isDarkMode ? 'bg-emerald-400' : 'bg-slate-300'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {viewMode === 'shorts' && (
             <ShortsFeed
               shorts={displayShorts}
@@ -2414,12 +3079,7 @@ export default function App() {
               onWatchFullVideo={(vidId) => {
                 const found = findMatchingVideo(videos, vidId);
                 if (found) {
-                  userNavigatedRef.current = true;
-                  activeVideoIdRef.current = found.id;
-                  setActiveVideo(found);
-                  setViewMode('watch');
-                  syncUrlWithVideo(found.id);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  startVideoStepVerification(found);
                 }
               }}
               onIncrementShortViews={(sid) => {
@@ -2446,47 +3106,14 @@ export default function App() {
           )}
 
           {viewMode === 'home' && (
-            <div className="px-3 sm:px-6 py-4 space-y-6 max-w-[1600px] mx-auto w-full overflow-x-hidden">
-              {/* Mobile Home, Shorts & Trending Bar */}
-              <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSortByTrending(false);
-                    goHome();
-                  }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors shrink-0 cursor-pointer ${
-                    !sortByTrending
-                      ? 'bg-zinc-800 text-white'
-                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
-                  }`}
-                >
-                  <Home className="w-4 h-4" />
-                  <span>{t.home}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openShortsTab()}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-600/15 border border-red-500/30 text-red-300 hover:bg-red-600/25 transition-colors shrink-0 cursor-pointer"
-                >
-                  <Smartphone className="w-4 h-4 text-red-500" />
-                  <span>Shorts</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSelectTrending}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-colors shrink-0 cursor-pointer ${
-                    sortByTrending
-                      ? 'bg-zinc-800 text-white'
-                      : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'
-                  }`}
-                >
-                  <Flame className="w-4 h-4 text-red-500" />
-                  <span>{t.trending}</span>
-                </button>
+            <div className="px-3 sm:px-6 py-4 space-y-5 max-w-[1600px] mx-auto w-full overflow-x-hidden">
+              {/* TOP BANNER SECTION ON APP OPEN ("opre banner show korbe") */}
+              <div className="space-y-3">
+                <Banner320x50Ad className="my-0" />
+                <NativeBannerAd className="my-0" />
               </div>
 
-              {/* LIVE ADMIN NOTICE BOARD BANNER ON INDEX PAGE (Mobile-Adjusted Layout) */}
+              {/* LIVE ADMIN NOTICE BOARD BANNER ON INDEX PAGE */}
               {notices.length > 0 && (() => {
                 const currentNotice = notices[activeNoticeIdx % notices.length] || notices[0];
                 const hasTarget = Boolean(currentNotice.videoId || currentNotice.shortId || videos.length > 0);
@@ -2498,7 +3125,6 @@ export default function App() {
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
-                      {/* Top row on mobile / Left group on desktop */}
                       <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0">
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg bg-red-600 text-white text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shrink-0 shadow shadow-red-600/30">
                           <Megaphone className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-bounce shrink-0" />
@@ -2507,7 +3133,6 @@ export default function App() {
                           </span>
                         </span>
 
-                        {/* Mobile Action Pill + Dots */}
                         <div className="flex sm:hidden items-center gap-1.5 shrink-0">
                           {notices.length > 1 && (
                             <div className="flex items-center gap-1 mr-0.5">
@@ -2539,12 +3164,10 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Notice Text: Full width on mobile, flexible middle on desktop */}
                       <p className="text-xs sm:text-sm font-semibold text-zinc-100 leading-snug break-words line-clamp-2 sm:line-clamp-1 min-w-0 flex-1">
                         {currentNotice.text}
                       </p>
 
-                      {/* Desktop Action Pill + Dots */}
                       <div className="hidden sm:flex items-center gap-2 shrink-0">
                         {notices.length > 1 && (
                           <div className="flex items-center gap-1 mr-1">
@@ -2579,10 +3202,7 @@ export default function App() {
                 );
               })()}
 
-              {/* Native Banner Ad on Index */}
-              <NativeBannerAd />
-
-              {/* YouTube Video Grid + YouTube-Style Suggested Shorts Shelf */}
+              {/* Video Grid + Suggested Shorts Shelf */}
               {loadingVideos ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -2614,7 +3234,6 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* Top Row of Recommended Videos */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                     {filteredVideos.slice(0, 4).map((video) => (
                       <VideoCard
@@ -2626,7 +3245,6 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* YouTube-Style Suggested Shorts Shelf on Home Page (Clicking any Short opens the Shorts Feed & auto-plays) */}
                   {recommendedHomeShorts.length > 0 && !searchQuery.trim() && (
                     <section className="py-4 border-y border-zinc-800/80 space-y-3.5">
                       <div className="flex items-center justify-between">
@@ -2678,7 +3296,6 @@ export default function App() {
                     </section>
                   )}
 
-                  {/* Remaining Recommended Videos Grid */}
                   {filteredVideos.length > 4 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                       {filteredVideos.slice(4).map((video) => (
@@ -2712,10 +3329,9 @@ export default function App() {
             </div>
           )}
 
-          {/* YouTube Watch View */}
-          {viewMode === 'watch' && activeVideo && (
+          {/* Watch View (Plays Video After 3 Steps Complete) */}
+          {viewMode === 'watch' && activeVideo && !isStepGateActive && (
             <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
-              {/* Primary Column: Player + Info + Below-Video Suggestions */}
               <div className="lg:col-span-8 space-y-4 min-w-0">
                 <ProtectedVideoPlayer
                   key={activeVideo.id}
@@ -2726,7 +3342,6 @@ export default function App() {
                   onPlaySuccess={() => handleVideoPlaySuccess(activeVideo)}
                 />
 
-                {/* Video Title & Channel Bar */}
                 <div className="space-y-3 pt-1">
                   <h1 className="text-base sm:text-xl font-bold text-white leading-snug break-words">
                     {activeVideo.title}
@@ -2780,7 +3395,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Description Box */}
                   {activeVideo.description && (
                     <div className="p-3.5 rounded-xl bg-zinc-900/90 text-sm text-zinc-300 leading-relaxed break-words">
                       <p>{activeVideo.description}</p>
@@ -2788,11 +3402,9 @@ export default function App() {
                   )}
                 </div>
 
-                {/* 320x50 Banner Ad & Native Banner below video */}
                 <Banner320x50Ad />
                 <NativeBannerAd />
 
-                {/* YouTube-Style Suggested Shorts Shelf on Watch Page */}
                 {recommendedHomeShorts.length > 0 && (
                   <div className="pt-3 pb-2 border-y border-zinc-800/80 space-y-3">
                     <div className="flex items-center justify-between">
@@ -2832,7 +3444,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Suggested Videos Grid directly below the video player */}
                 <div className="pt-4 space-y-4">
                   <h2 className="text-base font-semibold text-white">{t.moreVideos}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -2848,7 +3459,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Column: Up Next Sidebar + 320x50 Banner */}
               <div className="lg:col-span-4 space-y-4 min-w-0">
                 <Banner320x50Ad className="my-0" />
                 <h3 className="text-sm font-semibold text-zinc-200 px-1">{t.upNext}</h3>
@@ -2867,7 +3477,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Crawlable SEO Index for Googlebot (Full Videos + Shorts + X Tube Official Keywords) */}
+          {/* Crawlable SEO Index for Googlebot */}
           <footer className="sr-only" aria-label="X Tube Official Video and Shorts Directory">
             <h2>X Tube Official – Watch Bangladeshi Viral Videos, Shorts &amp; Exclusive HD Streams</h2>
             <p>
@@ -2894,6 +3504,58 @@ export default function App() {
           </footer>
         </main>
       </div>
+
+      {/* Fixed Bottom Telegram Mini App Tab Bar (Mobile & Telegram WebView) */}
+      {!isStepGateActive && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-15 bg-[#0f131c]/95 backdrop-blur-md border-t border-slate-800/90 grid grid-cols-4 items-center px-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSortByTrending(false);
+              goHome();
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
+              viewMode === 'home' && !sortByTrending ? 'text-red-500' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">{t.home}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openShortsTab()}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
+              viewMode === 'shorts' ? 'text-red-500' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Shorts</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSelectTrending}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
+              viewMode === 'home' && sortByTrending ? 'text-red-500' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Flame className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">{t.trending}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('profile')}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
+              viewMode === 'profile' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Profile</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

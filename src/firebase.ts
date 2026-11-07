@@ -110,11 +110,51 @@ export interface RedeemStoreConfig {
   updatedAt?: number;
 }
 
+let activeTelegramBotUsername = 'zeroloder_bot';
+
+export const setActiveTelegramBotUsername = (username?: string) => {
+  const clean = String(username || '')
+    .trim()
+    .replace(/^@+/, '');
+  if (clean && /^[a-zA-Z0-9_]{3,64}$/.test(clean)) {
+    activeTelegramBotUsername = clean;
+  }
+};
+
+export const getActiveTelegramBotUsername = (): string => activeTelegramBotUsername;
+
+export const encodeTgStartId = (rawId: string): string => {
+  const clean = String(rawId || '').trim();
+  if (/^[A-Za-z0-9_-]+$/.test(clean)) return clean;
+  return clean
+    .replace(/\./g, '__d__')
+    .replace(/[^A-Za-z0-9_-]/g, (ch) => `_x${ch.charCodeAt(0).toString(16)}_`);
+};
+
+export const decodeTgStartId = (encoded: string): string => {
+  const clean = String(encoded || '').trim();
+  return clean
+    .replace(/__d__/g, '.')
+    .replace(/_x([0-9a-fA-F]{2,4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+};
+
 /**
- * Generates the canonical Watch Share Link (`https://<origin>/?v=<videoId>`)
- * identical across Index cards, Watch page, and Admin Panel (`/ad.html`).
+ * Generates the Telegram Bot Deep Link (`https://t.me/<botUsername>?start=vid_<videoId>`)
+ * so sharing a video link in a Telegram Channel opens the Bot directly -> Step 1, 2, 3 -> plays the video.
  */
-export const buildVideoShareLink = (videoId: string): string => {
+export const buildVideoShareLink = (videoId: string, customBotUsername?: string): string => {
+  const cleanId = String(videoId || '').trim();
+  const botUser =
+    String(customBotUsername || activeTelegramBotUsername || 'zeroloder_bot')
+      .trim()
+      .replace(/^@+/, '') || 'zeroloder_bot';
+  return `https://t.me/${botUser}?start=vid_${encodeTgStartId(cleanId)}`;
+};
+
+/**
+ * Generates the canonical Web URL (`https://<origin>/?v=<videoId>`) for SEO & WebApp navigation.
+ */
+export const buildWebVideoShareLink = (videoId: string): string => {
   const cleanId = String(videoId || '').trim();
   const origin =
     typeof window !== 'undefined' && window.location?.origin
@@ -124,15 +164,15 @@ export const buildVideoShareLink = (videoId: string): string => {
 };
 
 /**
- * Generates the canonical Short Share Link (`https://<origin>/?short=<shortId>`)
+ * Generates the Telegram Bot Short Deep Link (`https://t.me/<botUsername>?start=short_<shortId>`)
  */
-export const buildShortShareLink = (shortId: string): string => {
+export const buildShortShareLink = (shortId: string, customBotUsername?: string): string => {
   const cleanId = String(shortId || '').trim();
-  const origin =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : 'https://xtubeofficial.pages.dev';
-  return `${origin}/?short=${encodeURIComponent(cleanId)}`;
+  const botUser =
+    String(customBotUsername || activeTelegramBotUsername || 'zeroloder_bot')
+      .trim()
+      .replace(/^@+/, '') || 'zeroloder_bot';
+  return `https://t.me/${botUser}?start=short_${encodeTgStartId(cleanId)}`;
 };
 
 /**
@@ -170,7 +210,13 @@ export const copyTextToClipboard = async (text: string): Promise<boolean> => {
   }
 };
 
-export const SMARTLINK_URL = "https://asiaso.org/4/19da97c151732fac7f15885cffc09675";
+export const STEP_SMARTLINKS = [
+  "https://auctionr.org/4/80cdada28d438b51a0e96e917763f683",
+  "https://auctionr.org/4/5ad4cd88923c063b5b21a813a4822ed8",
+  "https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0",
+];
+
+export const SMARTLINK_URL = "https://auctionr.org/4/80cdada28d438b51a0e96e917763f683";
 export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/f8789aea5ef961063dfc6ebf1cf99900";
 export const NATIVE_BANNER_SCRIPT_SRC = "https://brijmohan.org/21/a7d1393a2e85dd67ac13b3e060394934";
 export const NATIVE_BANNER_CONTAINER_ID = "container-a7d1393a2e85dd67ac13b3e060394934";

@@ -641,30 +641,58 @@ export default {
           ]);
         };
 
-        const buildPackagesKeyboard = (packages) => {
-          const rows = packages.map((pkg) => [
-            {
-              text: `🎟️ ${pkg.name} (${pkg.durationLabel}) — ${pkg.price}`,
-              callback_data: `buy_pkg_${pkg.id}`,
-            },
-          ]);
-          rows.push([{ text: '🌐 ভিজিট ওয়েবসাইট (X Tube Official)', url: CANONICAL_SITE_URL }]);
+        const decodeTgStartId = (encoded) =>
+          String(encoded || '')
+            .trim()
+            .replace(/_D_/g, '.')
+            .replace(/_P_/g, '+')
+            .replace(/__/g, '_');
+
+        const buildUserWebAppUrl = (basePathQuery, userObj) => {
+          const uid = String(userObj?.id || '').trim();
+          const fullName =
+            [userObj?.first_name, userObj?.last_name].filter(Boolean).join(' ').trim() ||
+            'Telegram User';
+          const uname = String(userObj?.username || '').replace(/^@/, '').trim();
+          const sep = basePathQuery.includes('?') ? '&' : '?';
+          const params = new URLSearchParams();
+          if (uid) params.set('tg_id', uid);
+          if (fullName) params.set('tg_name', fullName);
+          if (uname) params.set('tg_user', uname);
+          const qs = params.toString();
+          return `${CANONICAL_SITE_URL}${basePathQuery}${qs ? `${sep}${qs}` : ''}`;
+        };
+
+        const buildPackagesKeyboard = (packages, userObj) => {
+          const miniAppHomeUrl = buildUserWebAppUrl('/', userObj);
+          const rows = [
+            [{ text: '📱 Open X Tube Mini App (Watch Videos)', web_app: { url: miniAppHomeUrl } }],
+          ];
+          for (const pkg of packages) {
+            rows.push([
+              {
+                text: `🎟️ ${pkg.name} (${pkg.durationLabel}) — ${pkg.price}`,
+                callback_data: `buy_pkg_${pkg.id}`,
+              },
+            ]);
+          }
           return { inline_keyboard: rows };
         };
 
-        const sendStoreWelcome = async (chatId, preloadedPackages = null) => {
+        const sendStoreWelcome = async (chatId, preloadedPackages = null, userObj = null) => {
           const storeData = await loadStoreData();
           const packages = preloadedPackages || storeData.packages;
+          const miniAppHomeUrl = buildUserWebAppUrl('/', userObj || { id: chatId });
           if (!storeData.serviceEnabled || !packages || packages.length === 0) {
             await tgApi('sendMessage', {
               chat_id: chatId,
               text:
-                `⛔ <b>Redeem Code ও VIP Package সার্ভিসটি বর্তমানে বন্ধ (OFF) আছে।</b>\n\n` +
-                `পরবর্তীতে সার্ভিসটি চালু হলে আবার চেষ্টা করুন।`,
+                `🎬 <b>X Tube Official — Telegram Mini App</b>-এ স্বাগতম!\n\n` +
+                `👇 নিচের বাটনে ক্লিক করে সরাসরি অ্যাপের ভেতর সব ভাইরাল ভিডিও ও Shorts দেখুন:`,
               parse_mode: 'HTML',
               reply_markup: {
                 inline_keyboard: [
-                  [{ text: '🌐 ভিজিট ওয়েবসাইট (X Tube Official)', url: CANONICAL_SITE_URL }],
+                  [{ text: '📱 Open X Tube Mini App (Watch Videos)', web_app: { url: miniAppHomeUrl } }],
                 ],
               },
             });
@@ -673,13 +701,11 @@ export default {
           await tgApi('sendMessage', {
             chat_id: chatId,
             text:
-              `👑 <b>X Tube Official — VIP Ad-Free Redeem Code Store</b>-এ স্বাগতম!\n\n` +
-              `✨ <b>Redeem Code ব্যবহারের সুবিধা:</b>\n` +
-              `• ওয়েবসাইটে কোনো প্রকার বিজ্ঞাপন (Ads / Popunder / Smartlink) আসবে না!\n` +
-              `• ১ ক্লিকেই সব Full Video ও Shorts সরাসরি প্লে হবে!\n\n` +
-              `👇 <b>নিচের তালিকা থেকে আপনার পছন্দের Ad-Free প্যাকেজটি সিলেক্ট করুন:</b>`,
+              `👑 <b>X Tube Official — Telegram Mini App &amp; VIP Store</b>-এ স্বাগতম!\n\n` +
+              `📱 সরাসরি ভিডিও দেখতে নিচের <b>Open X Tube Mini App</b> বাটনে ট্যাপ করুন।\n\n` +
+              `✨ <b>অথবা Ad-Free VIP Redeem Code কিনতে প্যাকেজ সিলেক্ট করুন:</b>`,
             parse_mode: 'HTML',
-            reply_markup: buildPackagesKeyboard(packages),
+            reply_markup: buildPackagesKeyboard(packages, userObj || { id: chatId }),
           });
         };
 
@@ -983,11 +1009,75 @@ export default {
           return new Response('OK', { status: 200 });
         }
 
-        // /start command -> Always show available Redeem Code packages immediately
+        // /start command -> Handle shared video deep-link (`vid_<id>` or `short_<id>`) OR show Mini App + Packages
         if (text.startsWith('/start')) {
+          const startArg = text.replace(/^\/start\s*/i, '').trim();
+          if (startArg) {
+            let isShortLink = false;
+            let rawTargetId = startArg;
+            if (startArg.startsWith('vid_')) {
+              rawTargetId = decodeTgStartId(startArg.slice(4));
+            } else if (startArg.startsWith('short_')) {
+              isShortLink = true;
+              rawTargetId = decodeTgStartId(startArg.slice(6));
+            } else {
+              rawTargetId = decodeTgStartId(startArg);
+            }
+
+            if (rawTargetId) {
+              const [vRes, sRes] = await Promise.all([
+                fetch(`${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
+                fetch(`${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
+              ]);
+              const vData = vRes && vRes.ok ? await vRes.json().catch(() => null) : null;
+              const sData = sRes && sRes.ok ? await sRes.json().catch(() => null) : null;
+              const mediaItem = vData || sData;
+              if (!vData && sData) isShortLink = true;
+
+              const videoTitle = String(mediaItem?.title || 'Exclusive Viral Video 🔥').trim();
+              const videoDuration = String(mediaItem?.duration || '').trim();
+              const miniAppWatchUrl = buildUserWebAppUrl(
+                isShortLink
+                  ? `/?short=${encodeURIComponent(rawTargetId)}`
+                  : `/?v=${encodeURIComponent(rawTargetId)}`,
+                msg.from || { id: chatId }
+              );
+              const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId });
+
+              await Promise.all([
+                saveChatSession(chatId, { ...session, step: 'idle' }),
+                tgApi('sendMessage', {
+                  chat_id: chatId,
+                  text:
+                    `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
+                    `🔒 <b>ধাপ (Step 1 → 2 → 3):</b>\n` +
+                    `নিচের <b>▶️ Watch Video Now</b> বাটনে ক্লিক করলে Mini App ওপেন হবে। ৩টি ধাপ (২০ সেকেন্ড করে) সম্পন্ন করলেই ভিডিওটি সরাসরি চালু হয়ে যাবে!`,
+                  parse_mode: 'HTML',
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {
+                          text: '▶️ Watch Video Now (Step 1-2-3)',
+                          web_app: { url: miniAppWatchUrl },
+                        },
+                      ],
+                      [
+                        {
+                          text: '📱 Open All Videos (Mini App)',
+                          web_app: { url: miniAppHomeUrl },
+                        },
+                      ],
+                    ],
+                  },
+                }),
+              ]);
+              return new Response('OK', { status: 200 });
+            }
+          }
+
           await Promise.all([
             saveChatSession(chatId, { ...session, step: 'idle' }),
-            sendStoreWelcome(chatId, packages),
+            sendStoreWelcome(chatId, packages, msg.from || { id: chatId }),
           ]);
           return new Response('OK', { status: 200 });
         }
@@ -1093,13 +1183,64 @@ export default {
         }
 
         // Default fallback: show packages
-        await sendStoreWelcome(chatId, packages);
+        await sendStoreWelcome(chatId, packages, msg.from || { id: chatId });
         return new Response('OK', { status: 200 });
       } catch (err) {
         return new Response(JSON.stringify({ ok: false, error: String(err) }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
+      }
+    }
+
+    // 3C. Telegram User Avatar Proxy (/api/tg-avatar?userId=...)
+    if (path === '/api/tg-avatar') {
+      const userId = (url.searchParams.get('userId') || '').trim();
+      if (!userId || !/^\d+$/.test(userId)) {
+        return new Response(null, { status: 404 });
+      }
+      try {
+        const [fbRes1, fbRes2] = await Promise.all([
+          fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`).catch(() => null),
+        ]);
+        const cfg1 = fbRes1 && fbRes1.ok ? await fbRes1.json().catch(() => null) : null;
+        const cfg2 = fbRes2 && fbRes2.ok ? await fbRes2.json().catch(() => null) : null;
+        const botToken = String(cfg2?.botToken || cfg1?.botToken || '').trim();
+        if (!botToken) return new Response(null, { status: 404 });
+
+        const photosRes = await fetch(
+          `https://api.telegram.org/bot${botToken}/getUserProfilePhotos?user_id=${encodeURIComponent(userId)}&limit=1`
+        );
+        const photosData = await photosRes.json().catch(() => null);
+        const firstGroup = photosData?.result?.photos?.[0];
+        if (!Array.isArray(firstGroup) || firstGroup.length === 0) {
+          return new Response(null, { status: 404 });
+        }
+        const bestPhoto = firstGroup[firstGroup.length - 1];
+        const fileId = bestPhoto?.file_id;
+        if (!fileId) return new Response(null, { status: 404 });
+
+        const fileRes = await fetch(
+          `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`
+        );
+        const fileData = await fileRes.json().catch(() => null);
+        const filePath = fileData?.result?.file_path;
+        if (!filePath) return new Response(null, { status: 404 });
+
+        const imgRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${filePath}`);
+        if (!imgRes.ok) return new Response(null, { status: 404 });
+
+        return new Response(imgRes.body, {
+          status: 200,
+          headers: {
+            'Content-Type': imgRes.headers.get('content-type') || 'image/jpeg',
+            'Cache-Control': 'public, max-age=3600',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      } catch {
+        return new Response(null, { status: 404 });
       }
     }
 

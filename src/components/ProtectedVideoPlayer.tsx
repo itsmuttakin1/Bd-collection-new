@@ -1,8 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize } from 'lucide-react';
-import { triggerPopunderAd, triggerSmartlinkAd, useAdFreeVip } from './AdUnits';
 import { sanitizeServerThumbnail } from '../firebase';
-
 
 interface ProtectedVideoPlayerProps {
   videoId: string;
@@ -19,13 +17,11 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   poster,
   onPlaySuccess,
 }) => {
-  const { isAdFree } = useAdFreeVip();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 3-click Popunder gate state before video actually plays (bypassed when Redeem Code isAdFree is true)
-  const [popunderClicks, setPopunderClicks] = useState<number>(0);
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  // Video is unlocked once the 3-step verification completes (no popunder/redirect ads on player click)
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
 
   // 0 = direct R2 URL, 1 = /api/stream range proxy, 2 = /api/stream?transcode=1 FFmpeg H.264 live stream, 3 = backup stream fallback
   const [streamStage, setStreamStage] = useState<number>(0);
@@ -82,8 +78,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       : '';
 
   useEffect(() => {
-    setPopunderClicks(0);
-    setIsUnlocked(isAdFree);
+    setIsUnlocked(true);
     setStreamStage(0);
     setIsPlaying(false);
     setProgress(0);
@@ -94,31 +89,20 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
       videoRef.current.load();
+      setTimeout(() => {
+        startVideoPlayback();
+      }, 80);
     }
-  }, [videoId, videoUrl, isAdFree]);
+  }, [videoId, videoUrl]);
 
-  // Overlay Play button click (requires 3 Popunder clicks before playing unless Redeem Code VIP is active)
+  // Overlay Play button click (plays video directly without popunder/redirect ads)
   const handleOverlayPlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    if (isAdFree) {
-      if (!isUnlocked) setIsUnlocked(true);
-      startVideoPlayback();
-      return;
-    }
-
     if (!isUnlocked) {
-      const nextCount = popunderClicks + 1;
-      triggerPopunderAd();
-      if (nextCount < 3) {
-        triggerSmartlinkAd();
-      }
-      setPopunderClicks(nextCount);
-
-      if (nextCount >= 3) {
-        setIsUnlocked(true);
-        startVideoPlayback();
-      }
+      setIsUnlocked(true);
+    }
+    if (!isPlaying) {
+      startVideoPlayback();
     } else {
       togglePlayPause();
     }
