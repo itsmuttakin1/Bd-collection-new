@@ -586,18 +586,55 @@ async function startServer() {
       return { step: 'idle', isAdmin: false };
     };
 
-    const saveChatSession = async (chatId: string | number, sessionObj: Record<string, any>) => {
+    const saveChatSession = async (
+      chatId: string | number,
+      sessionObj: Record<string, any>,
+      fromUser?: any
+    ) => {
       const key = String(chatId);
-      tgBotMemorySessions.set(key, sessionObj);
-      await fetch(`${firebaseRtdbBase}/telegramBotSessions/${key}.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...sessionObj,
-          botAuthToken: 'xtube_tg_bot_2026',
-          updatedAt: Date.now(),
-        }),
-      }).catch(() => {});
+      const fullName = fromUser
+        ? [fromUser.first_name, fromUser.last_name].filter(Boolean).join(' ').trim()
+        : sessionObj.fullName || '';
+      const username = fromUser?.username
+        ? String(fromUser.username).replace(/^@/, '').trim()
+        : sessionObj.username || '';
+      const mergedSession: Record<string, any> = {
+        ...sessionObj,
+        chatId: key,
+        ...(fullName ? { fullName } : {}),
+        ...(username ? { username } : {}),
+        botAuthToken: 'xtube_tg_bot_2026',
+        updatedAt: Date.now(),
+      };
+      tgBotMemorySessions.set(key, mergedSession);
+      await Promise.all([
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/${key}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mergedSession),
+        }).catch(() => {}),
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${key}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatId: key,
+            fullName: fullName || 'Telegram User',
+            username,
+            lang: mergedSession.lang || 'bn',
+            lastActiveAt: Date.now(),
+            botAuthToken: 'xtube_tg_bot_2026',
+          }),
+        }).catch(() => {}),
+      ]);
+    };
+
+    const resolveUserLang = (session: any, fromUser?: any): 'bn' | 'en' => {
+      const saved = String(session?.lang || '').toLowerCase().trim();
+      if (saved === 'en') return 'en';
+      if (saved === 'bn') return 'bn';
+      const tgCode = String(fromUser?.language_code || '').toLowerCase().trim();
+      if (tgCode.startsWith('en')) return 'en';
+      return 'bn';
     };
 
     const decodeTgStartId = (encoded: string): string =>
@@ -609,7 +646,8 @@ async function startServer() {
 
     const buildUserWebAppUrl = (
       basePathQuery: string,
-      userObj?: { id?: number | string; first_name?: string; last_name?: string; username?: string }
+      userObj?: { id?: number | string; first_name?: string; last_name?: string; username?: string },
+      lang: 'bn' | 'en' = 'bn'
     ) => {
       const uid = String(userObj?.id || '').trim();
       const fullName =
@@ -620,14 +658,29 @@ async function startServer() {
       if (uid) params.set('tg_id', uid);
       if (fullName) params.set('tg_name', fullName);
       if (uname) params.set('tg_user', uname);
+      if (lang) params.set('lang', lang);
       const qs = params.toString();
       return `${CANONICAL_SITE_URL}${basePathQuery}${qs ? `${sep}${qs}` : ''}`;
     };
 
-    const buildPackagesKeyboard = (packages: Array<any>, userObj?: any) => {
-      const miniAppHomeUrl = buildUserWebAppUrl('/', userObj);
-      const rows: Array<Array<{ text: string; callback_data?: string; url?: string; web_app?: { url: string } }>> = [
-        [{ text: '📱 Open X Tube Mini App (Watch Videos)', web_app: { url: miniAppHomeUrl } }],
+    const buildPackagesKeyboard = (
+      packages: Array<any>,
+      userObj?: any,
+      lang: 'bn' | 'en' = 'bn'
+    ) => {
+      const miniAppHomeUrl = buildUserWebAppUrl('/', userObj, lang);
+      const isEn = lang === 'en';
+      const rows: Array<
+        Array<{ text: string; callback_data?: string; url?: string; web_app?: { url: string } }>
+      > = [
+        [
+          {
+            text: isEn
+              ? '📱 Open X Tube Mini App (Watch Videos)'
+              : '📱 X Tube Mini App খুলুন (ভিডিও দেখুন)',
+            web_app: { url: miniAppHomeUrl },
+          },
+        ],
       ];
       for (const pkg of packages) {
         rows.push([
@@ -637,27 +690,54 @@ async function startServer() {
           },
         ]);
       }
+      rows.push([
+        {
+          text: isEn
+            ? '🌐 Language: English ( বাংলা করুন )'
+            : '🌐 ভাষা: বাংলা ( Switch to English )',
+          callback_data: 'toggle_bot_lang',
+        },
+      ]);
       return { inline_keyboard: rows };
     };
 
     const sendStoreWelcome = async (
       chatId: string | number,
       preloadedPackages?: Array<any>,
-      userObj?: any
+      userObj?: any,
+      lang: 'bn' | 'en' = 'bn'
     ) => {
       const storeData = await loadStoreData();
       const packages = preloadedPackages || storeData.packages;
-      const miniAppHomeUrl = buildUserWebAppUrl('/', userObj || { id: chatId });
+      const isEn = lang === 'en';
+      const miniAppHomeUrl = buildUserWebAppUrl('/', userObj || { id: chatId }, lang);
       if (!storeData.serviceEnabled || !packages || packages.length === 0) {
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text:
-            `🎬 <b>X Tube Official — Telegram Mini App</b>-এ স্বাগতম!\n\n` +
-            `👇 নিচের বাটনে ক্লিক করে সরাসরি অ্যাপের ভেতর সব ভাইরাল ভিডিও ও Shorts দেখুন:`,
+          text: isEn
+            ? `🎬 <b>Welcome to X Tube Official — Telegram Mini App!</b>\n\n` +
+              `👇 Tap the button below to watch all exclusive viral videos &amp; Shorts directly inside the app:`
+            : `🎬 <b>X Tube Official — Telegram Mini App</b>-এ স্বাগতম!\n\n` +
+              `👇 নিচের বাটনে ক্লিক করে সরাসরি অ্যাপের ভেতর সব ভাইরাল ভিডিও ও Shorts দেখুন:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '📱 Open X Tube Mini App (Watch Videos)', web_app: { url: miniAppHomeUrl } }],
+              [
+                {
+                  text: isEn
+                    ? '📱 Open X Tube Mini App (Watch Videos)'
+                    : '📱 X Tube Mini App খুলুন (ভিডিও দেখুন)',
+                  web_app: { url: miniAppHomeUrl },
+                },
+              ],
+              [
+                {
+                  text: isEn
+                    ? '🌐 Language: English ( বাংলা করুন )'
+                    : '🌐 ভাষা: বাংলা ( Switch to English )',
+                  callback_data: 'toggle_bot_lang',
+                },
+              ],
             ],
           },
         });
@@ -665,13 +745,54 @@ async function startServer() {
       }
       await tgApi('sendMessage', {
         chat_id: chatId,
-        text:
-          `👑 <b>X Tube Official — Telegram Mini App &amp; VIP Store</b>-এ স্বাগতম!\n\n` +
-          `📱 সরাসরি ভিডিও দেখতে নিচের <b>Open X Tube Mini App</b> বাটনে ট্যাপ করুন।\n\n` +
-          `✨ <b>অথবা Ad-Free VIP Redeem Code কিনতে প্যাকেজ সিলেক্ট করুন:</b>`,
+        text: isEn
+          ? `👑 <b>Welcome to X Tube Official — Telegram Mini App &amp; VIP Store!</b>\n\n` +
+            `📱 Tap <b>Open X Tube Mini App</b> below to watch viral videos directly.\n\n` +
+            `✨ <b>Or select a package below to buy an Ad-Free VIP Redeem Code:</b>`
+          : `👑 <b>X Tube Official — Telegram Mini App &amp; VIP Store</b>-এ স্বাগতম!\n\n` +
+            `📱 সরাসরি ভিডিও দেখতে নিচের <b>X Tube Mini App খুলুন</b> বাটনে ট্যাপ করুন।\n\n` +
+            `✨ <b>অথবা Ad-Free VIP Redeem Code কিনতে প্যাকেজ সিলেক্ট করুন:</b>`,
         parse_mode: 'HTML',
-        reply_markup: buildPackagesKeyboard(packages, userObj || { id: chatId }),
+        reply_markup: buildPackagesKeyboard(packages, userObj || { id: chatId }, lang),
       });
+    };
+
+    const collectAllSubscriberChatIds = async (): Promise<string[]> => {
+      const [sessRes, subRes, ordRes] = await Promise.all([
+        fetch(`${firebaseRtdbBase}/telegramBotSessions.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/redeemOrders.json`).catch(() => null),
+      ]);
+      const sessData: any = sessRes && sessRes.ok ? await sessRes.json().catch(() => null) : null;
+      const subData: any = subRes && subRes.ok ? await subRes.json().catch(() => null) : null;
+      const ordData: any = ordRes && ordRes.ok ? await ordRes.json().catch(() => null) : null;
+
+      const idSet = new Set<string>();
+      const addValidChatId = (raw: any) => {
+        const s = String(raw || '').trim();
+        if (/^-?\d{5,20}$/.test(s)) idSet.add(s);
+      };
+
+      if (sessData && typeof sessData === 'object') {
+        for (const [k, val] of Object.entries(sessData)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          addValidChatId(k);
+          if (val && typeof val === 'object') addValidChatId((val as any).chatId);
+        }
+      }
+      if (subData && typeof subData === 'object') {
+        for (const [k, val] of Object.entries(subData)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          addValidChatId(k);
+          if (val && typeof val === 'object') addValidChatId((val as any).chatId);
+        }
+      }
+      if (ordData && typeof ordData === 'object') {
+        for (const val of Object.values(ordData)) {
+          if (val && typeof val === 'object') addValidChatId((val as any).chatId);
+        }
+      }
+      return Array.from(idSet);
     };
 
     if (update.callback_query) {
@@ -682,6 +803,24 @@ async function startServer() {
 
       const [{ serviceEnabled, packages, bkashNumber, nagadNumber, paymentNote }, session] =
         await Promise.all([loadStoreData(), getChatSession(chatId)]);
+      const userLang = resolveUserLang(session, cb.from);
+      const isEn = userLang === 'en';
+
+      if (data === 'toggle_bot_lang') {
+        const nextLang: 'bn' | 'en' = userLang === 'bn' ? 'en' : 'bn';
+        await Promise.all([
+          saveChatSession(chatId, { ...session, lang: nextLang }, cb.from),
+          tgApi('answerCallbackQuery', {
+            callback_query_id: cb.id,
+            text:
+              nextLang === 'en'
+                ? '🌐 Language changed to English!'
+                : '🌐 ভাষা বাংলা করা হয়েছে!',
+          }),
+          sendStoreWelcome(chatId, packages, cb.from || { id: chatId }, nextLang),
+        ]);
+        return;
+      }
 
       if (
         !serviceEnabled &&
@@ -692,19 +831,21 @@ async function startServer() {
         await Promise.all([
           tgApi('answerCallbackQuery', {
             callback_query_id: cb.id,
-            text: '⛔ সার্ভিসটি বর্তমানে বন্ধ (OFF) আছে!',
+            text: isEn
+              ? '⛔ This service is currently turned OFF!'
+              : '⛔ সার্ভিসটি বর্তমানে বন্ধ (OFF) আছে!',
             show_alert: true,
           }),
-          sendStoreWelcome(chatId, []),
+          sendStoreWelcome(chatId, [], cb.from || { id: chatId }, userLang),
         ]);
         return;
       }
 
       if (data === 'back_to_packages') {
         await Promise.all([
-          saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null }),
+          saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null, lang: userLang }, cb.from),
           tgApi('answerCallbackQuery', { callback_query_id: cb.id }),
-          sendStoreWelcome(chatId, packages),
+          sendStoreWelcome(chatId, packages, cb.from || { id: chatId }, userLang),
         ]);
         return;
       }
@@ -715,26 +856,39 @@ async function startServer() {
         if (!pkg) return;
 
         await Promise.all([
-          saveChatSession(chatId, {
-            ...session,
-            step: 'choose_payment',
-            selectedPkg: pkg,
-          }),
+          saveChatSession(
+            chatId,
+            {
+              ...session,
+              lang: userLang,
+              step: 'choose_payment',
+              selectedPkg: pkg,
+            },
+            cb.from
+          ),
           tgApi('answerCallbackQuery', {
             callback_query_id: cb.id,
-            text: `${pkg.name} সিলেক্ট করা হয়েছে`,
+            text: isEn ? `${pkg.name} selected` : `${pkg.name} সিলেক্ট করা হয়েছে`,
           }),
           tgApi('sendMessage', {
             chat_id: chatId,
-            text:
-              `📦 <b>সিলেক্ট করা প্যাকেজ:</b> ${escHtml(pkg.name)}\n` +
-              `⏱ <b>মেয়াদ (Validity):</b> ${escHtml(pkg.durationLabel)}\n` +
-              `💰 <b>মূল্য (Price):</b> ${escHtml(pkg.price)}\n\n` +
-              `💳 <b>পেমেন্ট নাম্বারসমূহ (Send Money):</b>\n` +
-              `📲 <b>bKash:</b> <code>${escHtml(bkashNumber)}</code>\n` +
-              `🟠 <b>Nagad:</b> <code>${escHtml(nagadNumber)}</code>\n\n` +
-              `📌 ${escHtml(paymentNote)}\n` +
-              `👇 আপনি কোন মাধ্যমে পেমেন্ট করতে চান সিলেক্ট করুন:`,
+            text: isEn
+              ? `📦 <b>Selected Package:</b> ${escHtml(pkg.name)}\n` +
+                `⏱ <b>Validity:</b> ${escHtml(pkg.durationLabel)}\n` +
+                `💰 <b>Price:</b> ${escHtml(pkg.price)}\n\n` +
+                `💳 <b>Payment Numbers (Send Money):</b>\n` +
+                `📲 <b>bKash:</b> <code>${escHtml(bkashNumber)}</code>\n` +
+                `🟠 <b>Nagad:</b> <code>${escHtml(nagadNumber)}</code>\n\n` +
+                `📌 ${escHtml(paymentNote)}\n` +
+                `👇 Select your preferred payment method below:`
+              : `📦 <b>সিলেক্ট করা প্যাকেজ:</b> ${escHtml(pkg.name)}\n` +
+                `⏱ <b>মেয়াদ (Validity):</b> ${escHtml(pkg.durationLabel)}\n` +
+                `💰 <b>মূল্য (Price):</b> ${escHtml(pkg.price)}\n\n` +
+                `💳 <b>পেমেন্ট নাম্বারসমূহ (Send Money):</b>\n` +
+                `📲 <b>bKash:</b> <code>${escHtml(bkashNumber)}</code>\n` +
+                `🟠 <b>Nagad:</b> <code>${escHtml(nagadNumber)}</code>\n\n` +
+                `📌 ${escHtml(paymentNote)}\n` +
+                `👇 আপনি কোন মাধ্যমে পেমেন্ট করতে চান সিলেক্ট করুন:`,
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
@@ -742,7 +896,12 @@ async function startServer() {
                   { text: '📲 bKash Payment', callback_data: 'pay_method_bKash' },
                   { text: '🟠 Nagad Payment', callback_data: 'pay_method_Nagad' },
                 ],
-                [{ text: '🔙 অন্য প্যাকেজ দেখুন', callback_data: 'back_to_packages' }],
+                [
+                  {
+                    text: isEn ? '🔙 See Other Packages' : '🔙 অন্য প্যাকেজ দেখুন',
+                    callback_data: 'back_to_packages',
+                  },
+                ],
               ],
             },
           }),
@@ -756,29 +915,45 @@ async function startServer() {
         const targetNumber = method === 'bKash' ? bkashNumber : nagadNumber;
 
         await Promise.all([
-          saveChatSession(chatId, {
-            ...session,
-            step: 'awaiting_trx',
-            selectedPkg: pkg,
-            paymentMethod: method,
-          }),
+          saveChatSession(
+            chatId,
+            {
+              ...session,
+              lang: userLang,
+              step: 'awaiting_trx',
+              selectedPkg: pkg,
+              paymentMethod: method,
+            },
+            cb.from
+          ),
           tgApi('answerCallbackQuery', {
             callback_query_id: cb.id,
-            text: `${method} সিলেক্ট হয়েছে`,
+            text: isEn ? `${method} selected` : `${method} সিলেক্ট হয়েছে`,
           }),
           tgApi('sendMessage', {
             chat_id: chatId,
-            text:
-              `✅ <b>পেমেন্ট মাধ্যম:</b> ${escHtml(method)}\n` +
-              `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
-              `💰 <b>পরিমাণ:</b> ${escHtml(pkg.price)}\n` +
-              `📞 <b>${escHtml(method)} নাম্বার (ট্যাপ করে কপি করুন):</b> <code>${escHtml(targetNumber)}</code>\n\n` +
-              `✍️ উপরের নাম্বারে <b>${escHtml(pkg.price)}</b> Send Money করার পর, <b>যে নাম্বার থেকে টাকা পাঠিয়েছেন (Sender Number) এবং Transaction ID (TrxID)</b> নিচে এক লাইনে লিখে মেসেজ পাঠান:\n` +
-              `<i>(উদাহরণ: 01712345678 TrxID98765)</i>`,
+            text: isEn
+              ? `✅ <b>Payment Method:</b> ${escHtml(method)}\n` +
+                `📦 <b>Package:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+                `💰 <b>Amount:</b> ${escHtml(pkg.price)}\n` +
+                `📞 <b>${escHtml(method)} Number (Tap to copy):</b> <code>${escHtml(targetNumber)}</code>\n\n` +
+                `✍️ After sending <b>${escHtml(pkg.price)}</b> (Send Money) to the number above, reply below with your <b>Sender Number and Transaction ID (TrxID)</b> in one message:\n` +
+                `<i>(Example: 01712345678 TrxID98765)</i>`
+              : `✅ <b>পেমেন্ট মাধ্যম:</b> ${escHtml(method)}\n` +
+                `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+                `💰 <b>পরিমাণ:</b> ${escHtml(pkg.price)}\n` +
+                `📞 <b>${escHtml(method)} নাম্বার (ট্যাপ করে কপি করুন):</b> <code>${escHtml(targetNumber)}</code>\n\n` +
+                `✍️ উপরের নাম্বারে <b>${escHtml(pkg.price)}</b> Send Money করার পর, <b>যে নাম্বার থেকে টাকা পাঠিয়েছেন (Sender Number) এবং Transaction ID (TrxID)</b> নিচে এক লাইনে লিখে মেসেজ পাঠান:\n` +
+                `<i>(উদাহরণ: 01712345678 TrxID98765)</i>`,
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '🔙 প্যাকেজ পরিবর্তন করুন', callback_data: 'back_to_packages' }],
+                [
+                  {
+                    text: isEn ? '🔙 Change Package' : '🔙 প্যাকেজ পরিবর্তন করুন',
+                    callback_data: 'back_to_packages',
+                  },
+                ],
               ],
             },
           }),
@@ -880,19 +1055,24 @@ async function startServer() {
           tgApi('sendMessage', {
             chat_id: orderData.chatId,
             text:
-              `🎉 <b>অভিনন্দন! আপনার পেমেন্ট অনুমোদিত হয়েছে!</b> ✅\n\n` +
-              `📦 <b>প্যাকেজ:</b> ${escHtml(orderData.packageName)}\n` +
-              `🎟️ <b>আপনার VIP Redeem Code (ট্যাপ করে কপি করুন):</b>\n` +
+              `🎉 <b>অভিনন্দন! আপনার পেমেন্ট অনুমোদিত হয়েছে! (Payment Approved!)</b> ✅\n\n` +
+              `📦 <b>Package:</b> ${escHtml(orderData.packageName)}\n` +
+              `🎟️ <b>Your VIP Redeem Code (Tap to Copy):</b>\n` +
               `<code>${generatedCode}</code>\n\n` +
-              `⏰ <b>মেয়াদ শেষ হবে:</b> ${escHtml(expDateStr)} (BD Time)\n\n` +
-              `🚀 <b>কিভাবে ব্যবহার করবেন:</b>\n` +
-              `১. নিচের বাটনে ক্লিক করে ওয়েবসাইটে যান\n` +
-              `২. উপরে <b>🎟️ Redeem Code</b> বাটনে ক্লিক করুন\n` +
-              `৩. কোডটি (<code>${generatedCode}</code>) বসিয়ে <b>Activate</b> চাপুন!`,
+              `⏰ <b>Expires At:</b> ${escHtml(expDateStr)} (BD Time)\n\n` +
+              `🚀 <b>কিভাবে ব্যবহার করবেন / How to use:</b>\n` +
+              `1. নিচের বাটনে ক্লিক করে অ্যাপটি খুলুন\n` +
+              `2. উপরে <b>🎟️ Redeem</b> বাটনে ক্লিক করুন\n` +
+              `3. কোডটি (<code>${generatedCode}</code>) বসিয়ে <b>Activate</b> চাপুন!`,
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '🌐 ওয়েবসাইটে গিয়ে Redeem Code বসান', url: CANONICAL_SITE_URL }],
+                [
+                  {
+                    text: '📱 Open App & Activate Redeem Code',
+                    web_app: { url: CANONICAL_SITE_URL },
+                  },
+                ],
               ],
             },
           }),
@@ -972,18 +1152,109 @@ async function startServer() {
     if (!msg || !msg.chat) return;
 
     const chatId = msg.chat.id;
-    const text = String(msg.text || '').trim();
+    const text = String(msg.text || msg.caption || '').trim();
     const [{ packages, adminChatId }, session] = await Promise.all([
       loadStoreData(),
       getChatSession(chatId),
     ]);
+    const userLang = resolveUserLang(session, msg.from);
+    const isEn = userLang === 'en';
+
+    // Always register subscriber in background when they message the bot
+    saveChatSession(chatId, { ...session, lang: userLang }, msg.from).catch(() => {});
 
     if (text === '/myid' || text === '/id') {
       await tgApi('sendMessage', {
         chat_id: chatId,
-        text: `🆔 আপনার Telegram Chat ID হলো:\n<code>${chatId}</code>\n\n(এই ID-টি Admin Panel-এর Admin ID বক্সে বসাতে পারবেন)`,
+        text: isEn
+          ? `🆔 Your Telegram Chat ID is:\n<code>${chatId}</code>\n\n(You can paste this ID into the Admin ID box in the Admin Panel)`
+          : `🆔 আপনার Telegram Chat ID হলো:\n<code>${chatId}</code>\n\n(এই ID-টি Admin Panel-এর Admin ID বক্সে বসাতে পারবেন)`,
         parse_mode: 'HTML',
       });
+      return;
+    }
+
+    // Admin Broadcast command directly inside Telegram Bot: `/broadcast <message>`
+    if (text.startsWith('/broadcast')) {
+      const targetAdmin = String(adminChatId || queryAdminId || '').trim();
+      if (targetAdmin && String(chatId) !== targetAdmin) {
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: '⛔ শুধুমাত্র Admin এই কমান্ড ব্যবহার করতে পারবেন!',
+        });
+        return;
+      }
+      const bcastText = text.replace(/^\/broadcast\s*/i, '').trim();
+      const replyMsg = msg.reply_to_message;
+      if (!bcastText && !replyMsg) {
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text:
+            `📢 <b>Broadcast পাঠানোর নিয়ম:</b>\n\n` +
+            `১. যেকোনো মেসেজ লিখুন:\n<code>/broadcast আপনার মেসেজ এখানে লিখুন</code>\n\n` +
+            `২. অথবা যেকোনো ছবি/ভিডিও/মেসেজে <b>Reply</b> দিয়ে লিখুন <code>/broadcast</code> — তাহলে সেটি সব ইউজারের কাছে চলে যাবে!`,
+          parse_mode: 'HTML',
+        });
+        return;
+      }
+
+      const allChatIds = await collectAllSubscriberChatIds();
+      let sentCount = 0;
+      let failCount = 0;
+      const miniAppUrl = buildUserWebAppUrl('/', undefined, 'bn');
+
+      for (const targetId of allChatIds) {
+        try {
+          if (replyMsg && replyMsg.message_id) {
+            const copyRes: any = await tgApi('copyMessage', {
+              chat_id: targetId,
+              from_chat_id: chatId,
+              message_id: replyMsg.message_id,
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📱 Open X Tube Mini App', web_app: { url: miniAppUrl } }],
+                ],
+              },
+            });
+            if (copyRes && copyRes.ok) sentCount++;
+            else failCount++;
+          } else {
+            const sendRes: any = await tgApi('sendMessage', {
+              chat_id: targetId,
+              text: bcastText,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📱 Open X Tube Mini App', web_app: { url: miniAppUrl } }],
+                ],
+              },
+            });
+            if (sendRes && sendRes.ok) sentCount++;
+            else failCount++;
+          }
+        } catch {
+          failCount++;
+        }
+      }
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text:
+          `✅ <b>Broadcast সফলভাবে সম্পন্ন হয়েছে!</b>\n\n` +
+          `👥 মোট ইউজার: <b>${allChatIds.length}</b>\n` +
+          `✉️ সফলভাবে গেছে: <b>${sentCount}</b>\n` +
+          `⚠️ ব্যর্থ/ব্লকড: <b>${failCount}</b>`,
+        parse_mode: 'HTML',
+      });
+      return;
+    }
+
+    if (text === '/lang' || text === '/language') {
+      const nextLang: 'bn' | 'en' = userLang === 'bn' ? 'en' : 'bn';
+      await Promise.all([
+        saveChatSession(chatId, { ...session, lang: nextLang }, msg.from),
+        sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, nextLang),
+      ]);
       return;
     }
 
@@ -1017,30 +1288,36 @@ async function startServer() {
             isShortLink
               ? `/?short=${encodeURIComponent(rawTargetId)}`
               : `/?v=${encodeURIComponent(rawTargetId)}`,
-            msg.from || { id: chatId }
+            msg.from || { id: chatId },
+            userLang
           );
-          const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId });
+          const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
 
           await Promise.all([
-            saveChatSession(chatId, { ...session, step: 'idle' }),
+            saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, msg.from),
             tgApi('sendMessage', {
               chat_id: chatId,
-              text:
-                `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                `🔒 <b>ধাপ (Step 1 → 2 → 3):</b>\n` +
-                `নিচের <b>▶️ Watch Video Now</b> বাটনে ক্লিক করলে Mini App ওপেন হবে। ৩টি ধাপ (২০ সেকেন্ড করে) সম্পন্ন করলেই ভিডিওটি সরাসরি চালু হয়ে যাবে!`,
+              text: isEn
+                ? `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
+                  `👇 Tap <b>▶️ Watch Video Now</b> below to open the Mini App:`
+                : `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
+                  `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App-এ ভিডিওটি ওপেন হবে:`,
               parse_mode: 'HTML',
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: '▶️ Watch Video Now (Step 1-2-3)',
+                      text: isEn
+                        ? '▶️ Watch Video Now (Mini App)'
+                        : '▶️ Watch Video Now (সরাসরি দেখুন)',
                       web_app: { url: miniAppWatchUrl },
                     },
                   ],
                   [
                     {
-                      text: '📱 Open All Videos (Mini App)',
+                      text: isEn
+                        ? '📱 Open All Videos (Mini App)'
+                        : '📱 সব ভিডিও দেখুন (Mini App)',
                       web_app: { url: miniAppHomeUrl },
                     },
                   ],
@@ -1053,8 +1330,8 @@ async function startServer() {
       }
 
       await Promise.all([
-        saveChatSession(chatId, { ...session, step: 'idle' }),
-        sendStoreWelcome(chatId, packages, msg.from || { id: chatId }),
+        saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, msg.from),
+        sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang),
       ]);
       return;
     }
@@ -1063,7 +1340,9 @@ async function startServer() {
       if (text.length < 4) {
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text: '⚠️ অনুগ্রহ করে আপনার সঠিক পেমেন্ট নাম্বার এবং Transaction ID (TrxID) লিখে পাঠান:',
+          text: isEn
+            ? '⚠️ Please send your valid Sender Number and Transaction ID (TrxID):'
+            : '⚠️ অনুগ্রহ করে আপনার সঠিক পেমেন্ট নাম্বার এবং Transaction ID (TrxID) লিখে পাঠান:',
         });
         return;
       }
@@ -1109,19 +1388,30 @@ async function startServer() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload),
         }).catch(() => {}),
-        saveChatSession(chatId, { ...session, step: 'idle', selectedPkg: null }),
+        saveChatSession(
+          chatId,
+          { ...session, lang: userLang, step: 'idle', selectedPkg: null },
+          msg.from
+        ),
       ]);
 
       await tgApi('sendMessage', {
         chat_id: chatId,
-        text:
-          `✅ <b>আপনার পেমেন্ট রিকোয়েস্ট সফলভাবে জমা হয়েছে!</b> 🎉\n\n` +
-          `🆔 <b>Order ID:</b> <code>#${escHtml(orderId)}</code>\n` +
-          `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
-          `💰 <b>মূল্য:</b> ${escHtml(pkg.price)}\n` +
-          `💳 <b>মাধ্যম:</b> ${escHtml(paymentMethod)}\n` +
-          `📝 <b>পেমেন্ট তথ্য:</b> <code>${escHtml(text)}</code>\n\n` +
-          `⏳ Admin আপনার পেমেন্ট Approve করলেই সাথে সাথে এই চ্যাটে আপনার <b>VIP Redeem Code</b> চলে আসবে!`,
+        text: isEn
+          ? `✅ <b>Your payment request has been submitted!</b> 🎉\n\n` +
+            `🆔 <b>Order ID:</b> <code>#${escHtml(orderId)}</code>\n` +
+            `📦 <b>Package:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+            `💰 <b>Price:</b> ${escHtml(pkg.price)}\n` +
+            `💳 <b>Method:</b> ${escHtml(paymentMethod)}\n` +
+            `📝 <b>Payment Info:</b> <code>${escHtml(text)}</code>\n\n` +
+            `⏳ As soon as Admin approves your payment, your <b>VIP Redeem Code</b> will be sent here!`
+          : `✅ <b>আপনার পেমেন্ট রিকোয়েস্ট সফলভাবে জমা হয়েছে!</b> 🎉\n\n` +
+            `🆔 <b>Order ID:</b> <code>#${escHtml(orderId)}</code>\n` +
+            `📦 <b>প্যাকেজ:</b> ${escHtml(pkg.name)} (${escHtml(pkg.durationLabel)})\n` +
+            `💰 <b>মূল্য:</b> ${escHtml(pkg.price)}\n` +
+            `💳 <b>মাধ্যম:</b> ${escHtml(paymentMethod)}\n` +
+            `📝 <b>পেমেন্ট তথ্য:</b> <code>${escHtml(text)}</code>\n\n` +
+            `⏳ Admin আপনার পেমেন্ট Approve করলেই সাথে সাথে এই চ্যাটে আপনার <b>VIP Redeem Code</b> চলে আসবে!`,
         parse_mode: 'HTML',
       });
 
@@ -1156,8 +1446,133 @@ async function startServer() {
       return;
     }
 
-    await sendStoreWelcome(chatId, packages, msg.from || { id: chatId });
+    await sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang);
   };
+
+  // Telegram Broadcast API Endpoint (/api/telegram-broadcast)
+  app.all('/api/telegram-broadcast', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    try {
+      const body = req.body || {};
+      const [fbRes1, fbRes2] = await Promise.all([
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/redeemStoreConfig.json`).catch(() => null),
+      ]);
+      const cfg1: any = fbRes1 && fbRes1.ok ? await fbRes1.json().catch(() => null) : null;
+      const cfg2: any = fbRes2 && fbRes2.ok ? await fbRes2.json().catch(() => null) : null;
+      const botToken = String(body.botToken || cfg2?.botToken || cfg1?.botToken || '').trim();
+      const messageText = String(body.message || '').trim();
+      const imageUrl = String(body.imageUrl || '').trim();
+      const buttonText = String(body.buttonText || '📱 Open X Tube Mini App').trim();
+      const buttonUrl = String(body.buttonUrl || CANONICAL_SITE_URL).trim();
+
+      if (!botToken || !botToken.includes(':')) {
+        res.status(400).json({ ok: false, error: 'Missing Telegram Bot Token' });
+        return;
+      }
+      if (!messageText && !imageUrl) {
+        res.status(400).json({ ok: false, error: 'Missing broadcast message or image' });
+        return;
+      }
+
+      const [sessRes, subRes, ordRes] = await Promise.all([
+        fetch(`${firebaseRtdbBase}/telegramBotSessions.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/redeemOrders.json`).catch(() => null),
+      ]);
+      const sessData: any = sessRes && sessRes.ok ? await sessRes.json().catch(() => null) : null;
+      const subData: any = subRes && subRes.ok ? await subRes.json().catch(() => null) : null;
+      const ordData: any = ordRes && ordRes.ok ? await ordRes.json().catch(() => null) : null;
+
+      const idSet = new Set<string>();
+      const addId = (raw: any) => {
+        const s = String(raw || '').trim();
+        if (/^-?\d{5,20}$/.test(s)) idSet.add(s);
+      };
+      if (Array.isArray(body.chatIds)) {
+        body.chatIds.forEach(addId);
+      }
+      if (sessData && typeof sessData === 'object') {
+        for (const [k, val] of Object.entries(sessData)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          addId(k);
+          if (val && typeof val === 'object') addId((val as any).chatId);
+        }
+      }
+      if (subData && typeof subData === 'object') {
+        for (const [k, val] of Object.entries(subData)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          addId(k);
+          if (val && typeof val === 'object') addId((val as any).chatId);
+        }
+      }
+      if (ordData && typeof ordData === 'object') {
+        for (const val of Object.values(ordData)) {
+          if (val && typeof val === 'object') addId((val as any).chatId);
+        }
+      }
+
+      const allChatIds = Array.from(idSet);
+      let sentCount = 0;
+      let failCount = 0;
+
+      const isDirectTgLink = /^https?:\/\/t\.me\//i.test(buttonUrl);
+      const replyMarkup = buttonText
+        ? {
+            inline_keyboard: [
+              [
+                isDirectTgLink
+                  ? { text: buttonText, url: buttonUrl }
+                  : { text: buttonText, web_app: { url: buttonUrl } },
+              ],
+            ],
+          }
+        : undefined;
+
+      for (const targetChatId of allChatIds) {
+        try {
+          const endpoint = imageUrl ? 'sendPhoto' : 'sendMessage';
+          const payload: Record<string, any> = imageUrl
+            ? {
+                chat_id: targetChatId,
+                photo: imageUrl,
+                caption: messageText,
+                parse_mode: 'HTML',
+                ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+              }
+            : {
+                chat_id: targetChatId,
+                text: messageText,
+                parse_mode: 'HTML',
+                ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+              };
+          const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const tgJson: any = await tgResp.json().catch(() => null);
+          if (tgResp.ok && tgJson?.ok) sentCount++;
+          else failCount++;
+        } catch {
+          failCount++;
+        }
+      }
+
+      res.status(200).json({
+        ok: true,
+        totalUsers: allChatIds.length,
+        sentCount,
+        failCount,
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err?.message || 'Broadcast error' });
+    }
+  });
 
   // Telegram User Avatar Proxy (/api/tg-avatar?userId=...)
   app.get('/api/tg-avatar', async (req, res) => {
@@ -1295,6 +1710,19 @@ async function startServer() {
       // Check if Telegram currently has a broken webhook set (e.g. old Cloudflare worker before redeploy)
       if (lastCheckedWebhookToken !== botToken) {
         try {
+          // Ensure the bot's Menu Button opens the Mini App directly!
+          fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              menu_button: {
+                type: 'web_app',
+                text: '📱 Open App',
+                web_app: { url: CANONICAL_SITE_URL },
+              },
+            }),
+          }).catch(() => {});
+
           const whInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
           const whInfo: any = await whInfoRes.json().catch(() => null);
           const currentWhUrl = String(whInfo?.result?.url || '').trim();

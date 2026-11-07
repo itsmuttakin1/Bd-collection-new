@@ -1074,6 +1074,67 @@
             </div>
           </div>
         </section>
+
+        <!-- ROW 4: TELEGRAM BROADCAST SYSTEM (SEND MESSAGE / PHOTO + BUTTON TO ALL USERS) -->
+        <section class="p-4 sm:p-6 rounded-2xl border border-purple-600/60 bg-gradient-to-br from-purple-950/35 via-zinc-900/90 to-zinc-950 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-purple-600 text-white text-[11px] font-extrabold">📢 TELEGRAM BROADCAST</span>
+                <h2 class="text-base sm:text-lg font-bold text-white">Send Broadcast Message to All Bot &amp; Mini App Users</h2>
+              </div>
+              <p class="text-xs text-zinc-400 mt-1">
+                যারা বটে <code class="text-purple-300">/start</code> দিয়েছে বা Telegram থেকে Mini App ওপেন করেছে, তাদের সবার কাছে এক ক্লিকে মেসেজ, ছবি ও ভিডিও লিংক পাঠান! (বটের ভেতর থেকেও <code class="text-purple-300">/broadcast আপনার মেসেজ</code> লিখে পাঠাতে পারবেন)
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span id="tg-broadcast-users-badge" class="px-3 py-1.5 rounded-full bg-zinc-950 border border-purple-500/60 text-xs font-mono font-bold text-purple-300">
+                👥 0 Subscribers
+              </span>
+            </div>
+          </div>
+
+          <form id="tg-broadcast-form" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <div class="lg:col-span-7 space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-zinc-300 mb-1.5">Broadcast Message Text (HTML সাপোর্টেড: &lt;b&gt;bold&lt;/b&gt;) *</label>
+                <textarea id="tg-broadcast-msg-input" rows="4" required
+                  placeholder="🔥 নতুন এক্সক্লুসিভ ভাইরাল ভিডিও আপলোড হয়েছে! নিচের বাটনে ক্লিক করে সরাসরি অ্যাপে দেখুন 👇"
+                  class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"></textarea>
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Optional Photo / Banner Image URL (ছবিসহ পাঠাতে চাইলে লিংক দিন)</label>
+                <input id="tg-broadcast-img-input" type="url"
+                  placeholder="https://i.postimg.cc/... (খালি রাখলে শুধু টেক্সট মেসেজ যাবে)"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-200 focus:outline-none focus:border-purple-500" />
+              </div>
+            </div>
+
+            <div class="lg:col-span-5 space-y-3 bg-zinc-950/70 p-3.5 rounded-xl border border-zinc-800/80">
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Inline Button Text (বাটনের নাম)</label>
+                <input id="tg-broadcast-btn-text" type="text"
+                  value="📱 Watch Viral Videos (Open App)"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Button Action Link (Direct Mini App বা Video Share Link)</label>
+                <input id="tg-broadcast-btn-url" type="url"
+                  value="https://t.me/xtubeofficial_bot?startapp=home"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-purple-300 focus:outline-none focus:border-purple-500" />
+              </div>
+
+              <button id="tg-broadcast-submit-btn" type="submit"
+                class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-purple-600/25">
+                🚀 Send Broadcast to All Users Now
+              </button>
+
+              <p id="tg-broadcast-status-text" class="text-[11px] font-mono text-zinc-400 text-center">
+                Ready to broadcast via @xtubeofficial_bot
+              </p>
+            </div>
+          </form>
+        </section>
       </div>
 
       <!-- ===================================================================== -->
@@ -3364,20 +3425,21 @@ service cloud.firestore {
     window.resolveActiveBotUsername = () => {
       try {
         const savedUser = (localStorage.getItem('xtube_tg_bot_username') || '').replace(/^@/, '').trim();
-        if (savedUser) return savedUser;
+        if (savedUser && savedUser.toLowerCase() !== 'zeroloder_bot') return savedUser;
         const base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
         const match = base.match(/t\.me\/([A-Za-z0-9_]+)/i);
-        if (match && match[1]) return match[1];
+        if (match && match[1] && match[1].toLowerCase() !== 'zeroloder_bot') return match[1];
       } catch {}
-      return 'zeroloder_bot';
+      return 'xtubeofficial_bot';
     };
 
-    // Helper to build the direct Telegram Bot Video Share Link (`https://t.me/<bot>?start=vid_<videoId>`)
+    // Helper to build the Direct Telegram Mini App Video Share Link (`https://t.me/xtubeofficial_bot?startapp=vid_<videoId>`)
+    // Clicking this link in a Telegram Channel opens the WebApp directly without sending a bot chat message!
     window.buildVideoShareLink = (videoId) => {
       const cleanId = String(videoId || '').trim();
       const botUser = window.resolveActiveBotUsername();
       const safeStartId = window.encodeTgStartId(cleanId);
-      return `https://t.me/${botUser}?start=vid_${safeStartId}`;
+      return `https://t.me/${botUser}?startapp=vid_${safeStartId}`;
     };
 
     window.copyVideoShareLink = async (videoId, title = '') => {
@@ -3414,7 +3476,7 @@ service cloud.firestore {
       }
 
       showStatus(
-        `Copied Telegram Bot Video Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `Copied Direct Mini App Video Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
         'success'
       );
       return shareUrl;
@@ -3440,7 +3502,7 @@ service cloud.firestore {
       const cleanId = String(shortId || '').trim();
       const botUser = window.resolveActiveBotUsername();
       const safeStartId = window.encodeTgStartId(cleanId);
-      return `https://t.me/${botUser}?start=short_${safeStartId}`;
+      return `https://t.me/${botUser}?startapp=short_${safeStartId}`;
     };
 
     window.copyShortShareLink = async (shortId, title = '') => {
@@ -6746,8 +6808,21 @@ service cloud.firestore {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 commands: [
-                  { command: 'start', description: '👑 Buy VIP Ad-Free Redeem Code Package' },
+                  { command: 'start', description: '📱 Open X Tube Mini App & VIP Store' },
+                  { command: 'lang', description: '🌐 Switch Language (বাংলা / English)' },
+                  { command: 'broadcast', description: '📢 Broadcast Message to All Users (Admin)' },
                 ],
+              }),
+            }).catch(() => null),
+            fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                menu_button: {
+                  type: 'web_app',
+                  text: '📱 Open App',
+                  web_app: { url: domainBase },
+                },
               }),
             }).catch(() => null),
           ]);
@@ -6760,7 +6835,11 @@ service cloud.firestore {
             throw new Error(hookData.description || 'Failed to configure Telegram Bot');
           }
 
-          const botUsername = meData.result?.username || 'YourBot';
+          const botUsername = meData.result?.username || 'xtubeofficial_bot';
+          try {
+            localStorage.setItem('xtube_tg_bot_username', botUsername);
+            localStorage.setItem('bd_tg_miniapp_base', `https://t.me/${botUsername}`);
+          } catch {}
           const storePayload = {
             botToken,
             botPass,
@@ -6795,7 +6874,7 @@ service cloud.firestore {
           }
           activateTgUploadBotBtn.textContent = `✓ Store Bot Saved & Connected (@${botUsername})!`;
           showStatus(
-            `🎉 Telegram Bot (@${botUsername}) সফলভাবে চালু হয়েছে এবং Firebase-এ সেভ হয়েছে! এখন বটে /start লিখে চেক করুন।`,
+            `🎉 Telegram Bot (@${botUsername}) সফলভাবে চালু হয়েছে এবং Direct WebApp Menu সেট হয়েছে!`,
             'success'
           );
         } catch (err) {
@@ -7154,12 +7233,186 @@ service cloud.firestore {
     onValue(ref(db, 'redeemOrders'), (snap) => {
       primaryOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
       renderMergedOrders();
+      refreshBroadcastSubscriberCount();
     });
 
     onValue(ref(db, 'telegramBotSessions/_orders'), (snap) => {
       fallbackOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
       renderMergedOrders();
+      refreshBroadcastSubscriberCount();
     });
+
+    // ============================================================================
+    // TELEGRAM BROADCAST SYSTEM (COLLECT ALL SUBSCRIBERS & SEND MESSAGE / PHOTO)
+    // ============================================================================
+    const tgBroadcastForm = document.getElementById('tg-broadcast-form');
+    const tgBroadcastMsgInput = document.getElementById('tg-broadcast-msg-input');
+    const tgBroadcastImgInput = document.getElementById('tg-broadcast-img-input');
+    const tgBroadcastBtnText = document.getElementById('tg-broadcast-btn-text');
+    const tgBroadcastBtnUrl = document.getElementById('tg-broadcast-btn-url');
+    const tgBroadcastSubmitBtn = document.getElementById('tg-broadcast-submit-btn');
+    const tgBroadcastStatusText = document.getElementById('tg-broadcast-status-text');
+    const tgBroadcastUsersBadge = document.getElementById('tg-broadcast-users-badge');
+
+    let sessionsMapForBroadcast = {};
+    let subscribersMapForBroadcast = {};
+
+    const getUniqueBroadcastChatIds = () => {
+      const idSet = new Set();
+      const addId = (raw) => {
+        const s = String(raw || '').trim();
+        if (/^-?\d{5,20}$/.test(s)) idSet.add(s);
+      };
+
+      if (sessionsMapForBroadcast && typeof sessionsMapForBroadcast === 'object') {
+        for (const [k, val] of Object.entries(sessionsMapForBroadcast)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          addId(k);
+          if (val && typeof val === 'object') addId(val.chatId);
+        }
+      }
+      if (subscribersMapForBroadcast && typeof subscribersMapForBroadcast === 'object') {
+        for (const [k, val] of Object.entries(subscribersMapForBroadcast)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          addId(k);
+          if (val && typeof val === 'object') addId(val.chatId);
+        }
+      }
+      const mergedOrders = { ...fallbackOrdersMap, ...primaryOrdersMap };
+      for (const val of Object.values(mergedOrders)) {
+        if (val && typeof val === 'object') addId(val.chatId);
+      }
+      const adminIdVal = (tgAdminChatIdInput?.value || '').trim();
+      if (adminIdVal) addId(adminIdVal);
+
+      return Array.from(idSet);
+    };
+
+    const refreshBroadcastSubscriberCount = () => {
+      const ids = getUniqueBroadcastChatIds();
+      if (tgBroadcastUsersBadge) {
+        tgBroadcastUsersBadge.textContent = `👥 ${ids.length} Subscribers`;
+      }
+    };
+
+    onValue(ref(db, 'telegramBotSessions'), (snap) => {
+      const val = snap.val();
+      sessionsMapForBroadcast = val && typeof val === 'object' ? val : {};
+      subscribersMapForBroadcast =
+        val && val._subscribers && typeof val._subscribers === 'object' ? val._subscribers : {};
+      refreshBroadcastSubscriberCount();
+    });
+
+    if (tgBroadcastForm) {
+      tgBroadcastForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const botToken = resolveActiveBotToken(null);
+        if (!botToken || !botToken.includes(':')) {
+          showStatus(
+            'অনুগ্রহ করে প্রথমে উপরে Telegram Bot Token বক্সে আপনার Bot Token দিয়ে Save করুন!',
+            'error'
+          );
+          return;
+        }
+
+        const msgText = (tgBroadcastMsgInput?.value || '').trim();
+        const imgUrl = (tgBroadcastImgInput?.value || '').trim();
+        const btnText = (tgBroadcastBtnText?.value || '').trim();
+        const btnUrl = (tgBroadcastBtnUrl?.value || 'https://t.me/xtubeofficial_bot?startapp=home').trim();
+
+        if (!msgText && !imgUrl) {
+          showStatus('অনুগ্রহ করে Broadcast করার জন্য একটি মেসেজ বা ছবির লিংক দিন!', 'error');
+          return;
+        }
+
+        const chatIds = getUniqueBroadcastChatIds();
+        if (chatIds.length === 0) {
+          showStatus(
+            'এখনো কোনো ইউজার বটে /start দেয়নি বা অ্যাপ ওপেন করেনি। আগে অন্তত ১ জন ইউজার বটে /start দিক!',
+            'error'
+          );
+          return;
+        }
+
+        const origBtnLabel = tgBroadcastSubmitBtn ? tgBroadcastSubmitBtn.textContent : '';
+        if (tgBroadcastSubmitBtn) {
+          tgBroadcastSubmitBtn.disabled = true;
+          tgBroadcastSubmitBtn.textContent = `⏳ Sending Broadcast (0/${chatIds.length})...`;
+        }
+
+        let sentCount = 0;
+        let failCount = 0;
+
+        const isDirectTgLink = /^https?:\/\/t\.me\//i.test(btnUrl);
+        const replyMarkup =
+          btnText && btnUrl
+            ? {
+                inline_keyboard: [
+                  [
+                    isDirectTgLink
+                      ? { text: btnText, url: btnUrl }
+                      : { text: btnText, web_app: { url: btnUrl } },
+                  ],
+                ],
+              }
+            : undefined;
+
+        for (let i = 0; i < chatIds.length; i++) {
+          const targetChatId = chatIds[i];
+          if (tgBroadcastStatusText) {
+            tgBroadcastStatusText.textContent = `⏳ Sending ${i + 1} of ${chatIds.length} (Sent: ${sentCount}, Failed: ${failCount})...`;
+          }
+          if (tgBroadcastSubmitBtn) {
+            tgBroadcastSubmitBtn.textContent = `⏳ Sending (${i + 1}/${chatIds.length})...`;
+          }
+          try {
+            const endpoint = imgUrl ? 'sendPhoto' : 'sendMessage';
+            const payload = imgUrl
+              ? {
+                  chat_id: targetChatId,
+                  photo: imgUrl,
+                  caption: msgText,
+                  parse_mode: 'HTML',
+                  ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+                }
+              : {
+                  chat_id: targetChatId,
+                  text: msgText,
+                  parse_mode: 'HTML',
+                  ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+                };
+            const res = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => null);
+            if (res.ok && data && data.ok) {
+              sentCount++;
+            } else {
+              failCount++;
+            }
+          } catch {
+            failCount++;
+          }
+        }
+
+        if (tgBroadcastSubmitBtn) {
+          tgBroadcastSubmitBtn.disabled = false;
+          tgBroadcastSubmitBtn.textContent = `✅ Broadcast Sent (${sentCount}/${chatIds.length})!`;
+          setTimeout(() => {
+            tgBroadcastSubmitBtn.textContent = origBtnLabel || '🚀 Send Broadcast to All Users Now';
+          }, 4000);
+        }
+        if (tgBroadcastStatusText) {
+          tgBroadcastStatusText.textContent = `✅ Broadcast Complete! Sent: ${sentCount} | Failed/Blocked: ${failCount} | Total: ${chatIds.length}`;
+        }
+        showStatus(
+          `🎉 Broadcast সফলভাবে সম্পন্ন হয়েছে! মোট ${chatIds.length} জনের মধ্যে ${sentCount} জনের কাছে মেসেজ পৌঁছেছে।`,
+          'success'
+        );
+      });
+    }
   </script>
 </body>
 </html>

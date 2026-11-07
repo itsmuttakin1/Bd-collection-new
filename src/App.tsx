@@ -40,6 +40,7 @@ import {
   LANGUAGES,
   detectInitialLanguage,
   detectCountryLanguageFromIP,
+  getExtendedUiStrings,
 } from './i18n';
 import {
   Play,
@@ -64,7 +65,6 @@ import {
   Sun,
   Lock,
   CheckCircle2,
-  RefreshCw,
   ArrowLeft,
 } from 'lucide-react';
 
@@ -191,6 +191,36 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
 
 let telegramStartParamConsumed = false;
 
+const extractTelegramStartParamRaw = (): string => {
+  if (typeof window === 'undefined') return '';
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery =
+      params.get('tgWebAppStartParam') ||
+      params.get('startapp') ||
+      params.get('start_param') ||
+      (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (typeof fromQuery === 'string' && fromQuery.trim()) {
+      return fromQuery.trim();
+    }
+    if (window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?\??/, ''));
+      const fromHash =
+        hashParams.get('tgWebAppStartParam') ||
+        hashParams.get('startapp') ||
+        hashParams.get('start_param');
+      if (fromHash && fromHash.trim()) return fromHash.trim();
+      const tgWebAppData = hashParams.get('tgWebAppData');
+      if (tgWebAppData) {
+        const innerParams = new URLSearchParams(tgWebAppData);
+        const innerStart = innerParams.get('start_param');
+        if (innerStart && innerStart.trim()) return innerStart.trim();
+      }
+    }
+  } catch {}
+  return '';
+};
+
 const cleanIncomingVideoParam = (raw: string): string => {
   const trimmed = String(raw || '').trim();
   const stripped = trimmed.replace(/^(vid_|v_|video_)/i, '');
@@ -211,13 +241,10 @@ const getRequestedShortIdFromUrl = (allowTelegramStartParam = false): string | n
     if (s && s.trim()) return cleanIncomingShortParam(s.trim());
 
     if (allowTelegramStartParam && !telegramStartParamConsumed) {
-      const startParam =
-        params.get('tgWebAppStartParam') ||
-        params.get('startapp') ||
-        (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
-      if (typeof startParam === 'string' && startParam.trim().startsWith('short_')) {
+      const startParam = extractTelegramStartParamRaw();
+      if (startParam && startParam.startsWith('short_')) {
         telegramStartParamConsumed = true;
-        return cleanIncomingShortParam(startParam.trim());
+        return cleanIncomingShortParam(startParam);
       }
     }
   } catch {}
@@ -233,18 +260,10 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
 
     // Only read Telegram start_param ONCE on initial app launch so subsequent Firebase view updates never revert to the initial video
     if (allowTelegramStartParam && !telegramStartParamConsumed) {
-      const tgParam =
-        params.get('tgWebAppStartParam') ||
-        params.get('startapp') ||
-        (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
-      if (
-        typeof tgParam === 'string' &&
-        tgParam.trim() &&
-        !tgParam.trim().startsWith('short_') &&
-        tgParam.trim() !== 'buy'
-      ) {
+      const tgParam = extractTelegramStartParamRaw();
+      if (tgParam && !tgParam.startsWith('short_') && tgParam !== 'buy') {
         telegramStartParamConsumed = true;
-        return cleanIncomingVideoParam(tgParam.trim());
+        return cleanIncomingVideoParam(tgParam);
       }
     }
 
@@ -649,6 +668,28 @@ export default function App() {
         setTgProfile(freshProfile);
         setAvatarLoadFailed(false);
       }
+
+      // Also check if Telegram populated initDataUnsafe.start_param for Direct Mini App links (?startapp=vid_...)
+      const rawStart = extractTelegramStartParamRaw();
+      if (rawStart && !userNavigatedRef.current) {
+        if (rawStart.startsWith('short_')) {
+          const sId = cleanIncomingShortParam(rawStart);
+          if (sId) {
+            setActiveShortId(sId);
+            setViewMode('shorts');
+          }
+        } else if (rawStart !== 'buy') {
+          const vId = cleanIncomingVideoParam(rawStart);
+          if (vId && !pendingSharedIdRef.current) {
+            pendingSharedIdRef.current = vId;
+            activeVideoIdRef.current = vId;
+            stepGatePendingIdRef.current = vId;
+            setSharedVideoId(vId);
+            setStepGatePendingId(vId);
+            setViewMode('watch');
+          }
+        }
+      }
     } catch {}
   }, []);
 
@@ -703,9 +744,10 @@ export default function App() {
   const [trendingSeed, setTrendingSeed] = useState<number>(0);
   const [trendingVideos, setTrendingVideos] = useState<VideoItem[]>([]);
 
-  // Language State (34+ languages, auto-detected by Visitor Country / Timezone)
+  // Language State (34+ languages, auto-detected by Visitor Country / Timezone / Telegram)
   const [langCode, setLangCode] = useState<string>(() => detectInitialLanguage());
   const t = LANGUAGES[langCode] || LANGUAGES.bn;
+  const ui = useMemo(() => getExtendedUiStrings(langCode), [langCode]);
 
   // Search & Like State (Supports Google SearchAction ?q= parameter)
   const [searchQuery, setSearchQuery] = useState<string>(() => {
@@ -1317,8 +1359,35 @@ export default function App() {
       setLangCode(newCode);
       localStorage.setItem('bd_collection_lang', newCode);
       localStorage.setItem('bd_collection_lang_manual', '1');
+      if (tgProfile.isRealTelegramUser && /^[0-9]+$/.test(tgProfile.id)) {
+        set(ref(db, `telegramBotSessions/${tgProfile.id}/lang`), newCode).catch(() => {});
+        set(ref(db, `telegramBotSessions/${tgProfile.id}/botAuthToken`), 'xtube_tg_bot_2026').catch(
+          () => {}
+        );
+      }
     }
   };
+
+  // Sync Real Telegram User Profile & Preferred Language to Firebase for Broadcasts & Bot Language Sync
+  useEffect(() => {
+    if (!tgProfile.isRealTelegramUser || !/^[0-9]{4,20}$/.test(tgProfile.id)) return;
+    const subPayload = {
+      chatId: tgProfile.id,
+      fullName: tgProfile.fullName,
+      username: tgProfile.username,
+      lang: langCode,
+      lastSeen: Date.now(),
+      botAuthToken: 'xtube_tg_bot_2026',
+    };
+    set(ref(db, `telegramBotSessions/_subscribers/${tgProfile.id}`), subPayload).catch(() => {});
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/lang`), langCode).catch(() => {});
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/chatId`), tgProfile.id).catch(() => {});
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/fullName`), tgProfile.fullName).catch(() => {});
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/username`), tgProfile.username).catch(() => {});
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/botAuthToken`), 'xtube_tg_bot_2026').catch(
+      () => {}
+    );
+  }, [tgProfile.id, tgProfile.isRealTelegramUser, tgProfile.fullName, tgProfile.username, langCode]);
 
   // Increment view & like count atomically in Firebase RTDB (`videos/$videoId/views` & `likes`)
   const incrementVideoViews = (videoId: string) => {
@@ -2413,12 +2482,12 @@ export default function App() {
                 className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
+                <span>{ui.back}</span>
               </button>
 
               <div className="flex-1 min-w-0 px-1 text-center">
                 <p className="text-xs sm:text-sm font-bold text-white truncate">
-                  🎬 {stepGateVideo?.title || 'Unlocking Video...'}
+                  🎬 {stepGateVideo?.title || ui.unlockingVideo}
                 </p>
               </div>
 
@@ -2443,7 +2512,9 @@ export default function App() {
                       ) : (
                         <span className="font-mono">{stepNum}</span>
                       )}
-                      <span className="hidden sm:inline">Step {stepNum}</span>
+                      <span className="hidden sm:inline">
+                        {ui.stepLabel} {stepNum}
+                      </span>
                     </div>
                   );
                 })}
@@ -2465,15 +2536,15 @@ export default function App() {
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm font-bold text-white truncate">
                     {stepTimer > 0
-                      ? `Step ${currentStep} of 3 Running (${stepTimer}s)...`
-                      : `Step ${currentStep} of 3 Completed!`}
+                      ? ui.stepRunning(currentStep, stepTimer)
+                      : ui.stepCompleted(currentStep)}
                   </p>
                   <p className="text-[11px] text-slate-400 truncate">
                     {stepTimer > 0
-                      ? 'নিচের Mini WebView স্ক্রিনে ২০ সেকেন্ড অপেক্ষা করুন'
+                      ? ui.wait20SecDesc
                       : currentStep < 3
-                      ? `এখন ডানপাশের Next Step ${currentStep + 1} বাটনে ক্লিক করুন`
-                      : 'এখন Play Video বাটনে ক্লিক করে ভিডিওটি দেখুন!'}
+                      ? ui.clickNextStepDesc(currentStep + 1)
+                      : ui.clickPlayVideoDesc}
                   </p>
                 </div>
               </div>
@@ -2493,19 +2564,19 @@ export default function App() {
                     <Lock className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {currentStep < 3
-                        ? `Next Step Locked (${stepTimer}s)`
-                        : `Video Locked (${stepTimer}s)`}
+                        ? ui.nextStepLocked(stepTimer)
+                        : ui.videoLocked(stepTimer)}
                     </span>
                   </>
                 ) : currentStep < 3 ? (
                   <>
-                    <span>Next: Step {currentStep + 1}</span>
+                    <span>{ui.nextStepBtn(currentStep + 1)}</span>
                     <ChevronRight className="w-4 h-4 shrink-0" />
                   </>
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-current shrink-0" />
-                    <span>Play Video Now</span>
+                    <span>{ui.playVideoNow}</span>
                   </>
                 )}
               </button>
@@ -2522,33 +2593,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* Mini WebView Screen Toolbar */}
-          <div className="bg-[#161b26] border-b border-slate-800/80 px-3 py-1.5 flex items-center justify-between gap-2 text-[11px] text-slate-300 shrink-0">
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold">
-                MINI WEBVIEW
-              </span>
-              <span className="truncate font-mono text-slate-400">
-                Smartlink {currentStep}/3 · {currentSmartlinkUrl}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setWebviewReloadKey((k) => k + 1)}
-              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1 cursor-pointer shrink-0"
-              title="Reload Mini WebView"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Reload</span>
-            </button>
-          </div>
-
-          {/* Mini WebView Iframe Screen Running Smartlink 1, 2, or 3 */}
+          {/* Mini WebView Iframe Screen Running Smartlink 1, 2, or 3 (URL Bar Removed) */}
           <div className="flex-1 w-full relative bg-white overflow-hidden">
             <iframe
               key={`step-webview-${currentStep}-${webviewReloadKey}`}
               src={currentSmartlinkUrl}
-              title={`Smartlink Step ${currentStep} Mini WebView`}
+              title={`Step ${currentStep}`}
               className="w-full h-full border-0 bg-white"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
               allow="autoplay; encrypted-media; fullscreen"
@@ -2628,7 +2678,7 @@ export default function App() {
                   ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300'
                   : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
               }`}
-              title="Activate Redeem Code for Ad-Free VIP Mode"
+              title={ui.redeemModalTitle}
             >
               {isAdFree ? (
                 <>
@@ -2640,7 +2690,7 @@ export default function App() {
               ) : (
                 <>
                   <Ticket className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="hidden sm:inline">Redeem</span>
+                  <span className="hidden sm:inline">{ui.redeemBtn}</span>
                 </>
               )}
             </button>
@@ -2655,7 +2705,7 @@ export default function App() {
                 ? 'bg-emerald-500/20 border-emerald-500/60 text-white'
                 : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-100'
             }`}
-            title="Open Telegram User Profile"
+            title={ui.profile}
           >
             <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0">
               {tgProfile.photoUrl && !avatarLoadFailed ? (
@@ -2677,7 +2727,7 @@ export default function App() {
                 {tgProfile.fullName}
               </p>
               <p className="text-[9px] font-medium text-emerald-400 leading-tight truncate">
-                {isUserOnline ? `● Online (${liveOnlineCount})` : '○ Offline'}
+                {isUserOnline ? `● ${ui.online} (${liveOnlineCount})` : `○ ${ui.offline}`}
               </p>
             </div>
           </button>
@@ -2707,11 +2757,9 @@ export default function App() {
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
-                    {isAdFree ? '👑 VIP Ad-Free Active' : '🎟️ Redeem Code (Ad-Free Mode)'}
+                    {isAdFree ? ui.vipAdFree : ui.redeemModalTitle}
                   </h2>
-                  <p className="text-xs text-zinc-400">
-                    Redeem Code ব্যবহার করলে নির্ধারিত সময় পর্যন্ত কোনো Step বা Ads আসবে না
-                  </p>
+                  <p className="text-xs text-zinc-400">{ui.redeemModalDesc}</p>
                 </div>
               </div>
               <button
@@ -2736,7 +2784,7 @@ export default function App() {
                 <div className="flex items-center justify-between text-xs text-zinc-200 pt-1">
                   <span className="flex items-center gap-1.5 text-zinc-400">
                     <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>বাকি সময় (Remaining):</span>
+                    <span>Remaining:</span>
                   </span>
                   <span className="text-sm sm:text-base font-mono font-bold text-emerald-300 tabular-nums">
                     {formatVipCountdown(remainingMs)}
@@ -2752,7 +2800,7 @@ export default function App() {
             <form onSubmit={handleActivateRedeemSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-zinc-200 mb-1.5">
-                  আপনার Redeem Code দিন (Enter Redeem Code):
+                  {ui.enterRedeemCode}
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
@@ -2767,7 +2815,7 @@ export default function App() {
                     disabled={redeemLoading || !redeemInput.trim()}
                     className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold text-xs sm:text-sm cursor-pointer transition-colors shrink-0"
                   >
-                    {redeemLoading ? 'Checking...' : '⚡ Activate Code'}
+                    {redeemLoading ? t.loading : ui.activateCodeBtn}
                   </button>
                 </div>
               </div>
@@ -2787,21 +2835,17 @@ export default function App() {
 
             <div className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-xs sm:text-sm font-bold text-white">
-                  🛒 কিভাবে Ad-Free Redeem Code কিনবেন?
-                </h3>
+                <h3 className="text-xs sm:text-sm font-bold text-white">{ui.howToBuyRedeem}</h3>
                 <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-500/40 text-[10px] font-bold text-sky-300">
                   bKash / Nagad
                 </span>
               </div>
-              <p className="text-xs text-zinc-300 leading-relaxed">
-                Step ছাড়া সরাসরি সব ভিডিও ও শর্টস দেখতে আমাদের <strong>Telegram Bot</strong> থেকে আপনার পছন্দের প্যাকেজ সিলেক্ট করে <strong>bKash / Nagad</strong>-এ পেমেন্ট করুন।
-              </p>
+              <p className="text-xs text-zinc-300 leading-relaxed">{ui.howToBuyRedeemDesc}</p>
 
               {redeemPackages.length > 0 && (
                 <div className="space-y-1.5 pt-1">
                   <span className="block text-[11px] font-semibold text-zinc-400">
-                    📦 উপলব্ধ প্যাকেজসমূহ (Available Packages):
+                    {ui.availablePackages}
                   </span>
                   <div className="grid grid-cols-1 gap-1.5">
                     {redeemPackages.map((pkg) => (
@@ -2822,19 +2866,17 @@ export default function App() {
                 </div>
               )}
 
-              {storeConfig.botUsername && (
-                <a
-                  href={`https://t.me/${storeConfig.botUsername.replace(/^@/, '')}?start=buy`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
-                >
-                  <span>
-                    ✈️ Buy Redeem Code on Telegram Bot (@{storeConfig.botUsername.replace(/^@/, '')})
-                  </span>
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                </a>
-              )}
+              <a
+                href={`https://t.me/${(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')}?start=buy`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
+              >
+                <span>
+                  {ui.buyOnTelegramBot} (@{(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')})
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              </a>
             </div>
           </div>
         </div>
@@ -2867,7 +2909,7 @@ export default function App() {
               className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-900 transition-colors cursor-pointer"
             >
               <Smartphone className="w-5 h-5 text-red-500" />
-              <span>Shorts</span>
+              <span>{ui.shorts}</span>
             </button>
 
             <button
@@ -2889,7 +2931,7 @@ export default function App() {
               className="w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-900 transition-colors cursor-pointer"
             >
               <User className="w-5 h-5 text-emerald-400" />
-              <span>Profile</span>
+              <span>{ui.profile}</span>
             </button>
           </aside>
         )}
@@ -2903,7 +2945,7 @@ export default function App() {
             <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                  Profile
+                  {ui.profile}
                 </h1>
                 <button
                   type="button"
@@ -2911,7 +2953,7 @@ export default function App() {
                   className="px-3.5 py-1.5 rounded-xl bg-[#161b26] hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Videos</span>
+                  <span>{ui.backToVideos}</span>
                 </button>
               </div>
 
@@ -2955,7 +2997,7 @@ export default function App() {
                               : 'bg-rose-500/15 border border-rose-500/30 text-rose-400'
                           }`}
                         >
-                          {isUserOnline ? '● Online' : '○ Offline'}
+                          {isUserOnline ? `● ${ui.online}` : `○ ${ui.offline}`}
                         </span>
                       </div>
                     </div>
@@ -2971,25 +3013,25 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3.5 pt-1">
                   <div className="rounded-2xl bg-[#1e2430] border border-slate-700/60 p-4 space-y-1.5">
                     <span className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase">
-                      ONLINE STATUS
+                      {ui.onlineStatus}
                     </span>
-                    <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono tabular-nums">
-                      {isUserOnline ? 'ONLINE' : 'OFFLINE'}
+                    <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono tabular-nums uppercase">
+                      {isUserOnline ? ui.online : ui.offline}
                     </div>
                     <span className="block text-[11px] text-slate-400 font-mono tabular-nums">
-                      {liveOnlineCount} Active Online Now
+                      {ui.activeOnlineNow(liveOnlineCount)}
                     </span>
                   </div>
 
                   <div className="rounded-2xl bg-[#1e2430] border border-slate-700/60 p-4 space-y-1.5">
                     <span className="block text-[11px] font-bold tracking-wider text-slate-300 uppercase">
-                      WATCHED VIDEOS
+                      {ui.watchedVideos}
                     </span>
                     <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono tabular-nums">
                       {watchedVideosCount}
                     </div>
                     <span className="block text-[11px] text-slate-400">
-                      {isAdFree ? '👑 VIP Ad-Free' : '3-Step Verified'}
+                      {isAdFree ? ui.vipAdFree : ui.threeStepVerified}
                     </span>
                   </div>
                 </div>
@@ -2998,7 +3040,7 @@ export default function App() {
               {/* APP SETTINGS Section Matching Screenshot */}
               <div className="space-y-3">
                 <h3 className="text-xs font-bold tracking-wider text-slate-300 uppercase px-1">
-                  APP SETTINGS
+                  {ui.appSettings}
                 </h3>
 
                 <div className="rounded-3xl bg-[#161b24] border border-slate-800/90 divide-y divide-slate-800/80 overflow-hidden shadow-xl">
@@ -3010,7 +3052,7 @@ export default function App() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm sm:text-base font-bold text-white">
-                          Language / ভাষা
+                          {ui.languageLabel}
                         </p>
                         <p className="text-xs text-slate-400 truncate">
                           {LANGUAGES[langCode]?.name || 'English'} ({LANGUAGES[langCode]?.nativeName})
@@ -3043,10 +3085,10 @@ export default function App() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm sm:text-base font-bold text-white">
-                          Theme Mode
+                          {ui.themeModeLabel}
                         </p>
                         <p className="text-xs text-slate-400 uppercase font-mono">
-                          {isDarkMode ? 'DARK MODE' : 'LIGHT MODE'}
+                          {isDarkMode ? ui.darkMode : ui.lightMode}
                         </p>
                       </div>
                     </div>
@@ -3157,7 +3199,7 @@ export default function App() {
                           <span className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded-lg bg-red-600/25 border border-red-500/50 text-red-200 text-[11px] font-bold whitespace-nowrap">
                             <span>
                               {currentNotice.linkText ||
-                                (currentNotice.shortId ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন')}
+                                (currentNotice.shortId ? ui.watchShorts : ui.watchNow)}
                             </span>
                             <ChevronRight className="w-3 h-3 shrink-0" />
                           </span>
@@ -3192,7 +3234,7 @@ export default function App() {
                         <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/50 text-red-200 hover:text-white text-xs font-bold transition-colors whitespace-nowrap">
                           <span>
                             {currentNotice.linkText ||
-                              (currentNotice.shortId ? '📱 শর্টস দেখুন' : '▶ এখনই দেখুন')}
+                              (currentNotice.shortId ? ui.watchShorts : ui.watchNow)}
                           </span>
                           <ChevronRight className="w-3.5 h-3.5 shrink-0" />
                         </span>
@@ -3254,11 +3296,9 @@ export default function App() {
                           </div>
                           <div>
                             <h2 className="text-base sm:text-lg font-bold text-white leading-tight">
-                              Shorts
+                              {ui.shorts}
                             </h2>
-                            <p className="text-[11px] text-zinc-400">
-                              Suggested for you · Click to open Shorts feed
-                            </p>
+                            <p className="text-[11px] text-zinc-400">{ui.suggestedForYou}</p>
                           </div>
                         </div>
                         <button
@@ -3266,7 +3306,7 @@ export default function App() {
                           onClick={() => openShortsTab()}
                           className="px-3 py-1.5 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-red-400 hover:text-red-300 cursor-pointer transition-colors"
                         >
-                          View All Shorts →
+                          {ui.viewAllShorts}
                         </button>
                       </div>
 
@@ -3412,14 +3452,16 @@ export default function App() {
                         <div className="w-6 h-6 rounded-lg bg-red-600 flex items-center justify-center">
                           <Smartphone className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <span className="text-sm font-bold text-white">Shorts · Suggested for you</span>
+                        <span className="text-sm font-bold text-white">
+                          {ui.shorts} · {ui.suggestedForYou}
+                        </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => openShortsTab()}
                         className="text-xs font-semibold text-red-400 hover:text-red-300 cursor-pointer"
                       >
-                        View All Shorts →
+                        {ui.viewAllShorts}
                       </button>
                     </div>
                     <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
@@ -3530,7 +3572,7 @@ export default function App() {
             }`}
           >
             <Smartphone className="w-5 h-5" />
-            <span className="text-[10px] font-semibold mt-0.5">Shorts</span>
+            <span className="text-[10px] font-semibold mt-0.5">{ui.shorts}</span>
           </button>
 
           <button
@@ -3552,7 +3594,7 @@ export default function App() {
             }`}
           >
             <User className="w-5 h-5" />
-            <span className="text-[10px] font-semibold mt-0.5">Profile</span>
+            <span className="text-[10px] font-semibold mt-0.5">{ui.profile}</span>
           </button>
         </nav>
       )}

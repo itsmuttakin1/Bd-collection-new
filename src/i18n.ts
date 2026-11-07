@@ -851,9 +851,226 @@ const TIMEZONE_TO_LANG: Record<string, string> = {
   'Europe/Athens': 'el',
 };
 
+export interface ExtendedUiStrings {
+  shorts: string;
+  profile: string;
+  back: string;
+  backToVideos: string;
+  unlockingVideo: string;
+  stepLabel: string;
+  stepRunning: (step: number, sec: number) => string;
+  stepCompleted: (step: number) => string;
+  wait20SecDesc: string;
+  clickNextStepDesc: (nextStep: number) => string;
+  clickPlayVideoDesc: string;
+  nextStepLocked: (sec: number) => string;
+  videoLocked: (sec: number) => string;
+  nextStepBtn: (nextStep: number) => string;
+  playVideoNow: string;
+  online: string;
+  offline: string;
+  onlineStatus: string;
+  activeOnlineNow: (count: number) => string;
+  watchedVideos: string;
+  vipAdFree: string;
+  threeStepVerified: string;
+  appSettings: string;
+  languageLabel: string;
+  themeModeLabel: string;
+  darkMode: string;
+  lightMode: string;
+  suggestedForYou: string;
+  viewAllShorts: string;
+  watchNow: string;
+  watchShorts: string;
+  redeemBtn: string;
+  redeemModalTitle: string;
+  redeemModalDesc: string;
+  enterRedeemCode: string;
+  activateCodeBtn: string;
+  howToBuyRedeem: string;
+  howToBuyRedeemDesc: string;
+  availablePackages: string;
+  buyOnTelegramBot: string;
+  liked: string;
+  muted: string;
+  sound: string;
+  fullVideo: string;
+}
+
+export function getExtendedUiStrings(langCode: string): ExtendedUiStrings {
+  const base = LANGUAGES[langCode] || LANGUAGES.en;
+  if (langCode === 'bn') {
+    return {
+      shorts: 'শর্টস',
+      profile: 'প্রোফাইল',
+      back: 'ফিরে যান',
+      backToVideos: 'ভিডিওতে ফিরুন',
+      unlockingVideo: 'ভিডিও আনলক হচ্ছে...',
+      stepLabel: 'ধাপ',
+      stepRunning: (step, sec) => `ধাপ ${step}/৩ চলছে (${sec} সেকেন্ড)...`,
+      stepCompleted: (step) => `ধাপ ${step}/৩ সম্পন্ন হয়েছে!`,
+      wait20SecDesc: 'নিচের স্ক্রিনে ২০ সেকেন্ড অপেক্ষা করুন',
+      clickNextStepDesc: (nextStep) => `এখন ডানপাশের পরবর্তী ধাপ ${nextStep} বাটনে ক্লিক করুন`,
+      clickPlayVideoDesc: 'এখন ভিডিও চালান বাটনে ক্লিক করে ভিডিওটি দেখুন!',
+      nextStepLocked: (sec) => `পরবর্তী ধাপ লক (${sec}s)`,
+      videoLocked: (sec) => `ভিডিও লক (${sec}s)`,
+      nextStepBtn: (nextStep) => `পরবর্তী: ধাপ ${nextStep}`,
+      playVideoNow: 'ভিডিও চালান',
+      online: 'অনলাইন',
+      offline: 'অফলাইন',
+      onlineStatus: 'অনলাইন স্ট্যাটাস',
+      activeOnlineNow: (count) => `${count} জন এখন অনলাইনে`,
+      watchedVideos: 'দেখা ভিডিও',
+      vipAdFree: '👑 ভিআইপি অ্যাড-ফ্রি',
+      threeStepVerified: '৩-ধাপ ভেরিফাইড',
+      appSettings: 'অ্যাপ সেটিংস',
+      languageLabel: 'Language / ভাষা',
+      themeModeLabel: 'থিম মোড (Theme Mode)',
+      darkMode: 'ডার্ক মোড (DARK MODE)',
+      lightMode: 'লাইট মোড (LIGHT MODE)',
+      suggestedForYou: 'আপনার জন্য সাজেস্টেড · ক্লিক করে শর্টস দেখুন',
+      viewAllShorts: 'সব শর্টস দেখুন →',
+      watchNow: '▶ এখনই দেখুন',
+      watchShorts: '📱 শর্টস দেখুন',
+      redeemBtn: 'রিডিম কোড',
+      redeemModalTitle: '🎟️ রিডিম কোড (অ্যাড-ফ্রি মোড)',
+      redeemModalDesc: 'Redeem Code ব্যবহার করলে নির্ধারিত সময় পর্যন্ত কোনো Step বা Ads আসবে না',
+      enterRedeemCode: 'আপনার Redeem Code দিন:',
+      activateCodeBtn: '⚡ অ্যাক্টিভেট করুন',
+      howToBuyRedeem: '🛒 কিভাবে Ad-Free Redeem Code কিনবেন?',
+      howToBuyRedeemDesc:
+        'Step ছাড়া সরাসরি সব ভিডিও ও শর্টস দেখতে আমাদের Telegram Bot থেকে আপনার পছন্দের প্যাকেজ সিলেক্ট করে bKash / Nagad-এ পেমেন্ট করুন।',
+      availablePackages: '📦 উপলব্ধ প্যাকেজসমূহ:',
+      buyOnTelegramBot: '✈️ টেলিগ্রাম বট থেকে রিডিম কোড কিনুন',
+      liked: 'লাইক করা হয়েছে',
+      muted: 'মিউট',
+      sound: 'সাউন্ড',
+      fullVideo: '▶ সম্পূর্ণ ভিডিও',
+    };
+  }
+
+  if (langCode === 'hi') {
+    return {
+      shorts: 'शॉर्ट्स',
+      profile: 'प्रोफ़ाइल',
+      back: 'वापस',
+      backToVideos: 'वीडियो पर वापस जाएं',
+      unlockingVideo: 'वीडियो अनलॉक हो रहा है...',
+      stepLabel: 'चरण',
+      stepRunning: (step, sec) => `चरण ${step}/3 चल रहा है (${sec}s)...`,
+      stepCompleted: (step) => `चरण ${step}/3 पूरा हुआ!`,
+      wait20SecDesc: 'नीचे स्क्रीन पर 20 सेकंड प्रतीक्षा करें',
+      clickNextStepDesc: (nextStep) => `अब अगला चरण ${nextStep} बटन पर क्लिक करें`,
+      clickPlayVideoDesc: 'अब वीडियो चलाने के लिए Play Video पर क्लिक करें!',
+      nextStepLocked: (sec) => `अगला चरण लॉक (${sec}s)`,
+      videoLocked: (sec) => `वीडियो लॉक (${sec}s)`,
+      nextStepBtn: (nextStep) => `अगला: चरण ${nextStep}`,
+      playVideoNow: 'वीडियो चलाएं',
+      online: 'ऑनलाइन',
+      offline: 'ऑफ़लाइन',
+      onlineStatus: 'ऑनलाइन स्थिति',
+      activeOnlineNow: (count) => `${count} अभी ऑनलाइन हैं`,
+      watchedVideos: 'देखे गए वीडियो',
+      vipAdFree: '👑 VIP विज्ञापन-मुक्त',
+      threeStepVerified: '3-चरण सत्यापित',
+      appSettings: 'ऐप सेटिंग्स',
+      languageLabel: 'Language / भाषा',
+      themeModeLabel: 'थीम मोड',
+      darkMode: 'डार्क मोड',
+      lightMode: 'लाइट मोड',
+      suggestedForYou: 'आपके लिए सुझाए गए · शॉर्ट्स देखने के लिए क्लिक करें',
+      viewAllShorts: 'सभी शॉर्ट्स देखें →',
+      watchNow: '▶ अभी देखें',
+      watchShorts: '📱 शॉर्ट्स देखें',
+      redeemBtn: 'रिडीम',
+      redeemModalTitle: '🎟️ रिडीम कोड (विज्ञापन-मुक्त)',
+      redeemModalDesc: 'रिडीम कोड का उपयोग करने पर कोई स्टेप या विज्ञापन नहीं आएगा',
+      enterRedeemCode: 'अपना रिडीम कोड दर्ज करें:',
+      activateCodeBtn: '⚡ कोड सक्रिय करें',
+      howToBuyRedeem: '🛒 रिडीम कोड कैसे खरीदें?',
+      howToBuyRedeemDesc: 'बिना किसी स्टेप के सभी वीडियो देखने के लिए हमारे टेलीग्राम बॉट से पैकेज चुनें।',
+      availablePackages: '📦 उपलब्ध पैकेज:',
+      buyOnTelegramBot: '✈️ टेलीग्राम बॉट से खरीदें',
+      liked: base.like,
+      muted: 'म्यूट',
+      sound: 'साउंड',
+      fullVideo: '▶ पूरा वीडियो',
+    };
+  }
+
+  return {
+    shorts: 'Shorts',
+    profile: 'Profile',
+    back: 'Back',
+    backToVideos: 'Back to Videos',
+    unlockingVideo: 'Unlocking Video...',
+    stepLabel: 'Step',
+    stepRunning: (step, sec) => `Step ${step} of 3 Running (${sec}s)...`,
+    stepCompleted: (step) => `Step ${step} of 3 Completed!`,
+    wait20SecDesc: 'Please wait 20 seconds on the screen below',
+    clickNextStepDesc: (nextStep) => `Now click the Next Step ${nextStep} button on the right`,
+    clickPlayVideoDesc: 'Now click Play Video Now to watch the video!',
+    nextStepLocked: (sec) => `Next Step Locked (${sec}s)`,
+    videoLocked: (sec) => `Video Locked (${sec}s)`,
+    nextStepBtn: (nextStep) => `Next: Step ${nextStep}`,
+    playVideoNow: 'Play Video Now',
+    online: 'Online',
+    offline: 'Offline',
+    onlineStatus: 'ONLINE STATUS',
+    activeOnlineNow: (count) => `${count} Active Online Now`,
+    watchedVideos: 'WATCHED VIDEOS',
+    vipAdFree: '👑 VIP Ad-Free',
+    threeStepVerified: '3-Step Verified',
+    appSettings: 'APP SETTINGS',
+    languageLabel: 'Language / ভাষা',
+    themeModeLabel: 'Theme Mode',
+    darkMode: 'DARK MODE',
+    lightMode: 'LIGHT MODE',
+    suggestedForYou: 'Suggested for you · Click to open Shorts feed',
+    viewAllShorts: 'View All Shorts →',
+    watchNow: '▶ Watch Now',
+    watchShorts: '📱 Watch Shorts',
+    redeemBtn: 'Redeem',
+    redeemModalTitle: '🎟️ Redeem Code (Ad-Free Mode)',
+    redeemModalDesc: 'Activate a Redeem Code to watch all videos & Shorts without steps or ads',
+    enterRedeemCode: 'Enter your Redeem Code:',
+    activateCodeBtn: '⚡ Activate Code',
+    howToBuyRedeem: '🛒 How to buy an Ad-Free Redeem Code?',
+    howToBuyRedeemDesc:
+      'Select your preferred VIP package from our Telegram Bot and complete payment via bKash / Nagad to watch all videos directly without steps.',
+    availablePackages: '📦 Available Packages:',
+    buyOnTelegramBot: '✈️ Buy Redeem Code on Telegram Bot',
+    liked: base.like,
+    muted: 'Muted',
+    sound: 'Sound',
+    fullVideo: '▶ Full Video',
+  };
+}
+
 export function detectInitialLanguage(): string {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlLang = (params.get('lang') || '').trim().toLowerCase();
+    if (urlLang && LANGUAGES[urlLang]) {
+      localStorage.setItem('bd_collection_lang', urlLang);
+      localStorage.setItem('bd_collection_lang_manual', '1');
+      return urlLang;
+    }
+  } catch {}
+
   const saved = localStorage.getItem('bd_collection_lang');
   if (saved && LANGUAGES[saved]) return saved;
+
+  try {
+    const tgLang = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.language_code;
+    if (typeof tgLang === 'string' && tgLang.trim()) {
+      const cleanTgLang = tgLang.split('-')[0].toLowerCase();
+      if (LANGUAGES[cleanTgLang]) {
+        return cleanTgLang;
+      }
+    }
+  } catch {}
 
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
