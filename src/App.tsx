@@ -3120,13 +3120,13 @@ export default function App() {
               )}
 
               <a
-                href={`https://t.me/${(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')}?start=buy`}
+                href="https://t.me/xtubeofficial_bot?start=buy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
               >
                 <span>
-                  {ui.buyOnTelegramBot} (@{(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')})
+                  {ui.buyOnTelegramBot} (@xtubeofficial_bot)
                 </span>
                 <ExternalLink className="w-3.5 h-3.5 shrink-0" />
               </a>
@@ -3422,13 +3422,13 @@ export default function App() {
                       )}
 
                       <a
-                        href={`https://t.me/${(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')}?start=buy`}
+                        href="https://t.me/xtubeofficial_bot?start=buy"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-sky-600/25 transition-colors"
                       >
                         <span>
-                          {ui.buyOnTelegramBot} (@{(storeConfig.botUsername || 'xtubeofficial_bot').replace(/^@/, '')})
+                          {ui.buyOnTelegramBot} (@xtubeofficial_bot)
                         </span>
                         <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                       </a>

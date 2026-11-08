@@ -697,10 +697,10 @@
               <div class="space-y-2">
                 <h3 class="text-xs font-bold text-emerald-400">🔗 Telegram Mini App Direct Video Link Generator:</h3>
                 <p class="text-zinc-400 leading-relaxed">
-                  নিচের বক্সে আপনার Bot-এর লিংকটি (যেমন: <code class="text-sky-300 font-mono">https://t.me/YourBotName</code> অথবা <code class="text-sky-300 font-mono">https://t.me/YourBotName/app</code>) লিখে <strong>Save</strong> করুন:
+                  নিচের বক্সে আপনার অফিশিয়াল Bot লিংক (<code class="text-sky-300 font-mono">https://t.me/xtubeofficial_bot</code>) সেট করা আছে:
                 </p>
                 <div class="flex flex-col sm:flex-row gap-2 pt-1">
-                  <input id="tg-bot-base-input" type="url" placeholder="https://t.me/YourBotUsername/app"
+                  <input id="tg-bot-base-input" type="url" value="https://t.me/xtubeofficial_bot" placeholder="https://t.me/xtubeofficial_bot"
                     class="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-sky-500" />
                   <button id="save-tg-bot-base-btn" type="button"
                     class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer shrink-0">
@@ -3506,31 +3506,23 @@ service cloud.firestore {
 
     window.resolveActiveBotUsername = () => {
       try {
-        const savedUser = (localStorage.getItem('xtube_tg_bot_username') || '').replace(/^@/, '').trim();
-        if (savedUser && savedUser.toLowerCase() !== 'zeroloder_bot') return savedUser;
-        const base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
-        const match = base.match(/t\.me\/([A-Za-z0-9_]+)/i);
-        if (match && match[1] && match[1].toLowerCase() !== 'zeroloder_bot') return match[1];
+        localStorage.setItem('xtube_tg_bot_username', 'xtubeofficial_bot');
+        localStorage.setItem('bd_tg_miniapp_base', 'https://t.me/xtubeofficial_bot');
       } catch {}
       return 'xtubeofficial_bot';
     };
 
-    // Helper to build the Telegram Video Share Link
-    // Uses `?startapp=vid_<id>` if Main Mini App or `/app` short-name is configured, otherwise `?start=vid_<id>` so Telegram always opens the video reliably!
+    // Helper to build the Telegram Video Share Link — ALWAYS opens @xtubeofficial_bot
     window.buildVideoShareLink = (videoId) => {
       const cleanId = String(videoId || '').trim();
-      const botUser = window.resolveActiveBotUsername();
+      const botUser = 'xtubeofficial_bot';
       const safeStartId = window.encodeTgStartId(cleanId);
-      let base = '';
       let hasMainWebApp = false;
       try {
-        base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim().replace(/\/+$/, '');
+        localStorage.setItem('xtube_tg_bot_username', 'xtubeofficial_bot');
+        localStorage.setItem('bd_tg_miniapp_base', 'https://t.me/xtubeofficial_bot');
         hasMainWebApp = localStorage.getItem('xtube_tg_has_main_webapp') === 'true';
       } catch {}
-      const appPathMatch = base.match(/t\.me\/([A-Za-z0-9_]+)\/([A-Za-z0-9_]+)/i);
-      if (appPathMatch && appPathMatch[1] && appPathMatch[2]) {
-        return `https://t.me/${appPathMatch[1]}/${appPathMatch[2]}?startapp=vid_${safeStartId}`;
-      }
       if (hasMainWebApp) {
         return `https://t.me/${botUser}?startapp=vid_${safeStartId}`;
       }
@@ -3571,7 +3563,7 @@ service cloud.firestore {
       }
 
       showStatus(
-        `Copied Telegram Video Share Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `Copied @xtubeofficial_bot Video Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
         'success'
       );
       return shareUrl;
@@ -3579,10 +3571,10 @@ service cloud.firestore {
 
     window.getTelegramMiniAppBaseUrl = () => {
       try {
-        return (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
-      } catch {
-        return '';
-      }
+        localStorage.setItem('bd_tg_miniapp_base', 'https://t.me/xtubeofficial_bot');
+        localStorage.setItem('xtube_tg_bot_username', 'xtubeofficial_bot');
+      } catch {}
+      return 'https://t.me/xtubeofficial_bot';
     };
 
     window.buildTelegramVideoShareLink = (videoId) => {
@@ -3595,18 +3587,14 @@ service cloud.firestore {
 
     window.buildShortShareLink = (shortId) => {
       const cleanId = String(shortId || '').trim();
-      const botUser = window.resolveActiveBotUsername();
+      const botUser = 'xtubeofficial_bot';
       const safeStartId = window.encodeTgStartId(cleanId);
-      let base = '';
       let hasMainWebApp = false;
       try {
-        base = (localStorage.getItem('bd_tg_miniapp_base') || '').trim().replace(/\/+$/, '');
+        localStorage.setItem('xtube_tg_bot_username', 'xtubeofficial_bot');
+        localStorage.setItem('bd_tg_miniapp_base', 'https://t.me/xtubeofficial_bot');
         hasMainWebApp = localStorage.getItem('xtube_tg_has_main_webapp') === 'true';
       } catch {}
-      const appPathMatch = base.match(/t\.me\/([A-Za-z0-9_]+)\/([A-Za-z0-9_]+)/i);
-      if (appPathMatch && appPathMatch[1] && appPathMatch[2]) {
-        return `https://t.me/${appPathMatch[1]}/${appPathMatch[2]}?startapp=short_${safeStartId}`;
-      }
       if (hasMainWebApp) {
         return `https://t.me/${botUser}?startapp=short_${safeStartId}`;
       }
@@ -5793,27 +5781,30 @@ service cloud.firestore {
       const tgBadge = document.getElementById('tg-bot-saved-badge');
       const copyWebAppUrlBtn = document.getElementById('copy-tg-webapp-url-btn');
 
-      const savedBase = window.getTelegramMiniAppBaseUrl();
-      if (tgInput && savedBase) {
-        tgInput.value = savedBase;
+      const canonicalBotBase = 'https://t.me/xtubeofficial_bot';
+      try {
+        localStorage.setItem('bd_tg_miniapp_base', canonicalBotBase);
+        localStorage.setItem('xtube_tg_bot_username', 'xtubeofficial_bot');
+      } catch {}
+      if (tgInput) {
+        tgInput.value = canonicalBotBase;
       }
       if (tgBadge) {
-        tgBadge.textContent = savedBase ? `Active: ${savedBase}` : 'Not set yet';
+        tgBadge.textContent = `Active: ${canonicalBotBase}`;
       }
 
       if (tgSaveBtn && tgInput) {
         tgSaveBtn.addEventListener('click', () => {
-          const val = tgInput.value.trim().replace(/\/+$/, '');
+          tgInput.value = canonicalBotBase;
           try {
-            localStorage.setItem('bd_tg_miniapp_base', val);
+            localStorage.setItem('bd_tg_miniapp_base', canonicalBotBase);
+            localStorage.setItem('xtube_tg_bot_username', 'xtubeofficial_bot');
           } catch {}
           if (tgBadge) {
-            tgBadge.textContent = val ? `Active: ${val}` : 'Not set yet';
+            tgBadge.textContent = `Active: ${canonicalBotBase}`;
           }
           showStatus(
-            val
-              ? `Saved Telegram Mini App Bot Link: ${val}`
-              : 'Cleared Telegram Mini App Bot Link.',
+            `Saved Official Telegram Bot Link: ${canonicalBotBase} (@xtubeofficial_bot)`,
             'success'
           );
         });

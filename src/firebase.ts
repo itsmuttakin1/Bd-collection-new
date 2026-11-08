@@ -114,9 +114,28 @@ export interface RedeemStoreConfig {
   updatedAt?: number;
 }
 
-let activeTelegramBotUsername = 'xtubeofficial_bot';
-let activeTelegramMiniAppBase = '';
+const CANONICAL_TELEGRAM_BOT_USERNAME = 'xtubeofficial_bot';
+
+let activeTelegramBotUsername = CANONICAL_TELEGRAM_BOT_USERNAME;
+let activeTelegramMiniAppBase = `https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`;
 let activeTelegramHasMainWebApp = false;
+
+// Immediately purge any stale old bot/group links (e.g. viralgroupai, zeroloder_bot) from browser localStorage
+if (typeof window !== 'undefined') {
+  try {
+    const savedBase = (localStorage.getItem('bd_tg_miniapp_base') || '').trim();
+    const savedUser = (localStorage.getItem('xtube_tg_bot_username') || '').trim();
+    if (
+      !savedBase ||
+      !savedBase.toLowerCase().includes(CANONICAL_TELEGRAM_BOT_USERNAME) ||
+      !savedUser ||
+      savedUser.toLowerCase().replace(/^@+/, '') !== CANONICAL_TELEGRAM_BOT_USERNAME
+    ) {
+      localStorage.setItem('xtube_tg_bot_username', CANONICAL_TELEGRAM_BOT_USERNAME);
+      localStorage.setItem('bd_tg_miniapp_base', `https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`);
+    }
+  } catch {}
+}
 
 export const setActiveTelegramBotUsername = (
   username?: string,
@@ -126,18 +145,32 @@ export const setActiveTelegramBotUsername = (
   const clean = String(username || '')
     .trim()
     .replace(/^@+/, '');
-  if (clean && /^[a-zA-Z0-9_]{3,64}$/.test(clean)) {
-    activeTelegramBotUsername = clean;
+  // Always ensure xtubeofficial_bot is used instead of any legacy bot/group name
+  if (clean && clean.toLowerCase() === CANONICAL_TELEGRAM_BOT_USERNAME) {
+    activeTelegramBotUsername = CANONICAL_TELEGRAM_BOT_USERNAME;
+  } else {
+    activeTelegramBotUsername = CANONICAL_TELEGRAM_BOT_USERNAME;
   }
-  if (typeof miniAppBase === 'string' && miniAppBase.trim().startsWith('https://t.me/')) {
+  if (
+    typeof miniAppBase === 'string' &&
+    miniAppBase.trim().toLowerCase().startsWith(`https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`)
+  ) {
     activeTelegramMiniAppBase = miniAppBase.trim().replace(/\/+$/, '');
+  } else {
+    activeTelegramMiniAppBase = `https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`;
   }
   if (typeof hasMainWebApp === 'boolean') {
     activeTelegramHasMainWebApp = hasMainWebApp;
   }
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('xtube_tg_bot_username', CANONICAL_TELEGRAM_BOT_USERNAME);
+      localStorage.setItem('bd_tg_miniapp_base', activeTelegramMiniAppBase);
+    } catch {}
+  }
 };
 
-export const getActiveTelegramBotUsername = (): string => activeTelegramBotUsername;
+export const getActiveTelegramBotUsername = (): string => CANONICAL_TELEGRAM_BOT_USERNAME;
 
 export const encodeTgStartId = (rawId: string): string => {
   const clean = String(rawId || '').trim();
@@ -156,36 +189,19 @@ export const decodeTgStartId = (encoded: string): string => {
     .replace(/_x([0-9a-fA-F]{2,4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 };
 
-const resolveTelegramDirectAppBase = (customBotUsername?: string): { base: string; useStartApp: boolean } => {
+const resolveTelegramDirectAppBase = (_customBotUsername?: string): { base: string; useStartApp: boolean } => {
   if (typeof window !== 'undefined') {
     try {
+      // Clean up any stale non-xtubeofficial_bot value in localStorage
       const savedBase = (localStorage.getItem('bd_tg_miniapp_base') || '').trim().replace(/\/+$/, '');
-      if (savedBase && savedBase.startsWith('https://t.me/')) {
-        const cleanBase = savedBase.split('?')[0];
-        const pathParts = cleanBase.replace(/^https:\/\/t\.me\//i, '').split('/').filter(Boolean);
-        const hasShortNameApp = pathParts.length >= 2;
-        return {
-          base: cleanBase,
-          useStartApp: hasShortNameApp || activeTelegramHasMainWebApp,
-        };
+      if (!savedBase.toLowerCase().startsWith(`https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`)) {
+        localStorage.setItem('bd_tg_miniapp_base', `https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`);
+        localStorage.setItem('xtube_tg_bot_username', CANONICAL_TELEGRAM_BOT_USERNAME);
       }
     } catch {}
   }
-  if (activeTelegramMiniAppBase) {
-    const cleanBase = activeTelegramMiniAppBase.split('?')[0];
-    const pathParts = cleanBase.replace(/^https:\/\/t\.me\//i, '').split('/').filter(Boolean);
-    const hasShortNameApp = pathParts.length >= 2;
-    return {
-      base: cleanBase,
-      useStartApp: hasShortNameApp || activeTelegramHasMainWebApp,
-    };
-  }
-  const botUser =
-    String(customBotUsername || activeTelegramBotUsername || 'xtubeofficial_bot')
-      .trim()
-      .replace(/^@+/, '') || 'xtubeofficial_bot';
   return {
-    base: `https://t.me/${botUser}`,
+    base: `https://t.me/${CANONICAL_TELEGRAM_BOT_USERNAME}`,
     useStartApp: activeTelegramHasMainWebApp,
   };
 };
