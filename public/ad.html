@@ -553,7 +553,7 @@
                 🟢 LIVE ONLINE USERS
               </span>
               <h3 class="text-xs sm:text-sm font-bold text-white">
-                কে কে অনলাইনে আছে (Telegram ID ও Website Visitor `Web-v...`)
+                কে কে অনলাইনে আছে (যেকোনো ইউজারে ক্লিক করে কয়টা ভিডিও দেখেছে দেখুন ও Message / Package / Popup পাঠান)
               </h3>
             </div>
             <div class="flex flex-wrap items-center gap-2 text-[11px] font-mono">
@@ -566,11 +566,191 @@
             </div>
           </div>
 
-          <div id="live-online-users-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
+          <div id="live-online-users-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto pr-1">
             <p class="text-xs text-zinc-500 py-3 col-span-full text-center">Checking live online users...</p>
           </div>
         </div>
+
+        <!-- ALL TELEGRAM BOT & WEBAPP USERS DIRECTORY (CLICK ANY USER FOR PERSONAL MESSAGE / PACKAGE / PROFILE POPUP & WATCHED VIDEOS) -->
+        <div class="p-3.5 sm:p-4 rounded-xl border border-sky-700/60 bg-gradient-to-br from-sky-950/25 via-zinc-950 to-zinc-950 space-y-3">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-extrabold tracking-wide">
+                  👥 ALL TELEGRAM BOT &amp; APP USERS
+                </span>
+                <h3 class="text-xs sm:text-sm font-extrabold text-white">
+                  সব বট ও অ্যাপ ইউজার লিস্ট (ইউজারে ক্লিক করলে কয়টা ভিডিও দেখেছে + Personal Message / Package / Profile Popup)
+                </h3>
+                <span id="crm-all-users-count-badge" class="px-2.5 py-0.5 rounded-full bg-sky-950 border border-sky-700/70 text-[11px] font-mono font-bold text-sky-300">
+                  0 Users
+                </span>
+              </div>
+              <p class="text-[11px] text-zinc-400">
+                যেকোনো ইউজারের কার্ডে ক্লিক করলেই তার প্রোফাইল ওপেন হবে — সেখান থেকে তাকে ব্যক্তিগত Telegram Message, VIP Package/Redeem Code এবং WebApp Profile Popup Notice পাঠাতে পারবেন।
+              </p>
+            </div>
+
+            <!-- Search & Direct Telegram ID Open Box -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+              <input id="crm-user-search-input" type="text" placeholder="🔍 নাম, @username বা TG ID খুঁজুন..."
+                class="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-white focus:outline-none focus:border-sky-500 min-w-[210px]" />
+              <div class="flex items-center gap-1.5">
+                <input id="crm-direct-tgid-input" type="text" placeholder="অথবা যেকোনো TG ID দিন..."
+                  class="px-3 py-1.5 rounded-xl bg-zinc-900 border border-amber-500/40 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400 w-40" />
+                <button id="crm-direct-tgid-btn" type="button"
+                  class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold cursor-pointer shrink-0">
+                  👤 Open ID
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="all-bot-users-directory" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
+            <p class="text-xs text-zinc-500 py-4 col-span-full text-center">Loading Telegram Bot &amp; WebApp users...</p>
+          </div>
+        </div>
       </section>
+
+      <!-- ===================================================================== -->
+      <!-- PERSONAL USER PROFILE & CRM ACTION MODAL (MESSAGE / PACKAGE / POPUP)  -->
+      <!-- ===================================================================== -->
+      <div id="user-crm-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div class="w-full max-w-3xl rounded-3xl border border-sky-500/50 bg-zinc-950 text-zinc-100 p-4 sm:p-6 shadow-2xl space-y-5 my-auto max-h-[92vh] overflow-y-auto">
+          <!-- Modal Header -->
+          <div class="flex items-start justify-between gap-3 border-b border-zinc-800 pb-3.5">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500/25 to-emerald-500/25 border border-sky-500/50 flex items-center justify-center text-2xl shrink-0">
+                👤
+              </div>
+              <div class="min-w-0 space-y-0.5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span id="crm-modal-type-badge" class="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-extrabold">📱 TELEGRAM USER</span>
+                  <span id="crm-modal-online-badge" class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/70 text-[10px] font-mono text-emerald-300">● Online</span>
+                </div>
+                <h2 id="crm-modal-user-name" class="text-base sm:text-lg font-extrabold text-white truncate">User Name</h2>
+                <p id="crm-modal-user-sub" class="text-xs font-mono text-sky-300 truncate">TG ID: — · @username</p>
+              </div>
+            </div>
+            <button id="crm-modal-close-btn" type="button"
+              class="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-bold cursor-pointer shrink-0">
+              ✕ Close
+            </button>
+          </div>
+
+          <!-- Top Stats & Watched Videos History Box -->
+          <div class="p-4 rounded-2xl border border-emerald-700/50 bg-zinc-900/70 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl">🎬</span>
+                <div>
+                  <h3 class="text-xs sm:text-sm font-extrabold text-white">এই ইউজার মোট কয়টা ভিডিও দেখেছে (Watched Videos)</h3>
+                  <p id="crm-modal-device-info" class="text-[11px] text-zinc-400 font-mono">Device: Telegram Mini App</p>
+                </div>
+              </div>
+              <div class="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-right">
+                <span id="crm-modal-watched-count" class="text-lg sm:text-xl font-extrabold font-mono text-emerald-400">0</span>
+                <span class="text-xs font-bold text-emerald-300 ml-1">টি ভিডিও দেখেছে</span>
+              </div>
+            </div>
+
+            <div id="crm-modal-watched-list" class="max-h-36 overflow-y-auto space-y-1.5 pr-1 pt-1 border-t border-zinc-800/80 text-xs">
+              <p class="text-zinc-500 text-xs py-2 text-center">এখনো কোনো ভিডিও দেখার হিস্ট্রি পাওয়া যায়নি।</p>
+            </div>
+          </div>
+
+          <!-- 3 Action Grid: 1) Personal Bot Message, 2) Personal VIP Package, 3) Personal WebApp Profile Popup Notice -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Action 1: Direct Personal Telegram Bot Message -->
+            <form id="crm-send-tg-msg-form" class="p-4 rounded-2xl border border-sky-700/50 bg-zinc-900/75 space-y-3 flex flex-col justify-between">
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-extrabold">ACTION 1 · TELEGRAM BOT</span>
+                  <span class="text-[10px] font-mono text-sky-300">Direct Chat Message</span>
+                </div>
+                <h4 class="text-xs sm:text-sm font-extrabold text-white">💬 বটে পার্সোনাল মেসেজ পাঠান (Telegram ID-তে)</h4>
+                <textarea id="crm-tg-msg-text" rows="3" placeholder="এই ইউজারকে বটে যা লিখতে চান এখানে লিখুন..."
+                  class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-sky-500"></textarea>
+                <input id="crm-tg-msg-media" type="url" placeholder="Optional: Photo বা Video URL (খালি রাখতে পারেন)"
+                  class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-200 focus:outline-none focus:border-sky-500" />
+              </div>
+              <button id="crm-tg-msg-submit-btn" type="submit"
+                class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-sky-600/25 transition-all">
+                📨 Send Personal Message on Telegram
+              </button>
+            </form>
+
+            <!-- Action 2: Send Personal VIP Package / Gift Redeem Code -->
+            <form id="crm-send-vip-pkg-form" class="p-4 rounded-2xl border border-amber-600/50 bg-zinc-900/75 space-y-3 flex flex-col justify-between">
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="px-2 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-extrabold">ACTION 2 · SEND VIP PACKAGE</span>
+                  <span class="text-[10px] font-mono text-amber-300">Bot + WebApp Popup</span>
+                </div>
+                <h4 class="text-xs sm:text-sm font-extrabold text-white">🎁 পার্সোনাল VIP Package / Redeem Code পাঠান</h4>
+                <div class="space-y-2">
+                  <label class="block text-[11px] text-zinc-400">প্যাকেজ বা মেয়াদ (Minutes / Hours / Days) সিলেক্ট করুন:</label>
+                  <select id="crm-vip-duration-select"
+                    class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-500">
+                    <option value="0.0833|⚡ 5 Minutes VIP Trial|5 Minutes VIP">⚡ 5 Minutes VIP Pass</option>
+                    <option value="0.25|⚡ 15 Minutes VIP Pass|15 Minutes VIP">⚡ 15 Minutes VIP Pass</option>
+                    <option value="0.5|⚡ 30 Minutes VIP Pass|30 Minutes VIP">⚡ 30 Minutes VIP Pass</option>
+                    <option value="1|🔥 1 Hour VIP Ad-Free|1 Hour VIP">🔥 1 Hour VIP Ad-Free</option>
+                    <option value="24|🔥 1 Day VIP Ad-Free|1 Day (24h)" selected>🔥 1 Day VIP Ad-Free (24 Hours)</option>
+                    <option value="72|💎 3 Days VIP Ad-Free|3 Days VIP">💎 3 Days VIP Ad-Free</option>
+                    <option value="168|💎 7 Days VIP Ad-Free|7 Days VIP">💎 7 Days VIP Ad-Free</option>
+                    <option value="720|👑 30 Days VIP Ad-Free|30 Days VIP">👑 30 Days VIP Ad-Free</option>
+                  </select>
+                  <input id="crm-vip-custom-mins" type="number" min="1" placeholder="অথবা কাস্টম মিনিট লিখুন (যেমন: 10, 45, 120)..."
+                    class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500" />
+                  <input id="crm-vip-custom-note" type="text" placeholder="Optional মেসেজ (যেমন: আপনার জন্য স্পেশাল গিফট ভিআইপি প্যাস!)"
+                    class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500" />
+                </div>
+              </div>
+              <button id="crm-vip-pkg-submit-btn" type="submit"
+                class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-zinc-950 text-xs font-extrabold cursor-pointer shadow-lg shadow-amber-500/20 transition-all">
+                🎁 Generate &amp; Send VIP Package to User
+              </button>
+            </form>
+          </div>
+
+          <!-- Action 3: Personal WebApp Profile Popup & Notice (Shows when user logs in / opens WebApp) -->
+          <form id="crm-send-popup-notice-form" class="p-4 sm:p-5 rounded-2xl border border-emerald-600/60 bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-emerald-500 text-zinc-950 text-[10px] font-extrabold">ACTION 3 · WEBAPP PROFILE POPUP NOTICE</span>
+                <h4 class="text-xs sm:text-sm font-extrabold text-white">
+                  🔔 ওয়েবঅ্যাপে ঢুকলে ইউজারের প্রোফাইলে স্পেশাল পপ-আপ / নোটিশ দেখান
+                </h4>
+              </div>
+              <span id="crm-popup-notice-status" class="px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-mono">
+                No Active Popup
+              </span>
+            </div>
+            <p class="text-[11px] text-zinc-400">
+              এই ইউজার যখনই ওয়েবসাইট বা টেলিগ্রাম মিনি অ্যাপ ওপেন করবে, সাথে সাথে তার স্ক্রিনে এই পপ-আপ মেসেজটি ভাসবে এবং তার Profile সেকশনেও নোটিশ হিসেবে শো করবে!
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <input id="crm-popup-title-input" type="text" value="🔔 অ্যাডমিনের পক্ষ থেকে বিশেষ বার্তা" placeholder="পপ-আপ টাইটেল..."
+                class="px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-bold text-white focus:outline-none focus:border-emerald-500" />
+              <input id="crm-popup-code-input" type="text" placeholder="Optional: গিফট Redeem Code (থাকলে ইউজার 1-Click অ্যাক্টিভ করতে পারবে)"
+                class="px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-amber-300 uppercase focus:outline-none focus:border-amber-500" />
+            </div>
+            <textarea id="crm-popup-msg-input" rows="2" placeholder="ইউজারের প্রোফাইলে পপ-আপ নোটিশে যা দেখাতে চান তা লিখুন..."
+              class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <button id="crm-popup-submit-btn" type="submit"
+                class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-emerald-600/25">
+                🔔 Set &amp; Trigger Live WebApp Popup Notice
+              </button>
+              <button id="crm-popup-clear-btn" type="button"
+                class="px-3.5 py-2.5 rounded-xl bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-xs font-bold cursor-pointer">
+                🗑️ Clear Popup Notice
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
 
       <!-- ===================================================================== -->
       <!-- TAB PANEL: GUIDES & SETUP STEPS (HIDDEN UNLESS CLICKED)               -->
@@ -5021,6 +5201,7 @@ service cloud.firestore {
 
             onlineMap.set(key, {
               key,
+              crmKey: isTg ? rawTgId : String(info.crmKey || `web_${webId}`),
               isTelegram: isTg,
               tgId: isTg ? rawTgId : '',
               webId: !isTg ? webId : '',
@@ -5030,6 +5211,8 @@ service cloud.firestore {
               username: String(info.username || '').replace(/^@+/, '').trim(),
               page: String(info.page || 'home').trim(),
               vipActive: Boolean(info.vipActive),
+              videosWatchedCount: Number(info.videosWatchedCount) || 0,
+              watchedVideos: Array.isArray(info.watchedVideos) ? info.watchedVideos : [],
               device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
               lastSeen: lastSeen || now,
             });
@@ -5055,6 +5238,7 @@ service cloud.firestore {
           if (!onlineMap.has(key)) {
             onlineMap.set(key, {
               key,
+              crmKey: isTg ? rawTgId : String(info.crmKey || `web_${webId}`),
               isTelegram: isTg,
               tgId: isTg ? rawTgId : '',
               webId: !isTg ? webId : '',
@@ -5064,6 +5248,8 @@ service cloud.firestore {
               username: String(info.username || '').replace(/^@+/, '').trim(),
               page: String(info.page || 'home').trim(),
               vipActive: Boolean(info.vipActive),
+              videosWatchedCount: Number(info.videosWatchedCount) || 0,
+              watchedVideos: Array.isArray(info.watchedVideos) ? info.watchedVideos : [],
               device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
               lastSeen: lastSeen || now,
             });
@@ -5075,6 +5261,7 @@ service cloud.firestore {
         if (a.isTelegram !== b.isTelegram) return a.isTelegram ? -1 : 1;
         return b.lastSeen - a.lastSeen;
       });
+      window.__latestOnlineUsersMap = onlineMap;
 
       const onlineCount = Math.max(onlineUsersArray.length, (serverOnlineIds || []).length);
       const tgOnlineCount = onlineUsersArray.filter((u) => u.isTelegram).length;
@@ -5099,7 +5286,7 @@ service cloud.firestore {
       if (listWrapEl) {
         if (onlineUsersArray.length === 0) {
           listWrapEl.innerHTML =
-            '<p class="text-xs text-zinc-500 py-3 col-span-full text-center">বর্তমানে কোনো ইউজার অনলাইনে নেই। কেউ অ্যাপ বা ওয়েবসাইট ওপেন করলেই সাথে সাথে তার Telegram ID বা Web Visitor ID এখানে শো করবে।</p>';
+            '<p class="text-xs text-zinc-500 py-3 col-span-full text-center">বর্তমানে কোনো ইউজার অনলাইনে নেই। নিচে All Telegram Bot &amp; App Users লিস্ট থেকে যেকোনো ইউজারে ক্লিক করে মেসেজ/প্যাকেজ/নোটিশ পাঠাতে পারবেন!</p>';
         } else {
           listWrapEl.innerHTML = onlineUsersArray
             .map((u) => {
@@ -5107,14 +5294,19 @@ service cloud.firestore {
               const vipPill = u.vipActive
                 ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-bold text-amber-300">👑 VIP</span>`
                 : '';
+              const watchedCount = Number(u.videosWatchedCount) || 0;
+              const watchPill = `<span class="px-1.5 py-0.5 rounded bg-emerald-950/90 border border-emerald-700/60 text-[9px] font-mono font-bold text-emerald-300">🎬 ${watchedCount} ভিডিও</span>`;
+              const targetKey = escSafeHtml(u.isTelegram ? u.tgId : u.crmKey);
               if (u.isTelegram) {
                 return `
-                  <div class="p-2.5 rounded-xl bg-zinc-900/95 border border-sky-700/60 flex items-center justify-between gap-2 text-xs">
+                  <div onclick="window.openUserCrmModal('${targetKey}')"
+                    class="p-2.5 rounded-xl bg-zinc-900/95 hover:bg-zinc-900 border border-sky-700/60 hover:border-sky-400 flex items-center justify-between gap-2 text-xs cursor-pointer transition-all">
                     <div class="min-w-0 space-y-0.5">
                       <div class="flex items-center gap-1.5 flex-wrap">
                         <span class="px-1.5 py-0.5 rounded bg-sky-600 text-white text-[9px] font-extrabold">📱 TG USER</span>
                         <span class="font-bold text-white truncate">${escSafeHtml(u.fullName)}</span>
                         ${vipPill}
+                        ${watchPill}
                       </div>
                       <p class="text-[11px] font-mono text-sky-300 truncate">
                         TG ID: <strong class="text-white select-all">${escSafeHtml(u.tgId)}</strong>
@@ -5124,20 +5316,22 @@ service cloud.firestore {
                         📍 ${escSafeHtml(u.page.toUpperCase())} · 🟢 Active (${secAgo}s ago)
                       </p>
                     </div>
-                    <button type="button" onclick="navigator.clipboard.writeText('${escSafeHtml(u.tgId)}')"
-                      class="px-2 py-1 rounded-lg bg-sky-950 hover:bg-sky-900 border border-sky-700/70 text-[10px] font-mono text-sky-200 cursor-pointer shrink-0">
-                      📋 Copy ID
+                    <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${targetKey}')"
+                      class="px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-extrabold cursor-pointer shrink-0">
+                      👤 Profile / Msg
                     </button>
                   </div>
                 `;
               }
               return `
-                <div class="p-2.5 rounded-xl bg-zinc-900/95 border border-zinc-800 flex items-center justify-between gap-2 text-xs">
+                <div onclick="window.openUserCrmModal('${targetKey}')"
+                  class="p-2.5 rounded-xl bg-zinc-900/95 hover:bg-zinc-900 border border-zinc-800 hover:border-amber-500/60 flex items-center justify-between gap-2 text-xs cursor-pointer transition-all">
                   <div class="min-w-0 space-y-0.5">
                     <div class="flex items-center gap-1.5 flex-wrap">
                       <span class="px-1.5 py-0.5 rounded bg-amber-600/80 text-white text-[9px] font-extrabold">🌐 WEB</span>
                       <span class="font-bold text-zinc-100 truncate">${escSafeHtml(u.webId || 'Web-vVisitor')}</span>
                       ${vipPill}
+                      ${watchPill}
                     </div>
                     <p class="text-[11px] font-mono text-amber-300 truncate">
                       Visitor: <strong class="text-zinc-200 select-all">${escSafeHtml(u.webId)}</strong> · ${escSafeHtml(u.device)}
@@ -5146,14 +5340,18 @@ service cloud.firestore {
                       📍 ${escSafeHtml(u.page.toUpperCase())} · 🟢 Active (${secAgo}s ago)
                     </p>
                   </div>
-                  <span class="px-2 py-1 rounded-lg bg-emerald-950/80 border border-emerald-800/60 text-[10px] font-mono text-emerald-300 shrink-0">
-                    ● Online
-                  </span>
+                  <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${targetKey}')"
+                    class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-[10px] font-extrabold cursor-pointer shrink-0">
+                    👤 Profile / Notice
+                  </button>
                 </div>
               `;
             })
             .join('');
         }
+      }
+      if (typeof window.renderAllBotUsersDirectory === 'function') {
+        window.renderAllBotUsersDirectory();
       }
     };
 
@@ -7825,7 +8023,623 @@ service cloud.firestore {
       subscribersMapForBroadcast =
         val && val._subscribers && typeof val._subscribers === 'object' ? val._subscribers : {};
       refreshBroadcastSubscriberCount();
+      if (typeof window.renderAllBotUsersDirectory === 'function') {
+        window.renderAllBotUsersDirectory();
+      }
+      if (activeCrmUserKey) {
+        window.refreshActiveCrmModalData?.();
+      }
     });
+
+    // ============================================================================
+    // ALL TELEGRAM BOT & APP USERS DIRECTORY + PERSONAL PROFILE CRM MODAL
+    // (Send Personal Bot Message, Send Personal VIP Package, Set Personal WebApp
+    //  Profile Popup Notice, and View User's Watched Videos Count & History)
+    // ============================================================================
+    let activeCrmUserKey = '';
+    const crmUsersMap = new Map();
+
+    const buildMergedCrmUsersList = () => {
+      crmUsersMap.clear();
+      const now = Date.now();
+      const liveOnlineMap = window.__latestOnlineUsersMap || new Map();
+
+      const upsertUser = (rawKey, rawObj, sourceHint = 'bot') => {
+        if (!rawKey || rawKey === 'botAuthToken') return;
+        const cleanKey = String(rawKey).trim();
+        if (cleanKey.startsWith('_')) return;
+
+        const isNumericTg = /^\d{5,20}$/.test(cleanKey) && cleanKey !== '84920145';
+        const tgIdFromObj = String(rawObj?.tgId || rawObj?.chatId || (isNumericTg ? cleanKey : '')).trim();
+        const isTg =
+          Boolean(rawObj?.isTelegram) ||
+          (/^\d{5,20}$/.test(tgIdFromObj) && tgIdFromObj !== '84920145');
+        const canonicalKey = isTg && tgIdFromObj ? tgIdFromObj : cleanKey;
+
+        const existing = crmUsersMap.get(canonicalKey) || {
+          crmKey: canonicalKey,
+          isTelegram: isTg,
+          tgId: isTg ? tgIdFromObj : '',
+          webId: !isTg ? String(rawObj?.webId || canonicalKey.replace(/^web_/, '')) : '',
+          fullName: isTg ? 'Telegram User' : `Web Visitor (${canonicalKey})`,
+          username: '',
+          videosWatchedCount: 0,
+          watchedVideos: [],
+          vipActive: false,
+          device: isTg ? 'Telegram Mini App / Bot' : 'Web Browser',
+          lastSeen: 0,
+          isOnlineNow: false,
+          personalNotice: null,
+        };
+
+        if (rawObj && typeof rawObj === 'object') {
+          if (rawObj.fullName && String(rawObj.fullName).trim()) {
+            existing.fullName = String(rawObj.fullName).trim();
+          }
+          if (rawObj.username && String(rawObj.username).trim()) {
+            existing.username = String(rawObj.username).replace(/^@+/, '').trim();
+          }
+          const wArr = Array.isArray(rawObj.watchedVideos) ? rawObj.watchedVideos : [];
+          if (wArr.length > existing.watchedVideos.length) {
+            existing.watchedVideos = wArr;
+          }
+          const wCount = Math.max(
+            Number(rawObj.videosWatchedCount) || 0,
+            existing.watchedVideos.length,
+            existing.videosWatchedCount
+          );
+          existing.videosWatchedCount = wCount;
+          if (rawObj.vipActive !== undefined) {
+            existing.vipActive = Boolean(rawObj.vipActive);
+          }
+          if (rawObj.device) {
+            existing.device = String(rawObj.device);
+          }
+          const ts = Number(rawObj.lastSeen || rawObj.updatedAt || rawObj.lastActiveAt || rawObj.createdAt || 0);
+          if (ts > existing.lastSeen) {
+            existing.lastSeen = ts;
+          }
+          if (rawObj.personalNotice && typeof rawObj.personalNotice === 'object') {
+            existing.personalNotice = rawObj.personalNotice;
+          }
+        }
+
+        const onlineCheckKey = isTg ? `tg_${ existing.tgId }` : `web_${ existing.webId }`;
+        const onlineEntry = liveOnlineMap.get(onlineCheckKey);
+        if (onlineEntry) {
+          existing.isOnlineNow = true;
+          existing.lastSeen = Math.max(existing.lastSeen, Number(onlineEntry.lastSeen) || now);
+          if (onlineEntry.videosWatchedCount > existing.videosWatchedCount) {
+            existing.videosWatchedCount = onlineEntry.videosWatchedCount;
+          }
+          if (
+            Array.isArray(onlineEntry.watchedVideos) &&
+            onlineEntry.watchedVideos.length > existing.watchedVideos.length
+          ) {
+            existing.watchedVideos = onlineEntry.watchedVideos;
+          }
+        } else if (existing.lastSeen > 0 && now - existing.lastSeen < 75000 && sourceHint === 'online') {
+          existing.isOnlineNow = true;
+        }
+
+        crmUsersMap.set(canonicalKey, existing);
+      };
+
+      // 1. Ingest from telegramBotSessions/$chatId
+      if (sessionsMapForBroadcast && typeof sessionsMapForBroadcast === 'object') {
+        for (const [k, val] of Object.entries(sessionsMapForBroadcast)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          upsertUser(k, val, 'session');
+        }
+      }
+
+      // 2. Ingest from telegramBotSessions/_subscribers
+      if (subscribersMapForBroadcast && typeof subscribersMapForBroadcast === 'object') {
+        for (const [k, val] of Object.entries(subscribersMapForBroadcast)) {
+          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          upsertUser(k, val, 'subscriber');
+        }
+      }
+
+      // 3. Ingest from orders so buyers are always included
+      const mergedOrders = { ...fallbackOrdersMap, ...primaryOrdersMap };
+      for (const ord of Object.values(mergedOrders)) {
+        if (ord && typeof ord === 'object' && ord.chatId) {
+          upsertUser(ord.chatId, {
+            chatId: ord.chatId,
+            isTelegram: true,
+            fullName: ord.fullName || 'Telegram Buyer',
+            username: ord.username || '',
+            updatedAt: ord.createdAt || 0,
+          }, 'order');
+        }
+      }
+
+      // 4. Ingest from currently online users
+      if (liveOnlineMap && typeof liveOnlineMap.forEach === 'function') {
+        liveOnlineMap.forEach((u) => {
+          upsertUser(u.isTelegram ? u.tgId : u.crmKey, u, 'online');
+        });
+      }
+
+      return Array.from(crmUsersMap.values()).sort((a, b) => {
+        if (a.isOnlineNow !== b.isOnlineNow) return a.isOnlineNow ? -1 : 1;
+        if (a.isTelegram !== b.isTelegram) return a.isTelegram ? -1 : 1;
+        return (b.lastSeen || 0) - (a.lastSeen || 0);
+      });
+    };
+
+    const crmDirectoryEl = document.getElementById('all-bot-users-directory');
+    const crmCountBadgeEl = document.getElementById('crm-all-users-count-badge');
+    const crmSearchInputEl = document.getElementById('crm-user-search-input');
+    const crmDirectIdInputEl = document.getElementById('crm-direct-tgid-input');
+    const crmDirectIdBtnEl = document.getElementById('crm-direct-tgid-btn');
+
+    window.renderAllBotUsersDirectory = () => {
+      if (!crmDirectoryEl) return;
+      const allUsers = buildMergedCrmUsersList();
+      if (crmCountBadgeEl) {
+        const tgCount = allUsers.filter((u) => u.isTelegram).length;
+        crmCountBadgeEl.textContent = `👥 ${allUsers.length} Users (${tgCount} TG)`;
+      }
+
+      const query = (crmSearchInputEl?.value || '').trim().toLowerCase();
+      const filtered = query
+        ? allUsers.filter(
+            (u) =>
+              (u.fullName || '').toLowerCase().includes(query) ||
+              (u.username || '').toLowerCase().includes(query) ||
+              (u.tgId || '').toLowerCase().includes(query) ||
+              (u.crmKey || '').toLowerCase().includes(query)
+          )
+        : allUsers;
+
+      if (filtered.length === 0) {
+        crmDirectoryEl.innerHTML =
+          '<p class="text-xs text-zinc-500 py-5 col-span-full text-center">কোনো ইউজার পাওয়া যায়নি। ডানপাশের বক্সে যেকোনো Telegram ID লিখে "👤 Open ID" বাটনে ক্লিক করে সরাসরি মেসেজ বা প্যাকেজ পাঠাতে পারেন!</p>';
+        return;
+      }
+
+      crmDirectoryEl.innerHTML = filtered
+        .map((u) => {
+          const safeKey = escSafeHtml(u.crmKey);
+          const onlineBadge = u.isOnlineNow
+            ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/50 text-[9px] font-mono font-bold text-emerald-300">🟢 Online</span>`
+            : `<span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[9px] font-mono text-zinc-400">Offline</span>`;
+          const watchedBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-[9px] font-mono font-bold text-emerald-300">🎬 ${u.videosWatchedCount || 0} ভিডিও</span>`;
+          const noticeActive = u.personalNotice && u.personalNotice.active !== false;
+          const noticeBadge = noticeActive
+            ? u.personalNotice.seenAt
+              ? `<span class="px-1.5 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[9px] font-bold text-sky-300">✓ Notice Seen</span>`
+              : `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-bold text-amber-300">🔔 Popup Sent</span>`
+            : '';
+
+          return `
+            <div onclick="window.openUserCrmModal('${safeKey}')"
+              class="p-3 rounded-xl bg-zinc-900/90 hover:bg-zinc-900 border ${
+                u.isTelegram ? 'border-sky-800/60 hover:border-sky-400' : 'border-zinc-800 hover:border-amber-500/60'
+              } flex items-center justify-between gap-2.5 text-xs cursor-pointer transition-all">
+              <div class="min-w-0 space-y-1 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="px-1.5 py-0.5 rounded ${
+                    u.isTelegram ? 'bg-sky-600 text-white' : 'bg-amber-600/80 text-white'
+                  } text-[9px] font-extrabold">${u.isTelegram ? '📱 TG' : '🌐 WEB'}</span>
+                  <span class="font-extrabold text-white truncate">${escSafeHtml(u.fullName)}</span>
+                  ${onlineBadge}
+                  ${watchedBadge}
+                  ${noticeBadge}
+                </div>
+                <p class="text-[11px] font-mono ${u.isTelegram ? 'text-sky-300' : 'text-amber-300'} truncate">
+                  ${
+                    u.isTelegram
+                      ? `TG ID: <strong class="text-white select-all">${escSafeHtml(u.tgId)}</strong>${
+                          u.username ? ` · @${escSafeHtml(u.username)}` : ''
+                        }`
+                      : `Visitor: <strong class="text-zinc-200">${escSafeHtml(u.webId || u.crmKey)}</strong>`
+                  }
+                </p>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${safeKey}')"
+                class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 text-white text-[10px] font-extrabold cursor-pointer shrink-0 shadow">
+                👤 Msg / Pkg / Popup
+              </button>
+            </div>
+          `;
+        })
+        .join('');
+    };
+
+    if (crmSearchInputEl) {
+      crmSearchInputEl.addEventListener('input', () => window.renderAllBotUsersDirectory());
+    }
+    if (crmDirectIdBtnEl && crmDirectIdInputEl) {
+      crmDirectIdBtnEl.addEventListener('click', () => {
+        const raw = (crmDirectIdInputEl.value || '').trim().replace(/^@+/, '');
+        if (!raw) {
+          showStatus('অনুগ্রহ করে একটি Telegram ID বা ইউজার কি লিখুন!', 'error');
+          return;
+        }
+        window.openUserCrmModal(raw);
+      });
+    }
+
+    const crmModalEl = document.getElementById('user-crm-modal');
+    const crmCloseBtnEl = document.getElementById('crm-modal-close-btn');
+    const crmTypeBadgeEl = document.getElementById('crm-modal-type-badge');
+    const crmOnlineBadgeEl = document.getElementById('crm-modal-online-badge');
+    const crmUserNameEl = document.getElementById('crm-modal-user-name');
+    const crmUserSubEl = document.getElementById('crm-modal-user-sub');
+    const crmDeviceInfoEl = document.getElementById('crm-modal-device-info');
+    const crmWatchedCountEl = document.getElementById('crm-modal-watched-count');
+    const crmWatchedListEl = document.getElementById('crm-modal-watched-list');
+    const crmPopupStatusEl = document.getElementById('crm-popup-notice-status');
+    const crmPopupTitleInput = document.getElementById('crm-popup-title-input');
+    const crmPopupCodeInput = document.getElementById('crm-popup-code-input');
+    const crmPopupMsgInput = document.getElementById('crm-popup-msg-input');
+
+    window.refreshActiveCrmModalData = () => {
+      if (!activeCrmUserKey) return;
+      buildMergedCrmUsersList();
+      const isNum = /^\d{5,20}$/.test(activeCrmUserKey);
+      const userObj = crmUsersMap.get(activeCrmUserKey) || {
+        crmKey: activeCrmUserKey,
+        isTelegram: isNum,
+        tgId: isNum ? activeCrmUserKey : '',
+        webId: !isNum ? activeCrmUserKey : '',
+        fullName: isNum ? `Telegram User (${activeCrmUserKey})` : `Web Visitor (${activeCrmUserKey})`,
+        username: '',
+        videosWatchedCount: 0,
+        watchedVideos: [],
+        device: isNum ? 'Telegram Mini App / Bot' : 'Web Browser',
+        isOnlineNow: false,
+        personalNotice: null,
+      };
+
+      if (crmTypeBadgeEl) {
+        crmTypeBadgeEl.textContent = userObj.isTelegram ? '📱 TELEGRAM USER' : '🌐 WEBSITE VISITOR';
+        crmTypeBadgeEl.className = userObj.isTelegram
+          ? 'px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-extrabold'
+          : 'px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] font-extrabold';
+      }
+      if (crmOnlineBadgeEl) {
+        crmOnlineBadgeEl.textContent = userObj.isOnlineNow ? '🟢 Online Now' : '○ Offline / Saved User';
+        crmOnlineBadgeEl.className = userObj.isOnlineNow
+          ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/70 text-[10px] font-mono text-emerald-300'
+          : 'px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-zinc-400';
+      }
+      if (crmUserNameEl) crmUserNameEl.textContent = userObj.fullName;
+      if (crmUserSubEl) {
+        crmUserSubEl.innerHTML = userObj.isTelegram
+          ? `TG ID: <strong class="text-white select-all">${escSafeHtml(userObj.tgId)}</strong>${
+              userObj.username ? ` · @${escSafeHtml(userObj.username)}` : ''
+            }`
+          : `Visitor Key: <strong class="text-amber-300 select-all">${escSafeHtml(userObj.crmKey)}</strong>`;
+      }
+      if (crmDeviceInfoEl) {
+        crmDeviceInfoEl.textContent = `Device: ${userObj.device || 'Telegram Mini App'}`;
+      }
+      if (crmWatchedCountEl) {
+        crmWatchedCountEl.textContent = String(userObj.videosWatchedCount || 0);
+      }
+      if (crmWatchedListEl) {
+        const wList = Array.isArray(userObj.watchedVideos) ? userObj.watchedVideos : [];
+        if (wList.length === 0) {
+          crmWatchedListEl.innerHTML =
+            userObj.videosWatchedCount > 0
+              ? `<p class="text-emerald-300 text-xs py-2 text-center">এই ইউজার মোট <strong>${userObj.videosWatchedCount}টি</strong> ভিডিও দেখেছে।</p>`
+              : '<p class="text-zinc-500 text-xs py-2 text-center">এই ইউজার এখনো কোনো ভিডিও প্লে করেনি (0 videos watched)।</p>';
+        } else {
+          crmWatchedListEl.innerHTML = wList
+            .map(
+              (v, idx) => `
+              <div class="px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800/90 flex items-center justify-between gap-2 text-[11px]">
+                <span class="text-zinc-200 truncate"><strong class="text-emerald-400">#${idx + 1}</strong> ${escSafeHtml(
+                  v.title || v.id || 'Video'
+                )}</span>
+                <span class="text-[10px] font-mono text-zinc-400 shrink-0">
+                  ${v.count && v.count > 1 ? `${v.count}x · ` : ''}${
+                    v.lastAt ? new Date(v.lastAt).toLocaleTimeString() : ''
+                  }
+                </span>
+              </div>
+            `
+            )
+            .join('');
+        }
+      }
+
+      if (crmPopupStatusEl) {
+        const pNotice = userObj.personalNotice;
+        if (pNotice && pNotice.active !== false && (pNotice.message || pNotice.giftCode)) {
+          if (pNotice.seenAt) {
+            crmPopupStatusEl.textContent = `✓ ইউজার পপ-আপ দেখেছে (${new Date(pNotice.seenAt).toLocaleTimeString()})`;
+            crmPopupStatusEl.className =
+              'px-2.5 py-0.5 rounded-full bg-sky-950 border border-sky-700 text-sky-300 text-[10px] font-mono font-bold';
+          } else {
+            crmPopupStatusEl.textContent = '🟢 Active Popup (ইউজার ওপেন করলেই ভাসবে)';
+            crmPopupStatusEl.className =
+              'px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-700 text-emerald-300 text-[10px] font-mono font-bold';
+          }
+        } else {
+          crmPopupStatusEl.textContent = 'No Active Popup';
+          crmPopupStatusEl.className =
+            'px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-mono';
+        }
+      }
+    };
+
+    window.openUserCrmModal = (rawKey) => {
+      const clean = String(rawKey || '').trim();
+      if (!clean) return;
+      activeCrmUserKey = clean;
+      window.refreshActiveCrmModalData();
+      const userObj = crmUsersMap.get(activeCrmUserKey);
+      if (userObj?.personalNotice && userObj.personalNotice.active !== false) {
+        if (crmPopupTitleInput && userObj.personalNotice.title) {
+          crmPopupTitleInput.value = userObj.personalNotice.title;
+        }
+        if (crmPopupMsgInput && userObj.personalNotice.message) {
+          crmPopupMsgInput.value = userObj.personalNotice.message;
+        }
+        if (crmPopupCodeInput) {
+          crmPopupCodeInput.value = userObj.personalNotice.giftCode || '';
+        }
+      } else {
+        if (crmPopupMsgInput) crmPopupMsgInput.value = '';
+        if (crmPopupCodeInput) crmPopupCodeInput.value = '';
+      }
+      if (crmModalEl) crmModalEl.classList.remove('hidden');
+    };
+
+    if (crmCloseBtnEl && crmModalEl) {
+      crmCloseBtnEl.addEventListener('click', () => {
+        crmModalEl.classList.add('hidden');
+        activeCrmUserKey = '';
+      });
+    }
+
+    // Handler 1: Send Personal Telegram Bot Message to this User
+    const crmSendTgMsgForm = document.getElementById('crm-send-tg-msg-form');
+    if (crmSendTgMsgForm) {
+      crmSendTgMsgForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!activeCrmUserKey) return;
+        const userObj = crmUsersMap.get(activeCrmUserKey);
+        const targetChatId = userObj?.tgId || (/^\d{5,20}$/.test(activeCrmUserKey) ? activeCrmUserKey : '');
+        if (!targetChatId) {
+          showStatus(
+            'এই ইউজার একজন ওয়েবসাইট ভিজিটর (Telegram ID নেই)। তাকে নিচের Action 3 দিয়ে সরাসরি ওয়েবসাইট পপ-আপ নোটিশ পাঠান!',
+            'error'
+          );
+          return;
+        }
+        const botToken = resolveActiveBotToken(null);
+        if (!botToken || !botToken.includes(':')) {
+          showStatus('প্রথমে Bot Token সেভ করুন!', 'error');
+          return;
+        }
+        const text = (document.getElementById('crm-tg-msg-text')?.value || '').trim();
+        const mediaUrl = (document.getElementById('crm-tg-msg-media')?.value || '').trim();
+        if (!text && !mediaUrl) {
+          showStatus('মেসেজ বা মিডিয়া লিংক লিখুন!', 'error');
+          return;
+        }
+        const submitBtn = document.getElementById('crm-tg-msg-submit-btn');
+        const origLabel = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) submitBtn.textContent = '⏳ Sending to User on Telegram...';
+
+        try {
+          let endpoint = 'sendMessage';
+          const payload = {
+            chat_id: targetChatId,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📱 Open X Tube Mini App', url: 'https://t.me/xtubeofficial_bot' }],
+              ],
+            },
+          };
+          if (mediaUrl) {
+            if (/\.(mp4|mov|webm)(\?|$)/i.test(mediaUrl)) {
+              endpoint = 'sendVideo';
+              payload.video = mediaUrl;
+            } else {
+              endpoint = 'sendPhoto';
+              payload.photo = mediaUrl;
+            }
+            if (text) payload.caption = text;
+          } else {
+            payload.text = text;
+          }
+
+          const res = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            throw new Error(data.description || 'Failed to send Telegram message');
+          }
+          document.getElementById('crm-tg-msg-text').value = '';
+          document.getElementById('crm-tg-msg-media').value = '';
+          showStatus(`✅ পার্সোনাল মেসেজ সফলভাবে ${userObj?.fullName || targetChatId}-এর Telegram-এ পাঠানো হয়েছে!`, 'success');
+        } catch (err) {
+          showStatus(`Telegram Send Error: ${err.message}`, 'error');
+        } finally {
+          if (submitBtn) submitBtn.textContent = origLabel;
+        }
+      });
+    }
+
+    // Handler 2: Generate & Send Personal VIP Package (Sends to Telegram Bot + Sets WebApp Profile Popup!)
+    const crmSendVipPkgForm = document.getElementById('crm-send-vip-pkg-form');
+    if (crmSendVipPkgForm) {
+      crmSendVipPkgForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!activeCrmUserKey) return;
+        const userObj = crmUsersMap.get(activeCrmUserKey);
+        const targetChatId = userObj?.tgId || (/^\d{5,20}$/.test(activeCrmUserKey) ? activeCrmUserKey : '');
+
+        const selVal = document.getElementById('crm-vip-duration-select')?.value || '24|🔥 1 Day VIP Ad-Free|1 Day (24h)';
+        const [rawHours, presetPkgName, presetLabel] = selVal.split('|');
+        const customMins = Number(document.getElementById('crm-vip-custom-mins')?.value || 0);
+        const customNote = (document.getElementById('crm-vip-custom-note')?.value || '').trim();
+
+        const durationHours = customMins > 0 ? Number((customMins / 60).toFixed(4)) : Number(rawHours) || 24;
+        const durationLabel = customMins > 0 ? `${customMins} Minutes VIP` : presetLabel || `${durationHours} Hours`;
+        const packageName = customMins > 0 ? `⚡ ${customMins} Mins Special VIP Pass` : presetPkgName || 'VIP Ad-Free Pass';
+
+        const submitBtn = document.getElementById('crm-vip-pkg-submit-btn');
+        const origLabel = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) submitBtn.textContent = '⏳ Generating & Sending VIP Package...';
+
+        try {
+          const now = Date.now();
+          const newCode = generateRandomVipCode();
+          const expiresAt = now + Math.round(durationHours * 3600 * 1000);
+          const codePayload = {
+            code: newCode,
+            packageName,
+            durationHours,
+            durationLabel,
+            createdAt: now,
+            expiresAt,
+            active: true,
+            note: `Personal Gift to ${userObj?.fullName || activeCrmUserKey}`,
+            createdByUid: currentUser?.uid || ADMIN_UID,
+            botAuthToken: 'xtube_tg_bot_2026',
+          };
+
+          const noticeObj = {
+            id: `notice_${now}`,
+            title: `🎁 আপনার জন্য স্পেশাল VIP গিফট প্যাস!`,
+            message:
+              customNote ||
+              `অ্যাডমিন আপনাকে "${packageName}" (${durationLabel}) উপহার পাঠিয়েছেন! নিচের বাটনে ১-ক্লিক করে এখনই অ্যাড-ফ্রি ভিআইপি চালু করুন।`,
+            giftCode: newCode,
+            packageName,
+            durationLabel,
+            active: true,
+            createdAt: now,
+            seenAt: null,
+          };
+
+          await Promise.all([
+            set(ref(db, `redeemCodes/${newCode}`), codePayload).catch(() => {}),
+            set(ref(db, `telegramBotSessions/_codes/${newCode}`), codePayload),
+            update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+              personalNotice: noticeObj,
+              botAuthToken: 'xtube_tg_bot_2026',
+            }).catch(() => {}),
+          ]);
+
+          // Also send on Telegram Bot if user has a Telegram Chat ID
+          const botToken = resolveActiveBotToken(null);
+          if (botToken && botToken.includes(':') && targetChatId) {
+            const tgText = [
+              `🎁 <b>অভিনন্দন! অ্যাডমিন আপনাকে স্পেশাল VIP Package পাঠিয়েছেন!</b>`,
+              ``,
+              `📦 <b>প্যাকেজ:</b> ${escSafeHtml(packageName)} (${escSafeHtml(durationLabel)})`,
+              `🔑 <b>আপনার Redeem Code:</b> <code>${newCode}</code>`,
+              `⏳ <b>মেয়াদ শেষ হবে:</b> ${new Date(expiresAt).toLocaleString()}`,
+              customNote ? `\n💬 <b>বার্তা:</b> ${escSafeHtml(customNote)}` : '',
+              ``,
+              `👉 অ্যাপ ওপেন করলেই আপনার প্রোফাইলে অটো পপ-আপ আসবে, সেখান থেকে ১-ক্লিকে চালু করতে পারবেন!`,
+            ]
+              .filter(Boolean)
+              .join('\n');
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: targetChatId,
+                text: tgText,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '📱 Open App & Activate VIP', url: 'https://t.me/xtubeofficial_bot' }],
+                  ],
+                },
+              }),
+            }).catch(() => {});
+          }
+
+          if (crmPopupCodeInput) crmPopupCodeInput.value = newCode;
+          if (crmPopupMsgInput) crmPopupMsgInput.value = noticeObj.message;
+          window.refreshActiveCrmModalData();
+          showStatus(
+            `🎁 VIP Code "${newCode}" (${durationLabel}) জেনারেট হয়ে ইউজারের Telegram এবং WebApp Profile Popup-এ পাঠানো হয়েছে!`,
+            'success'
+          );
+        } catch (err) {
+          showStatus(`VIP Package Send Error: ${err.message}`, 'error');
+        } finally {
+          if (submitBtn) submitBtn.textContent = origLabel;
+        }
+      });
+    }
+
+    // Handler 3: Set / Clear Personal WebApp Profile Popup Notice
+    const crmSendPopupForm = document.getElementById('crm-send-popup-notice-form');
+    const crmClearPopupBtn = document.getElementById('crm-popup-clear-btn');
+
+    if (crmSendPopupForm) {
+      crmSendPopupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!activeCrmUserKey) return;
+        const title = (crmPopupTitleInput?.value || '🔔 অ্যাডমিনের পক্ষ থেকে বিশেষ বার্তা').trim();
+        const message = (crmPopupMsgInput?.value || '').trim();
+        const giftCode = (crmPopupCodeInput?.value || '').trim().toUpperCase();
+        if (!message && !giftCode) {
+          showStatus('পপ-আপ নোটিশের জন্য একটি মেসেজ বা গিফট কোড লিখুন!', 'error');
+          return;
+        }
+        try {
+          const now = Date.now();
+          const noticeObj = {
+            id: `notice_${now}`,
+            title,
+            message,
+            giftCode: giftCode || '',
+            packageName: giftCode ? 'Special VIP Pass' : '',
+            active: true,
+            createdAt: now,
+            seenAt: null,
+          };
+          await update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+            personalNotice: noticeObj,
+            botAuthToken: 'xtube_tg_bot_2026',
+          });
+          window.refreshActiveCrmModalData();
+          showStatus(
+            '🔔 ইউজারের প্রোফাইলে Live WebApp Popup Notice সেট হয়েছে! ইউজার অ্যাপে ঢুকলেই পপ-আপটি দেখবে।',
+            'success'
+          );
+        } catch (err) {
+          showStatus(`Popup Notice Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    if (crmClearPopupBtn) {
+      crmClearPopupBtn.addEventListener('click', async () => {
+        if (!activeCrmUserKey) return;
+        try {
+          await update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+            personalNotice: { active: false, clearedAt: Date.now() },
+            botAuthToken: 'xtube_tg_bot_2026',
+          });
+          if (crmPopupMsgInput) crmPopupMsgInput.value = '';
+          if (crmPopupCodeInput) crmPopupCodeInput.value = '';
+          window.refreshActiveCrmModalData();
+          showStatus('🗑️ ইউজারের পপ-আপ নোটিশ রিমুভ করা হয়েছে।', 'info');
+        } catch (err) {
+          showStatus(`Clear Error: ${err.message}`, 'error');
+        }
+      });
+    }
 
     if (tgBroadcastForm) {
       tgBroadcastForm.addEventListener('submit', async (e) => {

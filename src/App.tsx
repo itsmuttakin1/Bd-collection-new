@@ -468,8 +468,22 @@ const findMatchingVideoOrShort = (
 interface UserTasteProfile {
   tagScores: Record<string, number>;
   categoryScores: Record<string, number>;
-  watchedHistory: Record<string, { count: number; lastAt: number }>;
+  watchedHistory: Record<string, { count: number; lastAt: number; title?: string }>;
   likedHistory: Record<string, number>;
+}
+
+interface PersonalUserNotice {
+  id?: string;
+  title?: string;
+  message?: string;
+  giftCode?: string;
+  packageName?: string;
+  durationLabel?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  active?: boolean;
+  createdAt?: number;
+  seenAt?: number | null;
 }
 
 const ALGO_STORAGE_KEY = 'bd_yt_algo_profile_v1';
@@ -728,6 +742,10 @@ export default function App() {
     typeof navigator !== 'undefined' ? navigator.onLine !== false : true
   );
   const [liveOnlineCount, setLiveOnlineCount] = useState<number>(1);
+  const [personalNotice, setPersonalNotice] = useState<PersonalUserNotice | null>(null);
+  const [personalNoticePopupOpen, setPersonalNoticePopupOpen] = useState<boolean>(false);
+  const dismissedNoticeIdRef = useRef<string>('');
+  const [remoteWatchedCount, setRemoteWatchedCount] = useState<number>(0);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
       return localStorage.getItem('xtube_theme_mode') !== 'light';
@@ -1112,6 +1130,52 @@ export default function App() {
     setRedeemFeedback({ ok: res.ok, text: res.message });
     if (res.ok) {
       setRedeemInput('');
+    }
+  };
+
+  const getUserCrmKey = () => {
+    const isTg = Boolean(tgProfile.isRealTelegramUser && tgProfile.id);
+    if (isTg) {
+      return String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '');
+    }
+    const cleanWebId = String(tgProfile.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    return cleanWebId ? `web_${cleanWebId}` : 'web_visitor';
+  };
+
+  const handleDismissPersonalNotice = (clearPermanently = false) => {
+    const noticeKey = String(personalNotice?.id || personalNotice?.createdAt || '');
+    if (noticeKey) {
+      dismissedNoticeIdRef.current = noticeKey;
+    }
+    setPersonalNoticePopupOpen(false);
+    const crmKey = getUserCrmKey();
+    if (crmKey && personalNotice) {
+      const updatedNotice = clearPermanently
+        ? { ...personalNotice, active: false, seenAt: Date.now() }
+        : { ...personalNotice, seenAt: Date.now() };
+      if (clearPermanently) {
+        setPersonalNotice(null);
+      } else {
+        setPersonalNotice(updatedNotice);
+      }
+      update(ref(db, `telegramBotSessions/${crmKey}`), {
+        personalNotice: updatedNotice,
+        botAuthToken: 'xtube_tg_bot_2026',
+      }).catch(() => {});
+    }
+  };
+
+  const handleClaimPersonalGiftCode = async (codeToClaim: string) => {
+    const clean = String(codeToClaim || '').trim().toUpperCase();
+    if (!clean) return;
+    setRedeemInput(clean);
+    setRedeemLoading(true);
+    setRedeemFeedback(null);
+    const res = await activateCode(clean);
+    setRedeemLoading(false);
+    setRedeemFeedback({ ok: res.ok, text: res.message });
+    if (res.ok) {
+      handleDismissPersonalNotice(false);
     }
   };
 
@@ -1721,10 +1785,34 @@ export default function App() {
       setIsUserOnline(typeof navigator !== 'undefined' ? navigator.onLine !== false : true);
       const now = Date.now();
       const isTg = Boolean(tgProfile.isRealTelegramUser);
+      const crmKey = isTg
+        ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')
+        : presenceKey;
+
+      const watchedEntries = Object.entries(tasteProfile.watchedHistory || {})
+        .map(([vId, info]) => {
+          const matchedVid = videos.find((v) => v.id === vId);
+          const matchedShort = shorts.find((s) => s.id === vId);
+          return {
+            id: vId,
+            title:
+              info.title ||
+              matchedVid?.title ||
+              matchedShort?.title ||
+              `Video #${vId.slice(-6)}`,
+            count: Number(info.count) || 1,
+            lastAt: Number(info.lastAt) || now,
+          };
+        })
+        .sort((a, b) => b.lastAt - a.lastAt);
+
+      const totalWatched = Math.max(watchedEntries.length, remoteWatchedCount);
+
       const presencePayload = {
         online: true,
         lastSeen: now,
         visitorId: presenceKey,
+        crmKey,
         isTelegram: isTg,
         tgId: isTg ? tgProfile.id : '',
         webId: !isTg ? tgProfile.id : '',
@@ -1733,12 +1821,33 @@ export default function App() {
         page: viewMode,
         vipActive: Boolean(isAdFree),
         vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
+        videosWatchedCount: totalWatched,
+        watchedVideos: watchedEntries.slice(0, 20),
         device: detectDeviceSummary(),
         botAuthToken: 'xtube_tg_bot_2026',
       };
 
       set(userPresenceRef, presencePayload).catch(() => {});
       set(fallbackOnlineRef, presencePayload).catch(() => {});
+
+      if (crmKey) {
+        update(ref(db, `telegramBotSessions/${crmKey}`), {
+          chatId: isTg ? tgProfile.id : crmKey,
+          webId: !isTg ? tgProfile.id : '',
+          isTelegram: isTg,
+          fullName: isTg ? tgProfile.fullName : `Web Visitor (${tgProfile.id})`,
+          username: tgProfile.username || '',
+          page: viewMode,
+          vipActive: Boolean(isAdFree),
+          vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
+          videosWatchedCount: totalWatched,
+          watchedVideos: watchedEntries.slice(0, 25),
+          device: detectDeviceSummary(),
+          lastSeen: now,
+          updatedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+      }
 
       fetch('/api/visitor-ping', {
         method: 'POST',
@@ -1753,6 +1862,38 @@ export default function App() {
         })
         .catch(() => {});
     };
+
+    const crmKeyForNotice = tgProfile.isRealTelegramUser
+      ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')
+      : presenceKey;
+    const userCrmRef = ref(db, `telegramBotSessions/${crmKeyForNotice}`);
+    const unsubUserCrm = onValue(
+      userCrmRef,
+      (snap) => {
+        const val = snap.val();
+        if (!val || typeof val !== 'object') return;
+        if (typeof val.videosWatchedCount === 'number' && val.videosWatchedCount > 0) {
+          setRemoteWatchedCount((prev) => Math.max(prev, val.videosWatchedCount));
+        }
+        const pNotice = val.personalNotice;
+        if (
+          pNotice &&
+          typeof pNotice === 'object' &&
+          pNotice.active !== false &&
+          (pNotice.message || pNotice.giftCode)
+        ) {
+          setPersonalNotice(pNotice);
+          const noticeKey = String(pNotice.id || pNotice.createdAt || '');
+          if (noticeKey && dismissedNoticeIdRef.current !== noticeKey && !pNotice.seenAt) {
+            setPersonalNoticePopupOpen(true);
+          }
+        } else {
+          setPersonalNotice(null);
+          setPersonalNoticePopupOpen(false);
+        }
+      },
+      () => {}
+    );
 
     const unsubConnected = onValue(connectedRef, (snap) => {
       const connected = snap.val() === true;
@@ -1817,6 +1958,7 @@ export default function App() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
+      unsubUserCrm();
       unsubConnected();
       unsubAllPresence();
       window.clearInterval(heartbeatTimer);
@@ -1824,7 +1966,17 @@ export default function App() {
       window.removeEventListener('offline', handleBrowserOffline);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [tgProfile.id, tgProfile.fullName, tgProfile.username, tgProfile.isRealTelegramUser, viewMode, isAdFree, expiresAt]);
+  }, [
+    tgProfile.id,
+    tgProfile.fullName,
+    tgProfile.username,
+    tgProfile.isRealTelegramUser,
+    viewMode,
+    isAdFree,
+    expiresAt,
+    profileRevision,
+    remoteWatchedCount,
+  ]);
 
   // Sync ALL Shorts from Firebase Realtime Database (`shorts`)
   useEffect(() => {
@@ -2257,6 +2409,7 @@ export default function App() {
         [item.id]: {
           count: (prevWatch?.count || 0) + (signalType === 'watch' ? 1 : 0),
           lastAt: Date.now(),
+          title: item.title || prevWatch?.title || '',
         },
       };
 
@@ -2700,7 +2853,10 @@ export default function App() {
     100,
     Math.max(0, Math.round(((STEP_DURATION_SECONDS - stepTimer) / STEP_DURATION_SECONDS) * 100))
   );
-  const watchedVideosCount = Object.keys(tasteProfile.watchedHistory || {}).length;
+  const watchedVideosCount = Math.max(
+    Object.keys(tasteProfile.watchedHistory || {}).length,
+    remoteWatchedCount
+  );
 
   return (
     <div
@@ -3135,6 +3291,106 @@ export default function App() {
         </div>
       )}
 
+      {/* ============================================================================
+          PERSONAL ADMIN POPUP NOTICE & GIFT PACKAGE MODAL FOR THIS USER
+          Automatically pops up when the user logs in / opens the WebApp
+          ============================================================================ */}
+      {personalNotice && personalNoticePopupOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl border border-amber-500/50 bg-[#131822] text-zinc-100 p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3.5">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500/25 to-emerald-500/25 border border-amber-500/50 flex items-center justify-center text-xl shrink-0">
+                  🔔
+                </div>
+                <div className="min-w-0">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold uppercase tracking-wider mb-1">
+                    📩 Personal Notice for {tgProfile.fullName}
+                  </span>
+                  <h3 className="text-sm sm:text-base font-extrabold text-white leading-snug">
+                    {personalNotice.title || '🔔 অ্যাডমিনের পক্ষ থেকে বিশেষ বার্তা'}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDismissPersonalNotice(false)}
+                className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {personalNotice.message && (
+              <div className="p-4 rounded-2xl bg-[#1a2130] border border-slate-700/80 text-xs sm:text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">
+                {personalNotice.message}
+              </div>
+            )}
+
+            {personalNotice.giftCode && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 via-emerald-950/40 to-slate-900 border border-amber-500/50 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold text-amber-300">
+                    🎁 {personalNotice.packageName || 'Special VIP Gift Package'}
+                  </span>
+                  {personalNotice.durationLabel && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-mono font-bold text-emerald-300">
+                      ⏱️ {personalNotice.durationLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/50 border border-amber-500/40 flex items-center justify-between gap-2">
+                  <span className="font-mono font-extrabold text-sm sm:text-base text-amber-300 select-all">
+                    {personalNotice.giftCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleClaimPersonalGiftCode(personalNotice.giftCode || '')}
+                    disabled={redeemLoading}
+                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 text-xs font-extrabold cursor-pointer shrink-0 shadow-lg"
+                  >
+                    {redeemLoading ? '...' : '⚡ 1-Click Activate VIP'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {redeemFeedback && (
+              <div
+                className={`p-3 rounded-xl border text-xs ${
+                  redeemFeedback.ok
+                    ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                    : 'bg-red-950/60 border-red-800 text-red-200'
+                }`}
+              >
+                {redeemFeedback.text}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              {personalNotice.buttonUrl && (
+                <a
+                  href={personalNotice.buttonUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => handleDismissPersonalNotice(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-extrabold text-center transition-colors"
+                >
+                  {personalNotice.buttonText || '🔗 Open Link'}
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => handleDismissPersonalNotice(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-extrabold cursor-pointer transition-colors"
+              >
+                ✓ বুঝতে পেরেছি (Got It)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Layout */}
       <div className="flex-1 flex w-full max-w-full overflow-x-hidden">
         {/* Desktop Left Sidebar */}
@@ -3289,6 +3545,63 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* ============================================================================
+                  PERSONAL ADMIN NOTICE & GIFT PACKAGE BANNER IN PROFILE SECTION
+                  ============================================================================ */}
+              {personalNotice && personalNotice.active !== false && (
+                <div className="rounded-3xl bg-gradient-to-br from-amber-950/50 via-[#161b24] to-[#161b24] border border-amber-500/60 p-5 sm:p-6 shadow-2xl space-y-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-lg shrink-0">
+                        🔔
+                      </div>
+                      <div>
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold uppercase tracking-wide mb-0.5">
+                          📩 Personal Profile Notice
+                        </span>
+                        <h3 className="text-sm sm:text-base font-extrabold text-white">
+                          {personalNotice.title || '🔔 অ্যাডমিনের পক্ষ থেকে বিশেষ বার্তা'}
+                        </h3>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDismissPersonalNotice(true)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold cursor-pointer shrink-0"
+                    >
+                      ✕ Clear
+                    </button>
+                  </div>
+
+                  {personalNotice.message && (
+                    <p className="text-xs sm:text-sm text-slate-200 bg-[#1e2430] border border-slate-700/70 rounded-2xl p-3.5 whitespace-pre-wrap leading-relaxed">
+                      {personalNotice.message}
+                    </p>
+                  )}
+
+                  {personalNotice.giftCode && (
+                    <div className="p-3.5 rounded-2xl bg-black/40 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div>
+                        <span className="text-[11px] text-amber-300 font-bold block">
+                          🎁 {personalNotice.packageName || 'VIP Gift Code'} ({personalNotice.durationLabel || 'VIP'})
+                        </span>
+                        <span className="font-mono font-extrabold text-sm sm:text-base text-white select-all">
+                          {personalNotice.giftCode}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleClaimPersonalGiftCode(personalNotice.giftCode || '')}
+                        disabled={redeemLoading}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 text-xs font-extrabold cursor-pointer shrink-0"
+                      >
+                        ⚡ Activate VIP Code Now
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ============================================================================
                   REDEEM CODE BOX & VIP EXPIRE TIME IN PROFILE SECTION
