@@ -1756,85 +1756,180 @@ async function startServer() {
   });
 
   // ==========================================================================
-  // 24/7 AUTO-HEALING TELEGRAM BOT POLLING WORKER
-  // Automatically detects if the Cloudflare Pages webhook hasn't been deployed
-  // yet (or is returning an error), clears the broken webhook, and processes
-  // all Telegram Bot updates in real time with zero delay!
+  // 24/7 ALWAYS-AWAKE TELEGRAM BOT GUARDIAN & AUTO-HEALING WORKER
+  // Ensures the 24/7 Serverless Cloudflare Edge Webhook (https://xtubeofficial.pages.dev/api/telegram-bot)
+  // is ALWAYS registered so the bot NEVER sleeps even when the dev server container scales to zero.
+  // Only falls back to local getUpdates polling if the remote edge webhook has active delivery errors.
   // ==========================================================================
   let lastPolledUpdateId = 0;
   let lastCheckedWebhookToken = '';
 
+  const buildCanonicalEdgeWebhookUrl = (cfg: any, botToken: string) => {
+    let baseDom = String(cfg?.domain || CANONICAL_SITE_URL).trim().replace(/\/+$/, '');
+    if (
+      !baseDom.startsWith('https://') ||
+      baseDom.endsWith('.pages.') ||
+      baseDom.endsWith('.pages.d') ||
+      baseDom.endsWith('.pages.de')
+    ) {
+      baseDom = CANONICAL_SITE_URL;
+    }
+    const whObj = new URL(`${baseDom}/api/telegram-bot`);
+    whObj.searchParams.set('token', botToken);
+    whObj.searchParams.set('pass', String(cfg?.botPass || 'Muttakin').trim() || 'Muttakin');
+    if (cfg?.bkashNumber && cfg.bkashNumber !== 'Not Set') {
+      whObj.searchParams.set('bkash', String(cfg.bkashNumber).trim());
+    }
+    if (cfg?.nagadNumber && cfg.nagadNumber !== 'Not Set') {
+      whObj.searchParams.set('nagad', String(cfg.nagadNumber).trim());
+    }
+    if (cfg?.adminChatId) {
+      whObj.searchParams.set('adminId', String(cfg.adminChatId).trim());
+    }
+    return whObj.toString();
+  };
+
+  const ensureTelegramBotAwakeAndSynced = async () => {
+    const [fbRes1, fbRes2] = await Promise.all([
+      fetch(`${firebaseRtdbBase}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+      fetch(`${firebaseRtdbBase}/redeemStoreConfig.json`).catch(() => null),
+    ]);
+    const cfg1: any = fbRes1 && fbRes1.ok ? await fbRes1.json().catch(() => null) : null;
+    const cfg2: any = fbRes2 && fbRes2.ok ? await fbRes2.json().catch(() => null) : null;
+    const cfg: any = {
+      ...(cfg1 && typeof cfg1 === 'object' ? cfg1 : {}),
+      ...(cfg2 && typeof cfg2 === 'object' ? cfg2 : {}),
+    };
+
+    const botToken = String(cfg.botToken || '').trim();
+    if (!botToken || !botToken.includes(':')) {
+      return { ok: false, reason: 'No botToken configured', cfg, botToken: '' };
+    }
+
+    const targetWebhookUrl = buildCanonicalEdgeWebhookUrl(cfg, botToken);
+    const whInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`).catch(
+      () => null
+    );
+    const whInfo: any = whInfoRes ? await whInfoRes.json().catch(() => null) : null;
+    const currentWhUrl = String(whInfo?.result?.url || '').trim();
+    const pendingCount = Number(whInfo?.result?.pending_update_count || 0);
+    const lastErrorDate = Number(whInfo?.result?.last_error_date || 0);
+    const lastErrorMsg = String(whInfo?.result?.last_error_message || '');
+    const nowSec = Math.floor(Date.now() / 1000);
+    const hasRecentTelegramError = lastErrorDate > 0 && nowSec - lastErrorDate < 60 && pendingCount > 0;
+
+    // Check if our 24/7 Cloudflare Pages edge endpoint responds with { pong: true }
+    let edgeEndpointHealthy = false;
+    try {
+      const pingRes = await fetch(targetWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ping: true }),
+      });
+      const pingData: any = await pingRes.json().catch(() => null);
+      if (pingRes.ok && pingData && pingData.pong === true) {
+        edgeEndpointHealthy = true;
+      }
+    } catch {}
+
+    // If no webhook is set (or it points to an old/broken URL) AND 24/7 Cloudflare Edge is healthy:
+    // Immediately set the 24/7 Cloudflare Edge webhook so the bot NEVER sleeps!
+    if (edgeEndpointHealthy && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
+      await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: targetWebhookUrl,
+          allowed_updates: ['message', 'edited_message', 'callback_query'],
+          drop_pending_updates: false,
+        }),
+      }).catch(() => {});
+
+      fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          menu_button: {
+            type: 'web_app',
+            text: '📱 Open App',
+            web_app: { url: CANONICAL_SITE_URL },
+          },
+        }),
+      }).catch(() => {});
+
+      return {
+        ok: true,
+        mode: 'webhook_24_7',
+        webhookUrl: targetWebhookUrl,
+        pendingCount,
+        cfg,
+        botToken,
+      };
+    }
+
+    if (edgeEndpointHealthy && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
+      return {
+        ok: true,
+        mode: 'webhook_24_7',
+        webhookUrl: currentWhUrl,
+        pendingCount,
+        cfg,
+        botToken,
+      };
+    }
+
+    // Only if the remote edge endpoint is genuinely down AND Telegram has recent delivery errors,
+    // delete the broken webhook so local getUpdates can drain messages.
+    if (!edgeEndpointHealthy && currentWhUrl && hasRecentTelegramError) {
+      await fetch(
+        `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=false`
+      ).catch(() => {});
+    }
+
+    return {
+      ok: true,
+      mode: 'local_polling_fallback',
+      webhookUrl: currentWhUrl,
+      pendingCount,
+      lastErrorMsg,
+      cfg,
+      botToken,
+    };
+  };
+
+  app.all('/api/bot-keepalive', async (_req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    try {
+      const status = await ensureTelegramBotAwakeAndSynced();
+      res.status(200).json({
+        ok: status.ok,
+        mode: status.mode,
+        webhookUrl: status.webhookUrl ? 'ACTIVE_24_7_EDGE' : 'NONE',
+        pendingCount: status.pendingCount || 0,
+        checkedAt: Date.now(),
+      });
+    } catch (err: any) {
+      res.status(200).json({ ok: false, error: err?.message || 'Keepalive error' });
+    }
+  });
+
   const runTelegramBotAutoPollingTick = async () => {
     try {
-      const [fbRes1, fbRes2] = await Promise.all([
-        fetch(`${firebaseRtdbBase}/telegramBotSessions/_storeConfig.json`).catch(() => null),
-        fetch(`${firebaseRtdbBase}/redeemStoreConfig.json`).catch(() => null),
-      ]);
-      const cfg1: any = fbRes1 && fbRes1.ok ? await fbRes1.json().catch(() => null) : null;
-      const cfg2: any = fbRes2 && fbRes2.ok ? await fbRes2.json().catch(() => null) : null;
-      const cfg: any = {
-        ...(cfg1 && typeof cfg1 === 'object' ? cfg1 : {}),
-        ...(cfg2 && typeof cfg2 === 'object' ? cfg2 : {}),
-      };
-
-      const botToken = String(cfg.botToken || '').trim();
-      if (!botToken || !botToken.includes(':')) {
-        setTimeout(runTelegramBotAutoPollingTick, 4000);
+      const status = await ensureTelegramBotAwakeAndSynced();
+      if (!status.ok || !status.botToken) {
+        setTimeout(runTelegramBotAutoPollingTick, 5000);
         return;
       }
 
-      // Check if Telegram currently has a broken webhook set (e.g. old Cloudflare worker before redeploy)
-      if (lastCheckedWebhookToken !== botToken) {
-        try {
-          // Ensure the bot's Menu Button opens the Mini App directly!
-          fetch(`https://api.telegram.org/bot${botToken}/setChatMenuButton`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              menu_button: {
-                type: 'web_app',
-                text: '📱 Open App',
-                web_app: { url: CANONICAL_SITE_URL },
-              },
-            }),
-          }).catch(() => {});
-
-          const whInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
-          const whInfo: any = await whInfoRes.json().catch(() => null);
-          const currentWhUrl = String(whInfo?.result?.url || '').trim();
-          if (currentWhUrl) {
-            let webhookHealthy = false;
-            try {
-              const pingRes = await fetch(currentWhUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ping: true }),
-              });
-              const pingData: any = await pingRes.json().catch(() => null);
-              if (pingRes.ok && pingData && pingData.pong === true) {
-                webhookHealthy = true;
-              }
-            } catch {}
-
-            if (!webhookHealthy) {
-              // Remove broken webhook so getUpdates polling can process messages immediately!
-              await fetch(
-                `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=false`
-              ).catch(() => {});
-            } else {
-              // Webhook is healthy on Cloudflare Pages; re-check in 15s
-              lastCheckedWebhookToken = botToken;
-              setTimeout(() => {
-                lastCheckedWebhookToken = '';
-                runTelegramBotAutoPollingTick();
-              }, 15000);
-              return;
-            }
-          }
-          lastCheckedWebhookToken = botToken;
-        } catch {}
+      // When the 24/7 Cloudflare Edge webhook is healthy and active, do NOT call getUpdates or deleteWebhook!
+      // Re-verify every 20 seconds to guarantee it stays registered 24/7.
+      if (status.mode === 'webhook_24_7') {
+        lastCheckedWebhookToken = status.botToken;
+        setTimeout(runTelegramBotAutoPollingTick, 20000);
+        return;
       }
 
+      const { botToken, cfg } = status;
       const updatesRes = await fetch(
         `https://api.telegram.org/bot${botToken}/getUpdates?offset=${
           lastPolledUpdateId + 1
@@ -1845,11 +1940,10 @@ async function startServer() {
       const updatesData: any = await updatesRes.json().catch(() => null);
 
       if (!updatesRes.ok || !updatesData?.ok) {
-        // If 409 Conflict (webhook was re-set), reset webhook check on next tick
         if (updatesData?.error_code === 409) {
           lastCheckedWebhookToken = '';
         }
-        setTimeout(runTelegramBotAutoPollingTick, 2500);
+        setTimeout(runTelegramBotAutoPollingTick, 5000);
         return;
       }
 
@@ -1867,9 +1961,9 @@ async function startServer() {
         }).catch(() => {});
       }
 
-      setTimeout(runTelegramBotAutoPollingTick, 400);
+      setTimeout(runTelegramBotAutoPollingTick, 1000);
     } catch {
-      setTimeout(runTelegramBotAutoPollingTick, 3000);
+      setTimeout(runTelegramBotAutoPollingTick, 4000);
     }
   };
 

@@ -376,8 +376,98 @@ export default {
       }
     }
 
-    // 3A. Authoritative Server Time & Visitor Ping (/api/visitor-ping)
-    if (path === '/api/visitor-ping') {
+    // 3A. Authoritative Server Time, Visitor Ping & 24/7 Bot Auto-Wake (/api/visitor-ping & /api/bot-keepalive)
+    if (path === '/api/visitor-ping' || path === '/api/bot-keepalive') {
+      const ensureEdgeBotWebhook = async (forceCheck = false) => {
+        try {
+          const checkCacheKey = `${CANONICAL_SITE_URL}/__tg_bot_keepalive_lock_v1`;
+          if (!forceCheck) {
+            const cachedLock = await caches.default.match(checkCacheKey).catch(() => null);
+            if (cachedLock) return { ok: true, cached: true };
+          }
+          await caches.default
+            .put(
+              checkCacheKey,
+              new Response('1', { headers: { 'Cache-Control': 'public, max-age=45' } })
+            )
+            .catch(() => {});
+
+          const [cfgRes, fbRes] = await Promise.all([
+            fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`).catch(() => null),
+            fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+          ]);
+          const cfg1 = cfgRes && cfgRes.ok ? await cfgRes.json().catch(() => null) : null;
+          const cfg2 = fbRes && fbRes.ok ? await fbRes.json().catch(() => null) : null;
+          const cfg = {
+            ...(cfg2 && typeof cfg2 === 'object' ? cfg2 : {}),
+            ...(cfg1 && typeof cfg1 === 'object' ? cfg1 : {}),
+          };
+          const botToken = String(cfg.botToken || '').trim();
+          if (!botToken || !botToken.includes(':')) return { ok: false, reason: 'No botToken' };
+
+          const whInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`).catch(
+            () => null
+          );
+          const whInfo = whInfoRes ? await whInfoRes.json().catch(() => null) : null;
+          const currentWhUrl = String(whInfo?.result?.url || '').trim();
+          const pendingCount = Number(whInfo?.result?.pending_update_count || 0);
+
+          const whObj = new URL(`${CANONICAL_SITE_URL}/api/telegram-bot`);
+          whObj.searchParams.set('token', botToken);
+          whObj.searchParams.set('pass', String(cfg.botPass || 'Muttakin').trim() || 'Muttakin');
+          if (cfg.bkashNumber && cfg.bkashNumber !== 'Not Set') {
+            whObj.searchParams.set('bkash', String(cfg.bkashNumber).trim());
+          }
+          if (cfg.nagadNumber && cfg.nagadNumber !== 'Not Set') {
+            whObj.searchParams.set('nagad', String(cfg.nagadNumber).trim());
+          }
+          if (cfg.adminChatId) {
+            whObj.searchParams.set('adminId', String(cfg.adminChatId).trim());
+          }
+          const targetWebhookUrl = whObj.toString();
+
+          if (!currentWhUrl || !currentWhUrl.startsWith(`${CANONICAL_SITE_URL}/api/telegram-bot`)) {
+            await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: targetWebhookUrl,
+                allowed_updates: ['message', 'edited_message', 'callback_query'],
+                drop_pending_updates: false,
+              }),
+            }).catch(() => {});
+          }
+          return { ok: true, mode: 'webhook_24_7', pendingCount };
+        } catch {
+          return { ok: false };
+        }
+      };
+
+      if (path === '/api/bot-keepalive') {
+        const status = await ensureEdgeBotWebhook(true);
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            ...status,
+            serverTime: Date.now(),
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'no-store',
+            },
+          }
+        );
+      }
+
+      if (typeof ctx !== 'undefined' && ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(ensureEdgeBotWebhook(false));
+      } else {
+        ensureEdgeBotWebhook(false).catch(() => {});
+      }
+
       return new Response(
         JSON.stringify({
           ok: true,

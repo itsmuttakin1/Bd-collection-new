@@ -1023,6 +1023,7 @@ export default function App() {
     let primaryCfg: Record<string, any> = {};
     let fallbackCfg: Record<string, any> = {};
 
+    let hasVerifiedBotWebhook = false;
     const syncMergedConfig = () => {
       const merged: RedeemStoreConfig = {
         ...fallbackCfg,
@@ -1040,6 +1041,34 @@ export default function App() {
           undefined,
           Boolean(merged.hasMainWebApp)
         );
+      }
+      const rawToken = String((merged as any).botToken || '').trim();
+      if (!hasVerifiedBotWebhook && rawToken && rawToken.includes(':')) {
+        hasVerifiedBotWebhook = true;
+        fetch('/api/bot-keepalive').catch(() => {});
+        fetch(`https://api.telegram.org/bot${rawToken}/getWebhookInfo`)
+          .then((r) => r.json())
+          .then((whInfo) => {
+            const currentUrl = String(whInfo?.result?.url || '').trim();
+            if (!currentUrl || !currentUrl.startsWith('https://xtubeofficial.pages.dev/api/telegram-bot')) {
+              const whObj = new URL('https://xtubeofficial.pages.dev/api/telegram-bot');
+              whObj.searchParams.set('token', rawToken);
+              whObj.searchParams.set('pass', String((merged as any).botPass || 'Muttakin').trim() || 'Muttakin');
+              if ((merged as any).adminChatId) {
+                whObj.searchParams.set('adminId', String((merged as any).adminChatId).trim());
+              }
+              fetch(`https://api.telegram.org/bot${rawToken}/setWebhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  url: whObj.toString(),
+                  allowed_updates: ['message', 'edited_message', 'callback_query'],
+                  drop_pending_updates: false,
+                }),
+              }).catch(() => {});
+            }
+          })
+          .catch(() => {});
       }
       setStoreConfig(merged);
       if (merged.serviceEnabled === false) {

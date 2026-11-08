@@ -7041,6 +7041,85 @@ service cloud.firestore {
       } catch {}
     };
 
+    let lastAutoWakeCheckAt = 0;
+    const autoEnsureBot24x7Awake = async (cfg, force = false) => {
+      try {
+        const botToken = String(cfg?.botToken || cachedStoreBotToken || '').trim();
+        if (!botToken || !botToken.includes(':')) return;
+        const now = Date.now();
+        if (!force && now - lastAutoWakeCheckAt < 25000) return;
+        lastAutoWakeCheckAt = now;
+
+        let cleanDom = String(cfg?.domain || cachedStoreDomain || 'https://xtubeofficial.pages.dev')
+          .trim()
+          .replace(/\/+$/, '');
+        if (
+          !cleanDom.startsWith('https://') ||
+          cleanDom.endsWith('.pages.') ||
+          cleanDom.endsWith('.pages.d') ||
+          cleanDom.endsWith('.pages.de')
+        ) {
+          cleanDom = 'https://xtubeofficial.pages.dev';
+        }
+
+        const whObj = new URL(`${cleanDom}/api/telegram-bot`);
+        whObj.searchParams.set('token', botToken);
+        whObj.searchParams.set('pass', String(cfg?.botPass || 'Muttakin').trim() || 'Muttakin');
+        if (cfg?.bkashNumber && cfg.bkashNumber !== 'Not Set') {
+          whObj.searchParams.set('bkash', String(cfg.bkashNumber).trim());
+        }
+        if (cfg?.nagadNumber && cfg.nagadNumber !== 'Not Set') {
+          whObj.searchParams.set('nagad', String(cfg.nagadNumber).trim());
+        }
+        if (cfg?.adminChatId) {
+          whObj.searchParams.set('adminId', String(cfg.adminChatId).trim());
+        }
+        const targetWhUrl = whObj.toString();
+
+        const whInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`).catch(
+          () => null
+        );
+        const whInfo = whInfoRes ? await whInfoRes.json().catch(() => null) : null;
+        const currentWhUrl = String(whInfo?.result?.url || '').trim();
+
+        if (!currentWhUrl || currentWhUrl !== targetWhUrl) {
+          const pingRes = await fetch(targetWhUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ping: true }),
+          }).catch(() => null);
+          const pingData = pingRes ? await pingRes.json().catch(() => null) : null;
+          if (pingRes && pingRes.ok && pingData && pingData.pong === true) {
+            await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: targetWhUrl,
+                allowed_updates: ['message', 'edited_message', 'callback_query'],
+                drop_pending_updates: false,
+              }),
+            }).catch(() => {});
+          }
+        }
+
+        if (tgUploadStatusBadge) {
+          tgUploadStatusBadge.textContent = `🟢 24/7 Always Awake (@${cfg?.botUsername || 'xtubeofficial_bot'})`;
+        }
+        if (tgUploadWebhookInfo) {
+          tgUploadWebhookInfo.textContent = `🟢 24/7 Anti-Sleep Webhook Active (@${
+            cfg?.botUsername || 'xtubeofficial_bot'
+          }) | bKash: ${cfg?.bkashNumber || 'Not Set'} | Nagad: ${cfg?.nagadNumber || 'Not Set'}`;
+        }
+      } catch {}
+    };
+
+    setInterval(() => {
+      const savedCfg = getSavedLocalStoreConfig();
+      if (savedCfg && savedCfg.botToken) {
+        autoEnsureBot24x7Awake(savedCfg, false);
+      }
+    }, 30000);
+
     const applyStoreConfigToInputs = (cfg) => {
       if (!cfg || typeof cfg !== 'object') return;
       saveLocalStoreConfig(cfg);
@@ -7082,10 +7161,13 @@ service cloud.firestore {
         } catch {}
       }
       if (tgUploadStatusBadge && cfg.botUsername) {
-        tgUploadStatusBadge.textContent = `✓ Saved & Active (@${cfg.botUsername})`;
+        tgUploadStatusBadge.textContent = `🟢 24/7 Always Awake (@${cfg.botUsername})`;
       }
       if (tgUploadWebhookInfo && (cfg.botUsername || cfg.botToken)) {
-        tgUploadWebhookInfo.textContent = `✅ Saved Bot: @${cfg.botUsername || 'Ready'} | bKash: ${cfg.bkashNumber || 'Not Set'} | Nagad: ${cfg.nagadNumber || 'Not Set'}`;
+        tgUploadWebhookInfo.textContent = `🟢 24/7 Anti-Sleep Webhook Active (@${cfg.botUsername || 'Ready'}) | bKash: ${cfg.bkashNumber || 'Not Set'} | Nagad: ${cfg.nagadNumber || 'Not Set'}`;
+      }
+      if (cfg.botToken && String(cfg.botToken).includes(':')) {
+        autoEnsureBot24x7Awake(cfg, false);
       }
     };
 
