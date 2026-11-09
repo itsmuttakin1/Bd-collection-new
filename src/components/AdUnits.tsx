@@ -893,19 +893,20 @@ export function triggerPopunderAd() {
 /**
  * Opens the Smartlink URL (No-op when Redeem Code VIP is active)
  */
-export function triggerSmartlinkAd() {
+export function triggerSmartlinkAd(customUrl?: string) {
   if (isAdFreeVipActive()) return;
+  const targetUrl = customUrl || SMARTLINK_URL;
   try {
     const tgWebApp = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
     if (tgWebApp && tgWebApp.initData && typeof tgWebApp.openLink === 'function') {
       try {
-        tgWebApp.openLink(SMARTLINK_URL, { try_instant_view: false });
+        tgWebApp.openLink(targetUrl, { try_instant_view: false });
         return;
       } catch {}
     }
 
     const link = document.createElement('a');
-    link.href = SMARTLINK_URL;
+    link.href = targetUrl;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     document.body.appendChild(link);
@@ -915,3 +916,13 @@ export function triggerSmartlinkAd() {
     console.error(e);
   }
 }
+
+/**
+ * Triggers Popunder 1 time + opens the current Step Smartlink offer so every step transition generates high-converting ad clicks & popunder revenue.
+ */
+export function openStepSmartlinkWithPopunder(stepSmartlinkUrl?: string) {
+  if (isAdFreeVipActive()) return;
+  triggerPopunderAd();
+  triggerSmartlinkAd(stepSmartlinkUrl || SMARTLINK_URL);
+}
+

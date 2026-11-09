@@ -661,22 +661,34 @@
 
           <!-- 3 Action Grid: 1) Personal Bot Message, 2) Personal VIP Package, 3) Personal WebApp Profile Popup Notice -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- Action 1: Direct Personal Telegram Bot Message -->
+            <!-- Action 1: Direct Personal Telegram Bot Message (with Optional 14 Days / VIP Package Attachment) -->
             <form id="crm-send-tg-msg-form" class="p-4 rounded-2xl border border-sky-700/50 bg-zinc-900/75 space-y-3 flex flex-col justify-between">
               <div class="space-y-2.5">
                 <div class="flex items-center justify-between gap-2">
                   <span class="px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-extrabold">ACTION 1 · TELEGRAM BOT</span>
-                  <span class="text-[10px] font-mono text-sky-300">Direct Chat Message</span>
+                  <span class="text-[10px] font-mono text-sky-300">Direct Chat Message + Optional VIP Package</span>
                 </div>
-                <h4 class="text-xs sm:text-sm font-extrabold text-white">💬 বটে পার্সোনাল মেসেজ পাঠান (Telegram ID-তে)</h4>
-                <textarea id="crm-tg-msg-text" rows="3" placeholder="এই ইউজারকে বটে যা লিখতে চান এখানে লিখুন..."
+                <h4 class="text-xs sm:text-sm font-extrabold text-white">💬 বটে পার্সোনাল মেসেজ ও প্যাকেজ পাঠান (Telegram ID-তে)</h4>
+                <textarea id="crm-tg-msg-text" rows="2" placeholder="এই ইউজারকে বটে যা লিখতে চান এখানে লিখুন..."
                   class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-sky-500"></textarea>
+                <div>
+                  <label class="block text-[10px] font-semibold text-amber-300 mb-1">🎁 মেসেজের সাথে VIP Package / Redeem Code যুক্ত করুন (ঐচ্ছিক):</label>
+                  <select id="crm-tg-msg-pkg-select"
+                    class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-amber-600/50 text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-400">
+                    <option value="">💬 শুধু মেসেজ পাঠান (No VIP Package Attached)</option>
+                    <option value="336|💎 14 Days VIP Ad-Free|14 Days VIP">💎 + Attach 14 Days VIP Package (14 Days Code সহ পাঠান)</option>
+                    <option value="24|🔥 1 Day VIP Ad-Free|1 Day (24h)">🔥 + Attach 1 Day VIP Package (24 Hours Code সহ পাঠান)</option>
+                    <option value="72|💎 3 Days VIP Ad-Free|3 Days VIP">💎 + Attach 3 Days VIP Package (3 Days Code সহ পাঠান)</option>
+                    <option value="168|💎 7 Days VIP Ad-Free|7 Days VIP">💎 + Attach 7 Days VIP Package (7 Days Code সহ পাঠান)</option>
+                    <option value="720|👑 30 Days VIP Ad-Free|30 Days VIP">👑 + Attach 30 Days VIP Package (30 Days Code সহ পাঠান)</option>
+                  </select>
+                </div>
                 <input id="crm-tg-msg-media" type="url" placeholder="Optional: Photo বা Video URL (খালি রাখতে পারেন)"
                   class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-200 focus:outline-none focus:border-sky-500" />
               </div>
               <button id="crm-tg-msg-submit-btn" type="submit"
                 class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-sky-600/25 transition-all">
-                📨 Send Personal Message on Telegram
+                📨 Send Personal Message (with Selected Package)
               </button>
             </form>
 
@@ -696,14 +708,15 @@
                     <option value="0.25|⚡ 15 Minutes VIP Pass|15 Minutes VIP">⚡ 15 Minutes VIP Pass</option>
                     <option value="0.5|⚡ 30 Minutes VIP Pass|30 Minutes VIP">⚡ 30 Minutes VIP Pass</option>
                     <option value="1|🔥 1 Hour VIP Ad-Free|1 Hour VIP">🔥 1 Hour VIP Ad-Free</option>
-                    <option value="24|🔥 1 Day VIP Ad-Free|1 Day (24h)" selected>🔥 1 Day VIP Ad-Free (24 Hours)</option>
+                    <option value="24|🔥 1 Day VIP Ad-Free|1 Day (24h)">🔥 1 Day VIP Ad-Free (24 Hours)</option>
                     <option value="72|💎 3 Days VIP Ad-Free|3 Days VIP">💎 3 Days VIP Ad-Free</option>
                     <option value="168|💎 7 Days VIP Ad-Free|7 Days VIP">💎 7 Days VIP Ad-Free</option>
+                    <option value="336|💎 14 Days VIP Ad-Free|14 Days VIP" selected>💎 14 Days VIP Ad-Free (14 Days)</option>
                     <option value="720|👑 30 Days VIP Ad-Free|30 Days VIP">👑 30 Days VIP Ad-Free</option>
                   </select>
                   <input id="crm-vip-custom-mins" type="number" min="1" placeholder="অথবা কাস্টম মিনিট লিখুন (যেমন: 10, 45, 120)..."
                     class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500" />
-                  <input id="crm-vip-custom-note" type="text" placeholder="Optional মেসেজ (যেমন: আপনার জন্য স্পেশাল গিফট ভিআইপি প্যাস!)"
+                  <input id="crm-vip-custom-note" type="text" placeholder="Optional মেসেজ (যেমন: আপনার জন্য ১৪ দিনের স্পেশাল ভিআইপি প্যাস!)"
                     class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500" />
                 </div>
               </div>
@@ -1049,7 +1062,7 @@
               <!-- Quick Duration Preset Buttons (Minutes, Hours & Days -> Auto-Sets Exact Date & Time Below) -->
               <div class="space-y-2">
                 <label class="block text-[11px] text-zinc-400">১-ক্লিক মেয়াদ সিলেক্ট করুন (মিনিট, ঘণ্টা বা দিন):</label>
-                <div class="grid grid-cols-4 gap-1.5">
+                <div class="grid grid-cols-3 sm:grid-cols-3 gap-1.5">
                   <button type="button" data-redeem-mins="5" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">5 Mins</button>
                   <button type="button" data-redeem-mins="15" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">15 Mins</button>
                   <button type="button" data-redeem-mins="30" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">30 Mins</button>
@@ -1057,6 +1070,7 @@
                   <button type="button" data-redeem-hours="6" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">6 Hours</button>
                   <button type="button" data-redeem-hours="24" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-[11px] font-bold text-amber-300 cursor-pointer">1 Day (24h)</button>
                   <button type="button" data-redeem-hours="168" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">7 Days</button>
+                  <button type="button" data-redeem-hours="336" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-amber-600/60 text-[11px] font-bold text-amber-300 cursor-pointer">💎 14 Days</button>
                   <button type="button" data-redeem-hours="720" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">30 Days</button>
                 </div>
 
@@ -1274,7 +1288,8 @@
                     <option value="6|6 Hours VIP">6 Hours</option>
                     <option value="24|24 Hours (1 Day)">1 Day (24h)</option>
                     <option value="72|3 Days VIP">3 Days (72h)</option>
-                    <option value="168|7 Days VIP" selected>7 Days (168h)</option>
+                    <option value="168|7 Days VIP">7 Days (168h)</option>
+                    <option value="336|14 Days VIP" selected>14 Days (336h)</option>
                     <option value="360|15 Days VIP">15 Days (360h)</option>
                     <option value="720|30 Days VIP">30 Days (720h)</option>
                   </select>
@@ -4376,28 +4391,49 @@ service cloud.firestore {
         return;
       }
 
-      const srcUrl = isFile ? URL.createObjectURL(fileOrUrl) : String(fileOrUrl).trim();
-      if (isFile) currentPreviewObjectUrl = srcUrl;
-
-      if (vidEl) {
-        vidEl.src = srcUrl;
-        vidEl.classList.remove('hidden');
-        if (placeholderEl) placeholderEl.classList.add('hidden');
-        vidEl.onloadedmetadata = () => {
-          const totalDur = Number(vidEl.duration) || 0;
+      if (isFile) {
+        // Lightweight metadata-only duration probe (releases video decoder immediately so mobile phone never hangs during upload!)
+        const tempVid = document.createElement('video');
+        tempVid.preload = 'metadata';
+        tempVid.muted = true;
+        tempVid.playsInline = true;
+        const tempUrl = URL.createObjectURL(fileOrUrl);
+        tempVid.onloadedmetadata = () => {
+          const totalDur = Number(tempVid.duration) || 0;
           if (totalDur > 0 && isFinite(totalDur)) {
             const mins = Math.floor(totalDur / 60);
             const secs = Math.floor(totalDur % 60);
             const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
             if (durInput) durInput.value = formatted;
-            if (isFile && sizeEl) {
-              sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Duration: ${formatted} · Ready to upload ✓`;
+            if (sizeEl) {
+              sizeEl.textContent = `${formatBytes(fileOrUrl.size)} · Duration: ${formatted} · Ready for Fast Upload ✓`;
             }
           }
           try {
-            vidEl.currentTime = totalDur > 3 ? 2.5 : Math.max(0.2, totalDur * 0.3);
+            tempVid.removeAttribute('src');
+            tempVid.load();
+            URL.revokeObjectURL(tempUrl);
           } catch {}
         };
+        tempVid.onerror = () => {
+          try {
+            URL.revokeObjectURL(tempUrl);
+          } catch {}
+        };
+        tempVid.src = tempUrl;
+        if (vidEl) {
+          vidEl.removeAttribute('src');
+          vidEl.classList.add('hidden');
+        }
+        if (placeholderEl) {
+          placeholderEl.classList.remove('hidden');
+          placeholderEl.innerHTML = `<span class="text-emerald-400 font-bold">⚡ ফাস্ট আপলোড মোড রেডি (${formatBytes(fileOrUrl.size)})</span><br/><span class="text-[10px] text-zinc-400">মোবাইল হ্যাং রোধে ব্যাকগ্রাউন্ড ভিডিও ডিকোডার বন্ধ রাখা হয়েছে</span>`;
+        }
+      } else if (vidEl) {
+        const srcUrl = String(fileOrUrl).trim();
+        vidEl.src = srcUrl;
+        vidEl.classList.remove('hidden');
+        if (placeholderEl) placeholderEl.classList.add('hidden');
       }
 
       if (thumbStatus) {
@@ -5426,64 +5462,12 @@ service cloud.firestore {
       };
 
       pollServerStats();
-      setInterval(pollServerStats, 4000);
+      setInterval(pollServerStats, 20000);
     };
 
-    // Automatically purge old broken ImgBB thumbnails from Firebase RTDB (`videos` & `shorts`)
-    // so all old videos show live video frames directly, while new R2 Server thumbnails stay intact
-    let legacyThumbCleanupRan = false;
-    const cleanupLegacyImgbbThumbnailsInFirebase = async () => {
-      if (legacyThumbCleanupRan || !currentUser || currentUser.uid !== ADMIN_UID) return;
-      legacyThumbCleanupRan = true;
-      try {
-        const [vidSnap, shortSnap, noticeSnap] = await Promise.all([
-          get(ref(db, 'videos')),
-          get(ref(db, 'shorts')),
-          get(ref(db, 'notices'))
-        ]);
-        const updates = {};
-        if (vidSnap.exists()) {
-          Object.entries(vidSnap.val() || {}).forEach(([id, v]) => {
-            if (!v || typeof v !== 'object') return;
-            if (!v.url && !v.videoUrl) {
-              updates[`videos/${id}`] = null;
-              return;
-            }
-            const t1 = v.thumbnail || '';
-            const t2 = v.thumbnailUrl || '';
-            if ((t1 && !isR2ServerThumbUrl(t1)) || (t2 && !isR2ServerThumbUrl(t2))) {
-              updates[`videos/${id}/thumbnail`] = '';
-              updates[`videos/${id}/thumbnailUrl`] = '';
-            }
-          });
-        }
-        if (shortSnap.exists()) {
-          Object.entries(shortSnap.val() || {}).forEach(([id, s]) => {
-            if (!s || typeof s !== 'object') return;
-            if (!s.url && !s.videoUrl) {
-              updates[`shorts/${id}`] = null;
-              return;
-            }
-            const t1 = s.thumbnail || '';
-            const t2 = s.thumbnailUrl || '';
-            if ((t1 && !isR2ServerThumbUrl(t1)) || (t2 && !isR2ServerThumbUrl(t2))) {
-              updates[`shorts/${id}/thumbnail`] = '';
-              updates[`shorts/${id}/thumbnailUrl`] = '';
-            }
-          });
-        }
-        if (noticeSnap.exists()) {
-          Object.entries(noticeSnap.val() || {}).forEach(([id, n]) => {
-            if (!n || typeof n !== 'object' || !String(n.text || '').trim()) {
-              updates[`notices/${id}`] = null;
-            }
-          });
-        }
-        if (Object.keys(updates).length > 0) {
-          await update(ref(db), updates);
-        }
-      } catch {}
-    };
+    let activeAdminTabName = 'upload';
+    let cachedVideosList = [];
+    let cachedShortsList = [];
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -5506,7 +5490,6 @@ service cloud.firestore {
         renderServerSelect();
         await loadAdminServersFromFirebase();
         refreshAllServers();
-        cleanupLegacyImgbbThumbnailsInFirebase();
       } else {
         currentUser = null;
         document.getElementById('dashboard-view').classList.add('hidden');
@@ -5514,54 +5497,20 @@ service cloud.firestore {
       }
     });
 
-    // Sync Published Website Videos Table from Firebase RTDB
-    onValue(ref(db, 'videos'), (snapshot) => {
+    // Zero-Bandwidth Lazy Renderer for Published Videos Table (Only renders DOM rows when Videos tab is active, and NEVER auto-downloads 150+ MP4 streams!)
+    const renderPublishedVideosTable = () => {
       const tbody = document.getElementById('catalog-table-body');
-      const countEl = document.getElementById('catalog-count');
-      const totalViewsEl = document.getElementById('stat-total-views');
-      const totalVideosSubEl = document.getElementById('stat-total-videos-sub');
-      tbody.innerHTML = '';
+      if (!tbody) return;
+      if (activeAdminTabName !== 'videos') return;
 
-      const val = snapshot.val();
-      if (!val || typeof val !== 'object') {
-        rawVideosMap = {};
-        countEl.textContent = '0 videos';
-        if (totalViewsEl) totalViewsEl.textContent = '0';
-        if (totalVideosSubEl) totalVideosSubEl.textContent = '0 Videos';
+      tbody.innerHTML = '';
+      if (!cachedVideosList || cachedVideosList.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-zinc-500">No published videos in Firebase yet.</td></tr>';
         return;
       }
 
-      rawVideosMap = val;
-      renderActiveServerFiles();
-      const list = Object.entries(val).map(([id, item]) => ({
-        id,
-        title: item.title || 'Untitled',
-        keywords: item.keywords || item.category || '',
-        thumb: sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || ''),
-        streamUrl: item.url || item.videoUrl || '',
-        views: Number(item.views) || 0,
-        likes: Number(item.likes) || 0,
-        time: Number(item.addedAt || item.createdAt) || 0,
-        isTrending: Boolean(item.isTrending),
-        trendingRank: Number(item.trendingRank) || 9999,
-        trendingPinnedAt: Number(item.trendingPinnedAt) || 0,
-      }));
-      list.sort((a, b) => {
-        if (a.isTrending !== b.isTrending) return a.isTrending ? -1 : 1;
-        if (a.isTrending && b.isTrending && a.trendingRank !== b.trendingRank) {
-          return a.trendingRank - b.trendingRank;
-        }
-        return b.time - a.time;
-      });
-      countEl.textContent = `${list.length} videos`;
-
-      const sumViews = list.reduce((acc, item) => acc + (Number(item.views) || 0), 0);
-      if (totalViewsEl) totalViewsEl.textContent = sumViews.toLocaleString();
-      if (totalVideosSubEl) totalVideosSubEl.textContent = `${list.length} Videos`;
-
       // Render Custom Trending Top Pinned Videos Summary Box
-      const pinnedTrendingList = list.filter((v) => v.isTrending);
+      const pinnedTrendingList = cachedVideosList.filter((v) => v.isTrending);
       const pinnedBadgeEl = document.getElementById('trending-pinned-count-badge');
       const pinnedWrapEl = document.getElementById('trending-pinned-list-wrap');
       if (pinnedBadgeEl) {
@@ -5602,7 +5551,7 @@ service cloud.firestore {
         }
       }
 
-      list.forEach((v) => {
+      cachedVideosList.forEach((v) => {
         const shareLink = window.buildVideoShareLink ? window.buildVideoShareLink(v.id) : `${window.location.origin}/?v=${encodeURIComponent(v.id)}`;
         const tr = document.createElement('tr');
         tr.className = v.isTrending ? 'bg-amber-950/15 hover:bg-amber-950/25' : 'hover:bg-zinc-900/60';
@@ -5611,10 +5560,11 @@ service cloud.firestore {
             <div class="relative w-24 h-13 group">
               ${
                 v.thumb
-                  ? `<img src="${v.thumb}" alt="thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
-                  : v.streamUrl
-                  ? `<video src="${v.streamUrl}#t=2.5" muted playsinline preload="metadata" class="w-24 h-13 object-cover rounded border border-zinc-800 bg-black"></video>`
-                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Video Frame</div>`
+                  ? `<img src="${v.thumb}" loading="lazy" alt="thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
+                  : `<button type="button" data-play-thumb-vid="${v.id}" class="w-24 h-13 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-emerald-400 cursor-pointer transition-colors" title="Click to preview video without background bandwidth drain">
+                      <span>🎬 HD VIDEO</span>
+                      <span class="text-[9px] text-zinc-400 font-normal">▶ Tap Preview</span>
+                    </button>`
               }
               <button data-dl-thumb-img="${v.id}" type="button" title="Download Thumbnail"
                 class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer transition-colors">
@@ -5635,10 +5585,10 @@ service cloud.firestore {
             <div class="flex items-center gap-1.5 mt-1">
               <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
                 class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]"
-                title="Open Index Watch Share Link in New Tab">
+                title="Open Share Link in New Tab">
                 ${shareLink}
               </a>
-              <button data-copy-inline="${v.id}" type="button" title="Copy Index Share Link"
+              <button data-copy-inline="${v.id}" type="button" title="Copy Share Link"
                 class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
                 Copy
               </button>
@@ -5676,7 +5626,7 @@ service cloud.firestore {
                   </select>`
                 : ''
             }
-            <button data-share-vid="${v.id}" type="button" title="Copy Index Share Link"
+            <button data-share-vid="${v.id}" type="button" title="Copy Share Link"
               class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
               🔗 Share Link
             </button>
@@ -5803,6 +5753,7 @@ service cloud.firestore {
 
         tr.querySelector('[data-play-vid]').addEventListener('click', handlePlayPublished);
         tr.querySelector('[data-play-pub]').addEventListener('click', handlePlayPublished);
+        tr.querySelector('[data-play-thumb-vid]')?.addEventListener('click', handlePlayPublished);
 
         tr.querySelector('[data-edit-vid]').addEventListener('click', () => {
           openEditVideoModal(v.id);
@@ -5818,6 +5769,59 @@ service cloud.firestore {
         });
         tbody.appendChild(tr);
       });
+    };
+
+    // Sync Published Website Videos from Firebase RTDB (Lightweight stats + lazy table render)
+    onValue(ref(db, 'videos'), (snapshot) => {
+      const countEl = document.getElementById('catalog-count');
+      const totalViewsEl = document.getElementById('stat-total-views');
+      const totalVideosSubEl = document.getElementById('stat-total-videos-sub');
+      const tabBadgeVideosEl = document.getElementById('tab-badge-videos');
+
+      const val = snapshot.val();
+      if (!val || typeof val !== 'object') {
+        rawVideosMap = {};
+        cachedVideosList = [];
+        if (countEl) countEl.textContent = '0 videos';
+        if (tabBadgeVideosEl) tabBadgeVideosEl.textContent = '0';
+        if (totalViewsEl) totalViewsEl.textContent = '0';
+        if (totalVideosSubEl) totalVideosSubEl.textContent = '0 Videos';
+        renderPublishedVideosTable();
+        return;
+      }
+
+      rawVideosMap = val;
+      renderActiveServerFiles();
+      const list = Object.entries(val).map(([id, item]) => ({
+        id,
+        title: item.title || 'Untitled',
+        keywords: item.keywords || item.category || '',
+        thumb: sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || ''),
+        streamUrl: item.url || item.videoUrl || '',
+        views: Number(item.views) || 0,
+        likes: Number(item.likes) || 0,
+        time: Number(item.addedAt || item.createdAt) || 0,
+        isTrending: Boolean(item.isTrending),
+        trendingRank: Number(item.trendingRank) || 9999,
+        trendingPinnedAt: Number(item.trendingPinnedAt) || 0,
+      }));
+      list.sort((a, b) => {
+        if (a.isTrending !== b.isTrending) return a.isTrending ? -1 : 1;
+        if (a.isTrending && b.isTrending && a.trendingRank !== b.trendingRank) {
+          return a.trendingRank - b.trendingRank;
+        }
+        return b.time - a.time;
+      });
+      if (countEl) countEl.textContent = `${list.length} videos`;
+      if (tabBadgeVideosEl) tabBadgeVideosEl.textContent = String(list.length);
+
+      const sumViews = list.reduce((acc, item) => acc + (Number(item.views) || 0), 0);
+      if (totalViewsEl) totalViewsEl.textContent = sumViews.toLocaleString();
+      if (totalVideosSubEl) totalVideosSubEl.textContent = `${list.length} Videos`;
+
+      cachedVideosList = list;
+      renderPublishedVideosTable();
+
       if (typeof refreshNoticeTargetDropdown === 'function') {
         refreshNoticeTargetDropdown();
       }
@@ -6023,37 +6027,20 @@ service cloud.firestore {
       }
     })();
 
-    // Listen to Published Shorts in Firebase RTDB (`shorts`)
-    onValue(ref(db, 'shorts'), (snapshot) => {
+    // Zero-Bandwidth Lazy Renderer for Published Shorts Table
+    const renderPublishedShortsTable = () => {
       const tbody = document.getElementById('shorts-table-body');
-      const countEl = document.getElementById('shorts-catalog-count');
-      if (!tbody || !countEl) return;
+      if (!tbody) return;
+      if (activeAdminTabName !== 'shorts') return;
 
       tbody.innerHTML = '';
-      const val = snapshot.val();
-      if (!val || typeof val !== 'object') {
-        rawShortsMap = {};
-        countEl.textContent = '0 shorts';
+      if (!cachedShortsList || cachedShortsList.length === 0) {
         tbody.innerHTML =
           '<tr><td colspan="5" class="py-5 text-center text-zinc-500">No Shorts uploaded yet. Upload your first Short above!</td></tr>';
         return;
       }
 
-      rawShortsMap = val;
-      const list = Object.entries(val).map(([id, item]) => ({
-        id,
-        title: item.title || 'Viral Short 🔥',
-        hashtags: item.hashtags || '#Shorts #BdViral #18Plus',
-        thumb: sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || ''),
-        streamUrl: item.url || item.videoUrl || '',
-        views: Number(item.views) || 0,
-        likes: Number(item.likes) || 0,
-        time: Number(item.addedAt || item.createdAt) || 0
-      }));
-      list.sort((a, b) => b.time - a.time);
-      countEl.textContent = `${list.length} shorts`;
-
-      list.forEach((s) => {
+      cachedShortsList.forEach((s) => {
         const shareLink = window.buildShortShareLink(s.id);
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-zinc-900/60';
@@ -6062,10 +6049,11 @@ service cloud.firestore {
             <div class="relative w-24 h-13 group">
               ${
                 s.thumb
-                  ? `<img src="${s.thumb}" alt="short thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
-                  : s.streamUrl
-                  ? `<video src="${s.streamUrl}#t=2.5" muted playsinline preload="metadata" class="w-24 h-13 object-cover rounded border border-zinc-800 bg-black"></video>`
-                  : `<div class="w-24 h-13 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">Short Frame</div>`
+                  ? `<img src="${s.thumb}" loading="lazy" alt="short thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
+                  : `<button type="button" data-play-thumb-short="${s.id}" class="w-24 h-13 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-red-400 cursor-pointer transition-colors" title="Click to preview Short without background bandwidth drain">
+                      <span>📱 SHORT</span>
+                      <span class="text-[9px] text-zinc-400 font-normal">▶ Tap Preview</span>
+                    </button>`
               }
               <button data-dl-short-thumb-img="${s.id}" type="button" title="Download Short Thumbnail"
                 class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer">
@@ -6169,6 +6157,7 @@ service cloud.firestore {
 
         tr.querySelector('[data-play-short]').addEventListener('click', handlePlayShort);
         tr.querySelector('[data-play-short-btn]').addEventListener('click', handlePlayShort);
+        tr.querySelector('[data-play-thumb-short]')?.addEventListener('click', handlePlayShort);
 
         tr.querySelector('[data-rm-short]').addEventListener('click', async () => {
           try {
@@ -6181,7 +6170,42 @@ service cloud.firestore {
 
         tbody.appendChild(tr);
       });
-      refreshNoticeTargetDropdown();
+    };
+
+    // Listen to Published Shorts in Firebase RTDB (`shorts`) - Lightweight stats + lazy table render
+    onValue(ref(db, 'shorts'), (snapshot) => {
+      const countEl = document.getElementById('shorts-catalog-count');
+      const tabBadgeShortsEl = document.getElementById('tab-badge-shorts');
+      const val = snapshot.val();
+      if (!val || typeof val !== 'object') {
+        rawShortsMap = {};
+        cachedShortsList = [];
+        if (countEl) countEl.textContent = '0 shorts';
+        if (tabBadgeShortsEl) tabBadgeShortsEl.textContent = '0';
+        renderPublishedShortsTable();
+        return;
+      }
+
+      rawShortsMap = val;
+      const list = Object.entries(val).map(([id, item]) => ({
+        id,
+        title: item.title || 'Viral Short 🔥',
+        hashtags: item.hashtags || '#Shorts #BdViral #18Plus',
+        thumb: sanitizeAdminThumbUrl(item.thumbnail || item.thumbnailUrl || ''),
+        streamUrl: item.url || item.videoUrl || '',
+        views: Number(item.views) || 0,
+        likes: Number(item.likes) || 0,
+        time: Number(item.addedAt || item.createdAt) || 0,
+      }));
+      list.sort((a, b) => b.time - a.time);
+      if (countEl) countEl.textContent = `${list.length} shorts`;
+      if (tabBadgeShortsEl) tabBadgeShortsEl.textContent = String(list.length);
+
+      cachedShortsList = list;
+      renderPublishedShortsTable();
+      if (typeof refreshNoticeTargetDropdown === 'function') {
+        refreshNoticeTargetDropdown();
+      }
     });
 
     // ============================================================================
@@ -6484,6 +6508,7 @@ service cloud.firestore {
     const adminPanels = document.querySelectorAll('[data-admin-panel]');
 
     const switchAdminTab = (targetTab) => {
+      activeAdminTabName = targetTab || 'upload';
       adminTabBtns.forEach((btn) => {
         const tabName = btn.getAttribute('data-admin-tab');
         if (tabName === targetTab) {
@@ -6506,6 +6531,12 @@ service cloud.firestore {
           panel.classList.add('hidden');
         }
       });
+
+      if (targetTab === 'videos') {
+        renderPublishedVideosTable();
+      } else if (targetTab === 'shorts') {
+        renderPublishedShortsTable();
+      }
     };
 
     adminTabBtns.forEach((btn) => {
@@ -6548,23 +6579,6 @@ service cloud.firestore {
           btn.textContent = orig;
         }, 2500);
       });
-    });
-
-    // Keep top tab badges synced with Videos, Shorts, and Notices counts
-    onValue(ref(db, 'videos'), (snap) => {
-      const badge = document.getElementById('tab-badge-videos');
-      if (!badge) return;
-      const val = snap.val();
-      const count = val && typeof val === 'object' ? Object.keys(val).length : 0;
-      badge.textContent = String(count);
-    });
-
-    onValue(ref(db, 'shorts'), (snap) => {
-      const badge = document.getElementById('tab-badge-shorts');
-      if (!badge) return;
-      const val = snap.val();
-      const count = val && typeof val === 'object' ? Object.keys(val).length : 0;
-      badge.textContent = String(count);
     });
 
     onValue(ref(db, 'notices'), (snap) => {
@@ -6983,6 +6997,7 @@ service cloud.firestore {
     const DEFAULT_REDEEM_PACKAGES = [
       { id: 'pkg_1d', name: '🔥 1 Day VIP Ad-Free', price: '৳20', durationHours: 24, durationLabel: '24 Hours (1 Day)' },
       { id: 'pkg_7d', name: '💎 7 Days VIP Ad-Free', price: '৳50', durationHours: 168, durationLabel: '7 Days VIP' },
+      { id: 'pkg_14d', name: '💎 14 Days VIP Ad-Free', price: '৳90', durationHours: 336, durationLabel: '14 Days VIP' },
       { id: 'pkg_30d', name: '👑 30 Days VIP Ad-Free', price: '৳150', durationHours: 720, durationLabel: '30 Days VIP' },
     ];
 
@@ -7005,7 +7020,7 @@ service cloud.firestore {
             })
           );
           await set(ref(db, 'telegramBotSessions/_storeConfig/botAuthToken'), 'xtube_tg_bot_2026').catch(() => {});
-          showStatus('✅ ৩টি ডিফল্ট VIP Ad-Free প্যাকেজ যুক্ত হয়েছে! এখন বটে /start দিলেই শো করবে।', 'success');
+          showStatus('✅ ৪টি ডিফল্ট VIP Ad-Free প্যাকেজ (১ দিন, ৭ দিন, ১৪ দিন ও ৩০ দিন) যুক্ত হয়েছে! এখন বটে /start দিলেই শো করবে।', 'success');
         } catch (err) {
           showStatus(`Package Error: ${err.message}`, 'error');
         }
@@ -8398,7 +8413,7 @@ service cloud.firestore {
       });
     }
 
-    // Handler 1: Send Personal Telegram Bot Message to this User
+    // Handler 1: Send Personal Telegram Bot Message (with Optional 14 Days / Selected VIP Package Code!) to this User
     const crmSendTgMsgForm = document.getElementById('crm-send-tg-msg-form');
     if (crmSendTgMsgForm) {
       crmSendTgMsgForm.addEventListener('submit', async (e) => {
@@ -8408,7 +8423,7 @@ service cloud.firestore {
         const targetChatId = userObj?.tgId || (/^\d{5,20}$/.test(activeCrmUserKey) ? activeCrmUserKey : '');
         if (!targetChatId) {
           showStatus(
-            'এই ইউজার একজন ওয়েবসাইট ভিজিটর (Telegram ID নেই)। তাকে নিচের Action 3 দিয়ে সরাসরি ওয়েবসাইট পপ-আপ নোটিশ পাঠান!',
+            'এই ইউজার একজন ওয়েবসাইট ভিজিটর (Telegram ID নেই)। তাকে নিচের Action 2 বা Action 3 দিয়ে সরাসরি ওয়েবসাইট পপ-আপ নোটিশ ও প্যাকেজ পাঠান!',
             'error'
           );
           return;
@@ -8418,10 +8433,12 @@ service cloud.firestore {
           showStatus('প্রথমে Bot Token সেভ করুন!', 'error');
           return;
         }
-        const text = (document.getElementById('crm-tg-msg-text')?.value || '').trim();
+        const rawText = (document.getElementById('crm-tg-msg-text')?.value || '').trim();
         const mediaUrl = (document.getElementById('crm-tg-msg-media')?.value || '').trim();
-        if (!text && !mediaUrl) {
-          showStatus('মেসেজ বা মিডিয়া লিংক লিখুন!', 'error');
+        const attachedPkgVal = (document.getElementById('crm-tg-msg-pkg-select')?.value || '').trim();
+
+        if (!rawText && !mediaUrl && !attachedPkgVal) {
+          showStatus('মেসেজ লিখুন অথবা একটি VIP প্যাকেজ সিলেক্ট করুন!', 'error');
           return;
         }
         const submitBtn = document.getElementById('crm-tg-msg-submit-btn');
@@ -8429,13 +8446,77 @@ service cloud.firestore {
         if (submitBtn) submitBtn.textContent = '⏳ Sending to User on Telegram...';
 
         try {
+          let finalMessageText = rawText;
+
+          // If Admin selected a VIP Package (e.g., 14 Days VIP Package) inside Personal Message:
+          if (attachedPkgVal) {
+            const [rawHours, pkgName, pkgLabel] = attachedPkgVal.split('|');
+            const durationHours = Number(rawHours) || 336;
+            const durationLabel = pkgLabel || `${durationHours} Hours`;
+            const packageName = pkgName || '💎 14 Days VIP Ad-Free';
+            const now = Date.now();
+            const newCode = generateRandomVipCode();
+            const expiresAt = now + Math.round(durationHours * 3600 * 1000);
+
+            const codePayload = {
+              code: newCode,
+              packageName,
+              durationHours,
+              durationLabel,
+              createdAt: now,
+              expiresAt,
+              active: true,
+              note: `Sent in Personal Message to ${userObj?.fullName || targetChatId}`,
+              createdByUid: currentUser?.uid || ADMIN_UID,
+              botAuthToken: 'xtube_tg_bot_2026',
+            };
+
+            const noticeObj = {
+              id: `notice_${now}`,
+              title: `🎁 ${packageName} (${durationLabel}) গিফট প্যাস!`,
+              message:
+                rawText ||
+                `অ্যাডমিন আপনাকে "${packageName}" (${durationLabel}) উপহার পাঠিয়েছেন! নিচের বাটনে ১-ক্লিক করে এখনই অ্যাড-ফ্রি ভিআইপি চালু করুন।`,
+              giftCode: newCode,
+              packageName,
+              durationLabel,
+              active: true,
+              createdAt: now,
+              seenAt: null,
+            };
+
+            await Promise.all([
+              set(ref(db, `redeemCodes/${newCode}`), codePayload).catch(() => {}),
+              set(ref(db, `telegramBotSessions/_codes/${newCode}`), codePayload),
+              update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+                personalNotice: noticeObj,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }).catch(() => {}),
+            ]);
+
+            finalMessageText = [
+              rawText ? `${rawText}\n` : `🎁 <b>অভিনন্দন! অ্যাডমিন আপনাকে স্পেশাল VIP Package পাঠিয়েছেন!</b>\n`,
+              `📦 <b>প্যাকেজ:</b> ${escSafeHtml(packageName)} (${escSafeHtml(durationLabel)})`,
+              `🔑 <b>আপনার Redeem Code:</b> <code>${newCode}</code>`,
+              `⏳ <b>মেয়াদ শেষ হবে:</b> ${new Date(expiresAt).toLocaleString()}`,
+              ``,
+              `👉 নিচের বাটনে ক্লিক করে অ্যাপ ওপেন করলেই আপনার প্রোফাইলে অটো পপ-আপ আসবে, সেখান থেকে ১-ক্লিকে VIP চালু করতে পারবেন!`,
+            ]
+              .filter(Boolean)
+              .join('\n');
+
+            if (crmPopupCodeInput) crmPopupCodeInput.value = newCode;
+            if (crmPopupMsgInput) crmPopupMsgInput.value = noticeObj.message;
+            window.refreshActiveCrmModalData();
+          }
+
           let endpoint = 'sendMessage';
           const payload = {
             chat_id: targetChatId,
             parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📱 Open X Tube Mini App', url: 'https://t.me/xtubeofficial_bot' }],
+                [{ text: '📱 Open X Tube Mini App & Activate VIP', url: 'https://t.me/xtubeofficial_bot' }],
               ],
             },
           };
@@ -8447,9 +8528,9 @@ service cloud.firestore {
               endpoint = 'sendPhoto';
               payload.photo = mediaUrl;
             }
-            if (text) payload.caption = text;
+            if (finalMessageText) payload.caption = finalMessageText;
           } else {
-            payload.text = text;
+            payload.text = finalMessageText;
           }
 
           const res = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
@@ -8463,7 +8544,12 @@ service cloud.firestore {
           }
           document.getElementById('crm-tg-msg-text').value = '';
           document.getElementById('crm-tg-msg-media').value = '';
-          showStatus(`✅ পার্সোনাল মেসেজ সফলভাবে ${userObj?.fullName || targetChatId}-এর Telegram-এ পাঠানো হয়েছে!`, 'success');
+          const pkgSelEl = document.getElementById('crm-tg-msg-pkg-select');
+          if (pkgSelEl) pkgSelEl.value = '';
+          showStatus(
+            `✅ পার্সোনাল মেসেজ ${attachedPkgVal ? '(VIP Package Code সহ) ' : ''}সফলভাবে ${userObj?.fullName || targetChatId}-এর Telegram-এ পাঠানো হয়েছে!`,
+            'success'
+          );
         } catch (err) {
           showStatus(`Telegram Send Error: ${err.message}`, 'error');
         } finally {

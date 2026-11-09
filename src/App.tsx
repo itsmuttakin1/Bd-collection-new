@@ -33,6 +33,8 @@ import {
   AntiAdBlockGuard,
   useAdFreeVip,
   formatVipCountdown,
+  triggerPopunderAd,
+  openStepSmartlinkWithPopunder,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 import { VideoCard, ShortShelfPreview } from './components/VideoCard';
@@ -767,13 +769,14 @@ export default function App() {
     } catch {}
   }, [isDarkMode]);
 
-  // 3-Step Smartlink Verification State (Step 1 -> Step 2 -> Step 3, 20s each + Mini WebView)
+  // 3-Step Smartlink Verification State (Step 1 -> Step 2 -> Step 3, 20s each + Mini WebView + 1x Popunder on Next)
   const STEP_DURATION_SECONDS = 20;
   const [stepGateVideo, setStepGateVideo] = useState<VideoItem | null>(null);
   const [stepGatePendingId, setStepGatePendingId] = useState<string | null>(initialUrlVidId);
   const stepGatePendingIdRef = useRef<string | null>(initialUrlVidId);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [stepTimer, setStepTimer] = useState<number>(STEP_DURATION_SECONDS);
+  const [stepAdClicked, setStepAdClicked] = useState<boolean>(false);
   const [webviewReloadKey, setWebviewReloadKey] = useState<number>(0);
   const [unlockedVideos, setUnlockedVideos] = useState<Record<string, boolean>>({});
 
@@ -985,18 +988,29 @@ export default function App() {
     }
   }, [isAdFree, stepGateVideo, stepGatePendingId, videos, shorts]);
 
-  // 20-Second Countdown Timer for Step 1, Step 2, Step 3
+  // 20-Second Countdown Timer for Step 1, Step 2, Step 3 + Auto-detect when user clicks inside the Mini WebView Ad Iframe
   useEffect(() => {
     const isStepModalOpen = Boolean(stepGateVideo || stepGatePendingId) && !isAdFree;
     if (!isStepModalOpen) return;
 
-    if (stepTimer <= 0) return;
+    const handleWindowBlur = () => {
+      // When the user taps/clicks inside the Smartlink iframe or a popup opens, window blurs
+      setStepAdClicked(true);
+    };
+    window.addEventListener('blur', handleWindowBlur);
+
+    if (stepTimer <= 0) {
+      return () => window.removeEventListener('blur', handleWindowBlur);
+    }
 
     const timerId = window.setInterval(() => {
       setStepTimer((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
-    return () => window.clearInterval(timerId);
+    return () => {
+      window.clearInterval(timerId);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
   }, [stepGateVideo, stepGatePendingId, currentStep, stepTimer, isAdFree]);
 
   useEffect(() => {
@@ -2464,21 +2478,43 @@ export default function App() {
     setStepGateVideo(video);
     setCurrentStep(1);
     setStepTimer(STEP_DURATION_SECONDS);
+    setStepAdClicked(false);
     setWebviewReloadKey((k) => k + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Triggered when user clicks the interactive "👆 অ্যাডে ১ বার ক্লিক করে ভেরিফাই করুন" CTA bar
+  const handleVerifyStepAdClick = () => {
+    const activeUrl = STEP_SMARTLINKS[currentStep - 1] || STEP_SMARTLINKS[0];
+    openStepSmartlinkWithPopunder(activeUrl);
+    setStepAdClicked(true);
+    setStepTimer((prev) => (prev > 4 ? Math.max(0, prev - 5) : prev));
+  };
+
+  // Triggered when user clicks the top Next button (Step 1 -> Step 2 -> Step 3 -> Play Video):
+  // Runs Popunder 1 time + ensures Smartlink ad click is triggered, then opens the next step's Smartlink in Mini WebView!
   const handleCompleteCurrentStep = () => {
     if (stepTimer > 0) return;
+    const activeUrl = STEP_SMARTLINKS[currentStep - 1] || STEP_SMARTLINKS[0];
+
+    // Always run Popunder 1 time on Next button click (and open Smartlink if user didn't click the ad yet)
+    if (!stepAdClicked) {
+      openStepSmartlinkWithPopunder(activeUrl);
+    } else {
+      triggerPopunderAd();
+    }
+
     if (currentStep === 1) {
       setCurrentStep(2);
       setStepTimer(STEP_DURATION_SECONDS);
+      setStepAdClicked(false);
       setWebviewReloadKey((k) => k + 1);
       return;
     }
     if (currentStep === 2) {
       setCurrentStep(3);
       setStepTimer(STEP_DURATION_SECONDS);
+      setStepAdClicked(false);
       setWebviewReloadKey((k) => k + 1);
       return;
     }
@@ -2491,6 +2527,7 @@ export default function App() {
     stepGatePendingIdRef.current = null;
     setStepGatePendingId(null);
     setStepGateVideo(null);
+    setStepAdClicked(false);
 
     if (target) {
       setUnlockedVideos((prev) => ({ ...prev, [target.id]: true }));
@@ -2868,16 +2905,16 @@ export default function App() {
       {/* Anti-AdBlocker & Anti-AdGuard DNS Full-Screen Lock Wall */}
       <AntiAdBlockGuard onBlockStateChange={setAdBlockActive} />
 
-      {/* Social Bar Ad activates only on Shorts page */}
-      <SocialBarLoader active={viewMode === 'shorts' && !isStepGateActive} />
+      {/* Social Bar Ad activates across Public Home, Watch, Shorts & Step Gate (automatically disabled if VIP Ad-Free is active) */}
+      <SocialBarLoader active={!isAdFree} />
 
       {/* ============================================================================
-          3-STEP SMARTLINK VERIFICATION + 20S TIMER + MINI WEBVIEW SCREEN
+          3-STEP SMARTLINK VERIFICATION + 20S TIMER + POPUNDER + MINI WEBVIEW SCREEN
           ============================================================================ */}
       {isStepGateActive && (
         <div className="fixed inset-0 z-50 bg-[#0b0e14] text-zinc-100 flex flex-col w-full h-full overflow-hidden">
           {/* Top Verification Header with 20s Countdown & Locked/Unlocked Next Step Button */}
-          <div className="bg-[#131822] border-b border-slate-800 px-3 sm:px-5 py-2.5 sm:py-3 shrink-0 space-y-2.5 shadow-xl">
+          <div className="bg-[#131822] border-b border-slate-800 px-3 sm:px-5 py-2 sm:py-2.5 shrink-0 space-y-2 shadow-xl">
             {/* Row 1: Back Button + Target Video Title + Step 1 / 2 / 3 Indicators */}
             <div className="flex items-center justify-between gap-2">
               <button
@@ -2930,7 +2967,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Row 2: 20s Countdown Timer on Left + Locked/Unlocked Next Step CTA on Right */}
+            {/* Row 2: 20s Countdown Timer on Left + Locked/Unlocked Next Step CTA on Right (Fires Popunder 1x on Click) */}
             <div className="flex items-center justify-between gap-2.5 bg-[#0b0e14] border border-slate-800/90 rounded-xl px-3 py-2">
               <div className="flex items-center gap-2 min-w-0">
                 <div
@@ -2948,9 +2985,9 @@ export default function App() {
                       ? ui.stepRunning(currentStep, stepTimer)
                       : ui.stepCompleted(currentStep)}
                   </p>
-                  <p className="text-[11px] text-slate-400 truncate">
+                  <p className="text-[11px] text-amber-300 font-medium truncate">
                     {stepTimer > 0
-                      ? ui.wait20SecDesc
+                      ? '👇 নিচের বিজ্ঞাপনে ১ বার ক্লিক করলে দ্রুত আনলক হবে!'
                       : currentStep < 3
                       ? ui.clickNextStepDesc(currentStep + 1)
                       : ui.clickPlayVideoDesc}
@@ -2965,7 +3002,7 @@ export default function App() {
                 className={`px-3.5 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shrink-0 transition-all ${
                   stepTimer > 0
                     ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed opacity-80'
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 cursor-pointer active:scale-95'
+                    : 'bg-gradient-to-r from-emerald-500 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 shadow-lg shadow-emerald-500/30 cursor-pointer active:scale-95 animate-pulse'
                 }`}
               >
                 {stepTimer > 0 ? (
@@ -3000,9 +3037,35 @@ export default function App() {
                 style={{ width: `${stepProgressPercent}%` }}
               />
             </div>
+
+            {/* High-CTR Interactive Ad Click Verification Bar + 320x50 Banner */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={handleVerifyStepAdClick}
+                className={`w-full sm:w-auto flex-1 py-2 px-3 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                  stepAdClicked
+                    ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
+                    : 'bg-gradient-to-r from-red-600 via-amber-500 to-red-600 border-amber-300 text-white shadow-lg shadow-red-600/30 animate-pulse'
+                }`}
+              >
+                {stepAdClicked ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>✓ Ad Click Verified! (বিজ্ঞাপন ভেরিফাই সম্পন্ন হয়েছে)</span>
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    <span>👆 এখানে বা নিচের অ্যাডে ১ বার ক্লিক করে ভেরিফাই সম্পন্ন করুন (-5s Fast Unlock)</span>
+                  </>
+                )}
+              </button>
+              <Banner320x50Ad className="my-0 shrink-0" />
+            </div>
           </div>
 
-          {/* Mini WebView Iframe Screen Running Smartlink 1, 2, or 3 (URL Bar Removed) */}
+          {/* Mini WebView Iframe Screen Running Smartlink 1, 2, or 3 */}
           <div className="flex-1 w-full relative bg-white overflow-hidden">
             <iframe
               key={`step-webview-${currentStep}-${webviewReloadKey}`}
@@ -4050,16 +4113,22 @@ export default function App() {
                   )}
 
                   {filteredVideos.length > 4 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                      {filteredVideos.slice(4).map((video) => (
-                        <VideoCard
-                          key={video.id}
-                          video={video}
-                          onCardClick={handleVideoCardClick}
-                          t={t}
-                        />
-                      ))}
-                    </div>
+                    <>
+                      <div className="py-1 space-y-2">
+                        <Banner320x50Ad className="my-0" />
+                        <NativeBannerAd className="my-0" />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                        {filteredVideos.slice(4).map((video) => (
+                          <VideoCard
+                            key={video.id}
+                            video={video}
+                            onCardClick={handleVideoCardClick}
+                            t={t}
+                          />
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
