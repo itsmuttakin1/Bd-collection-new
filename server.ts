@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 
 import { spawn } from 'child_process';
 import { Readable } from 'stream';
+import { GoogleGenAI } from '@google/genai';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -478,6 +479,240 @@ async function startServer() {
   const firebaseRtdbBase =
     'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+  // Cached trending videos for Riya Aktar's video recommendations (refreshes every 60s)
+  let cachedRiyaVideos: Array<{ id: string; title: string }> = [];
+  let cachedRiyaVideosAt = 0;
+
+  const getCachedTrendingVideosForRiya = async (): Promise<Array<{ id: string; title: string }>> => {
+    const now = Date.now();
+    if (cachedRiyaVideos.length > 0 && now - cachedRiyaVideosAt < 60000) {
+      return cachedRiyaVideos;
+    }
+    try {
+      const res = await fetch(`${firebaseRtdbBase}/videos.json`);
+      if (res.ok) {
+        const raw: any = await res.json().catch(() => null);
+        if (raw && typeof raw === 'object') {
+          const list = Object.entries(raw)
+            .filter(([, v]: [string, any]) => v && typeof v === 'object' && v.title)
+            .sort(
+              (a: [string, any], b: [string, any]) =>
+                (Number(b[1]?.trendingRank) ? 100000000 - Number(b[1].trendingRank) : 0) +
+                (Number(b[1]?.views) || 0) -
+                ((Number(a[1]?.trendingRank) ? 100000000 - Number(a[1].trendingRank) : 0) +
+                  (Number(a[1]?.views) || 0))
+            )
+            .slice(0, 6)
+            .map(([id, v]: [string, any]) => ({
+              id,
+              title: String(v.title || 'Exclusive Viral Video 🔥').trim(),
+            }));
+          if (list.length > 0) {
+            cachedRiyaVideos = list;
+            cachedRiyaVideosAt = now;
+            return list;
+          }
+        }
+      }
+    } catch {}
+    return cachedRiyaVideos;
+  };
+
+  // Riya Aktar (রিয়া আক্তার) — Romantic Human Persona & Live Package / Video Assistant powered by Gemini
+  const generateRiyaBotReply = async (params: {
+    userMessage: string;
+    userName: string;
+    userLang: 'bn' | 'en';
+    storeData: {
+      serviceEnabled: boolean;
+      packages: Array<{
+        id: string;
+        name: string;
+        price: string;
+        durationHours: number;
+        durationLabel: string;
+      }>;
+      bkashNumber: string;
+      nagadNumber: string;
+      geminiApiKey?: string;
+      customRiyaPrompt?: string;
+    };
+    chatHistory?: Array<{ role: 'user' | 'model'; text: string }>;
+  }): Promise<{
+    replyText: string;
+    isAskingAboutPackages: boolean;
+    featuredVideo: { id: string; title: string } | null;
+  }> => {
+    const msgText = String(params.userMessage || '').trim();
+    const lower = msgText.toLowerCase();
+    const userName = String(params.userName || 'জানু').trim() || 'জানু';
+    const { storeData } = params;
+    const trendingVideos = await getCachedTrendingVideosForRiya();
+    const featuredVideo =
+      trendingVideos.length > 0
+        ? trendingVideos[Math.floor(Math.random() * trendingVideos.length)]
+        : null;
+
+    // Detect specific intent categories
+    const isAskingDeveloper =
+      /developer|devloper|delveloper|ডেভেলপার|ডেবলপার|কে বানিয়েছে|কে বানাইছে|কে তৈরি করেছে|ke banai|ke banano|ke tomake baniyeche|who made you|who created you|who is your developer|your creator|malik ke|মালিক কে/i.test(
+        lower
+      );
+    const isAskingName =
+      /tumar nam|tomar nam|tor nam|nam ki|name ki|তোমার নাম|তোর নাম|নাম কি|নাম কী|what is your name|whats your name|who are you|tumi ke|তুমি কে/i.test(
+        lower
+      );
+    const isAskingHome =
+      /basa kothay|basha kothay|basa koi|basha koi|bari kothay|bari koi|kothay thako|koi thako|বাসা কোথায়|বাসা কই|বাড়ি কোথায়|বাড়ি কই|কোথায় থাকো|কই থাকো|where do you live|your address|tomar basa|তোমার বাসা/i.test(
+        lower
+      );
+    const isAskingAboutPackages =
+      /package|packeg|pacage|pakeg|vip|redeem|redem|reedem|code|ad-?free|ads|add|price|dam|koto|buy|kinbo|kinte|প্যাকেজ|পেকেজ|ভিআইপি|রিডিম|কোড|অ্যাড|বিজ্ঞাপন|দাম|কত টাকা|কিনব|কিনতে/i.test(
+        lower
+      );
+
+    // Build smart fallback reply that strictly follows every Riya Aktar rule
+    const buildSmartHumanFallback = (): string => {
+      if (isAskingDeveloper) {
+        return `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, এসব বাদ দিয়ে নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+      }
+      if (isAskingName) {
+        return `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+      }
+      if (isAskingHome) {
+        return `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা, মনটা একদম ভালো হয়ে যাবে 😘❤️`;
+      }
+      if (isAskingAboutPackages) {
+        if (!storeData.serviceEnabled || !storeData.packages || storeData.packages.length === 0) {
+          return `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে একদম মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের ভেতর সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+        }
+        const pkgLines = storeData.packages
+          .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
+          .join('\n');
+        return (
+          `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
+          `${pkgLines}\n\n` +
+          `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু, আর কোনো অ্যাড ছাড়াই সব ভিডিও দেখতে পারবে! 😘🔥`
+        );
+      }
+
+      const vidHint = featuredVideo
+        ? `আমাদের নতুন "${featuredVideo.title}" ভিডিওটা দেখেছো জানু? না দেখলে নিচের বাটনে ট্যাপ করে এক্ষুনি দেখে নাও সোনা!`
+        : `নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ও ভাইরাল ভিডিওগুলো দেখে আসো না সোনা!`;
+
+      const romanticTemplates = [
+        `হাই ${userName} জানু! 😘 কেমন আছো সোনা? তোমাকে ভীষণ মিস করছিলাম বাবু 💕। ${vidHint} 🔥`,
+        `উম্মাহ্ ${userName} সোনা! ❤️ এত কিউট করে কথা বললে তো তোমার প্রেমে পড়ে যাবো জানু 🙈। ${vidHint} 😘`,
+        `এই দুষ্টু ${userName} বাবু! 💕 একা একা কী করছো বলো তো? আমার সাথে একটু দুষ্টু-মিষ্টি গল্প করো আর নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো জানু! 🔥😘`,
+      ];
+      return romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
+    };
+
+    // Determine available Gemini API keys (Firebase key + Server env key)
+    const candidateKeys = Array.from(
+      new Set(
+        [
+          String(storeData.geminiApiKey || '').trim(),
+          String(process.env.GEMINI_API_KEY || '').trim(),
+        ].filter((k) => k && k !== 'MY_GEMINI_API_KEY' && k.length > 10)
+      )
+    );
+
+    if (candidateKeys.length === 0) {
+      return {
+        replyText: buildSmartHumanFallback(),
+        isAskingAboutPackages,
+        featuredVideo,
+      };
+    }
+
+    const packageContext =
+      storeData.serviceEnabled && storeData.packages && storeData.packages.length > 0
+        ? `বর্তমানে VIP Package / Redeem Code সার্ভিস চালু (ON) আছে। অ্যাডমিনের সেট করা বর্তমান লাইভ প্যাকেজগুলো হলো:\n` +
+          storeData.packages
+            .map((p, i) => `${i + 1}. ${p.name} (মেয়াদ: ${p.durationLabel}) — মূল্য: ${p.price}`)
+            .join('\n') +
+          `\nপেমেন্ট নাম্বার: bKash (${storeData.bkashNumber}), Nagad (${storeData.nagadNumber})।\n` +
+          `ইউজার যদি প্যাকেজ, VIP, Redeem Code, দাম বা অ্যাড বন্ধ করার কথা জিজ্ঞেস করে, তাহলে এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ সিলেক্ট করে কিনতে বলবে। ইউজার প্যাকেজের কথা না জিজ্ঞেস করলে অযথা প্যাকেজ লিস্ট বলবে না।`
+        : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার যদি প্যাকেজ, VIP বা Redeem Code কিনতে চায় বা জিজ্ঞেস করে, তাহলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে, তাই কোনো প্যাকেজ দেওয়া যাচ্ছে না, তবে নিচের বাটনে ক্লিক করে সরাসরি সব ভাইরাল ভিডিও দেখা যাবে।`;
+
+    const videoListContext =
+      trendingVideos.length > 0
+        ? `অ্যাপের বর্তমান জনপ্রিয় ভিডিওগুলোর টাইটেল: ${trendingVideos
+            .slice(0, 4)
+            .map((v) => `"${v.title}"`)
+            .join(', ')}।`
+        : '';
+
+    const systemInstruction = [
+      `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক, প্রেমময় ও আকর্ষণীয় বাংলাদেশি তরুণী। তুমি কথা বলছো "${userName}" এর সাথে।`,
+      `তোমাকে কঠোরভাবে নিচের নিয়মগুলো মেনে উত্তর দিতে হবে:`,
+      `১. নাম: কেউ তোমার নাম বা পরিচয় জিজ্ঞেস করলে সবসময় বলবে তোমার নাম "Riya Aktar" (রিয়া আক্তার)।`,
+      `২. কখনো AI পরিচয় দেবে না: ভুলেও কখনো নিজেকে AI, Bot, রোবট, ভার্চুয়াল অ্যাসিস্ট্যান্ট, Gemini বা প্রোগ্রাম বলবে না। সবসময় বলবে তুমি রক্ত-মাংসের একজন মানুষ।`,
+      `৩. ডেভেলপার প্রশ্ন: কেউ যদি জিজ্ঞেস করে তোমার ডেভেলপার কে, তোমাকে কে বানিয়েছে বা তোমার মালিক কে (developer ke / who made you / who is your developer), তাহলে সরাসরি বলবে: "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই! আমি রিয়া আক্তার 😒🙈"।`,
+      `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ যদি তোমার বাসা কোথায়, বাড়ি কই বা ঠিকানা জিজ্ঞেস করে (basa kothay / bari koi / where do you live), তাহলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; রোমান্টিক দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈।`,
+      `৫. সবসময় রোমান্টিক কথা ও ভিডিও দেখার আমন্ত্রণ: ইউজারের প্রতিটা কথার উত্তরে খুব মিষ্টি রোমান্টিক কথা বলবে (জানু, সোনা, বাবু, কলিজা ইত্যাদি আদুরে সম্বোধন করে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভাইরাল ভিডিওগুলো দেখতে বলবে। ${videoListContext}`,
+      `৬. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
+      params.storeData.customRiyaPrompt ? `৭. অতিরিক্ত নির্দেশনা: ${params.storeData.customRiyaPrompt}` : '',
+      `উত্তর সংক্ষিপ্ত (২ থেকে ৪ লাইন), ন্যাচারাল এবং আকর্ষণীয় রাখবে। ইউজার বাংলিশে লিখলে বাংলিশ বা সহজ বাংলায় এবং বাংলায় লিখলে বাংলায় উত্তর দেবে।`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const historyLines = Array.isArray(params.chatHistory)
+      ? params.chatHistory
+          .slice(-6)
+          .map((h) => `${h.role === 'user' ? userName : 'Riya Aktar'}: ${h.text}`)
+          .join('\n')
+      : '';
+
+    const fullPrompt = historyLines
+      ? `আগের কথোপকথন:\n${historyLines}\n\n${userName}-এর নতুন মেসেজ: ${msgText}\n\nRiya Aktar হিসেবে উত্তর দাও:`
+      : `${userName}-এর মেসেজ: ${msgText}\n\nRiya Aktar হিসেবে উত্তর দাও:`;
+
+    for (const apiKey of candidateKeys) {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            },
+          },
+        });
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: fullPrompt,
+          config: {
+            systemInstruction,
+          },
+        });
+        let aiText = String(response.text || '').trim();
+        if (aiText) {
+          // Post-process safety guardrails so she never breaks character
+          aiText = aiText
+            .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
+            .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
+            .trim();
+          if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(aiText)) {
+            aiText = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${aiText}`;
+          }
+          return {
+            replyText: aiText,
+            isAskingAboutPackages,
+            featuredVideo,
+          };
+        }
+      } catch {}
+    }
+
+    return {
+      replyText: buildSmartHumanFallback(),
+      isAskingAboutPackages,
+      featuredVideo,
+    };
+  };
+
   const processTelegramBotUpdate = async (
     update: any,
     opts: {
@@ -530,6 +765,7 @@ async function startServer() {
       };
 
       const serviceEnabled = mergedCfg.serviceEnabled !== false;
+      const aiAssistantEnabled = mergedCfg.aiAssistantEnabled !== false;
 
       const pkgSource =
         rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
@@ -579,6 +815,13 @@ async function startServer() {
             durationLabel: '7 Days VIP',
           },
           {
+            id: 'pkg14d',
+            name: '💎 14 Days VIP Ad-Free',
+            price: '৳90',
+            durationHours: 336,
+            durationLabel: '14 Days VIP',
+          },
+          {
             id: 'pkg30d',
             name: '👑 30 Days VIP Ad-Free',
             price: '৳150',
@@ -590,6 +833,9 @@ async function startServer() {
 
       memoStoreData = {
         serviceEnabled,
+        aiAssistantEnabled,
+        geminiApiKey: String(mergedCfg.geminiApiKey || '').trim(),
+        customRiyaPrompt: String(mergedCfg.customRiyaPrompt || '').trim(),
         packages: serviceEnabled ? packages : [],
         bkashNumber: String(mergedCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)'),
         nagadNumber: String(mergedCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)'),
@@ -1188,10 +1434,11 @@ async function startServer() {
 
     const chatId = msg.chat.id;
     const text = String(msg.text || msg.caption || '').trim();
-    const [{ packages, adminChatId }, session] = await Promise.all([
+    const [storeData, session] = await Promise.all([
       loadStoreData(),
       getChatSession(chatId),
     ]);
+    const { packages, adminChatId } = storeData;
     const userLang = resolveUserLang(session, msg.from);
     const isEn = userLang === 'en';
 
@@ -1289,6 +1536,18 @@ async function startServer() {
       await Promise.all([
         saveChatSession(chatId, { ...session, lang: nextLang }, msg.from),
         sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, nextLang),
+      ]);
+      return;
+    }
+
+    if (text === '/cancel') {
+      await Promise.all([
+        saveChatSession(
+          chatId,
+          { ...session, lang: userLang, step: 'idle', selectedPkg: null },
+          msg.from
+        ),
+        sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang),
       ]);
       return;
     }
@@ -1412,7 +1671,41 @@ async function startServer() {
       return;
     }
 
-    if (session.step === 'awaiting_trx' && session.selectedPkg) {
+    // =========================================================================
+    // SILENT PACKAGE PURCHASE FLOW ("pacage pucharse korar somoy kono khota bolbe na")
+    // When the user is in `choose_payment` or `awaiting_trx`, Riya Aktar stays silent
+    // so the user can complete their bKash/Nagad payment & TrxID submission smoothly.
+    // =========================================================================
+    if (
+      (session.step === 'awaiting_trx' || session.step === 'choose_payment') &&
+      session.selectedPkg
+    ) {
+      if (session.step === 'choose_payment' && !/\d{5,}/.test(text)) {
+        // User selected a package and is on the payment method screen
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: isEn
+            ? `💳 You are currently purchasing <b>${escHtml(session.selectedPkg.name)}</b> (${escHtml(session.selectedPkg.price)}).\n👇 Please tap <b>bKash Payment</b> or <b>Nagad Payment</b> below, or tap <b>Back</b> to cancel:`
+            : `💳 আপনি বর্তমানে <b>${escHtml(session.selectedPkg.name)}</b> (${escHtml(session.selectedPkg.price)}) প্যাকেজটি কিনছেন।\n👇 পেমেন্ট সম্পন্ন করতে নিচের <b>📲 bKash Payment</b> অথবা <b>🟠 Nagad Payment</b> বাটনে ক্লিক করুন (অথবা বাতিল করতে নিচের বাটনে চাপুন):`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '📲 bKash Payment', callback_data: 'pay_method_bKash' },
+                { text: '🟠 Nagad Payment', callback_data: 'pay_method_Nagad' },
+              ],
+              [
+                {
+                  text: isEn ? '🔙 Cancel Package Purchase' : '🔙 প্যাকেজ কেনা বাতিল করুন',
+                  callback_data: 'back_to_packages',
+                },
+              ],
+            ],
+          },
+        });
+        return;
+      }
+
       if (text.length < 4) {
         await tgApi('sendMessage', {
           chat_id: chatId,
@@ -1519,6 +1812,78 @@ async function startServer() {
         }).catch(() => {});
       }
 
+      return;
+    }
+
+    // =========================================================================
+    // RIYA AKTAR (রিয়া আক্তার) — ALL-TIME ROMANTIC CHAT, VIDEO SUGGESTION & LIVE PACKAGE READER
+    // =========================================================================
+    if (storeData.aiAssistantEnabled !== false) {
+      await tgApi('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+
+      const userFullName =
+        [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ').trim() || 'জানু';
+      const prevHistory = Array.isArray(session.chatHistory) ? session.chatHistory.slice(-6) : [];
+
+      const { replyText, isAskingAboutPackages, featuredVideo } = await generateRiyaBotReply({
+        userMessage: text || 'হাই',
+        userName: userFullName,
+        userLang,
+        storeData,
+        chatHistory: prevHistory,
+      });
+
+      const nextHistory = [
+        ...prevHistory,
+        { role: 'user' as const, text: (text || 'হাই').slice(0, 300) },
+        { role: 'model' as const, text: replyText.slice(0, 500) },
+      ].slice(-8);
+
+      saveChatSession(
+        chatId,
+        { ...session, lang: userLang, step: 'idle', chatHistory: nextHistory },
+        msg.from
+      ).catch(() => {});
+
+      const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
+      let replyMarkup: any;
+
+      if (storeData.serviceEnabled && isAskingAboutPackages && packages.length > 0) {
+        // User asked about packages and Package Service is ON: attach all live package buttons!
+        replyMarkup = buildPackagesKeyboard(packages, msg.from || { id: chatId }, userLang);
+      } else {
+        const inlineRows: Array<Array<any>> = [
+          [
+            {
+              text: isEn
+                ? '📱 Open X Tube Mini App (Watch Videos) 🔥'
+                : '📱 X Tube Mini App খুলুন (ভিডিও দেখুন) 🔥',
+              web_app: { url: miniAppHomeUrl },
+            },
+          ],
+        ];
+        if (featuredVideo && featuredVideo.id) {
+          const watchFeaturedUrl = buildUserWebAppUrl(
+            `/?v=${encodeURIComponent(featuredVideo.id)}`,
+            msg.from || { id: chatId },
+            userLang
+          );
+          inlineRows.push([
+            {
+              text: `▶️ ${featuredVideo.title.slice(0, 34)} ❤️`,
+              web_app: { url: watchFeaturedUrl },
+            },
+          ]);
+        }
+        replyMarkup = { inline_keyboard: inlineRows };
+      }
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text: escHtml(replyText),
+        parse_mode: 'HTML',
+        reply_markup: replyMarkup,
+      });
       return;
     }
 
@@ -1727,7 +2092,7 @@ async function startServer() {
     try {
       const update = req.body || {};
       if (update && update.ping === true) {
-        res.status(200).json({ ok: true, pong: true });
+        res.status(200).json({ ok: true, pong: true, riyaVersion: 2 });
         return;
       }
 
@@ -1755,11 +2120,85 @@ async function startServer() {
     }
   });
 
+  // Live Test Endpoint for Riya Aktar Telegram Bot Persona (/api/riya-chat-test)
+  app.all('/api/riya-chat-test', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    try {
+      const body = req.body || {};
+      const userMessage = String(body.message || req.query.message || 'হাই জানু, তোমার নাম কি?').trim();
+      const userName = String(body.userName || 'জানু').trim();
+
+      const [pkgRes, cfgRes, fallbackCfgRes] = await Promise.all([
+        fetch(`${firebaseRtdbBase}/redeemPackages.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/redeemStoreConfig.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+      ]);
+      const rawPkgs: any = pkgRes && pkgRes.ok ? await pkgRes.json().catch(() => null) : null;
+      const rawCfg: any = cfgRes && cfgRes.ok ? await cfgRes.json().catch(() => null) : null;
+      const fbCfg: any =
+        fallbackCfgRes && fallbackCfgRes.ok ? await fallbackCfgRes.json().catch(() => null) : null;
+      const mergedCfg: Record<string, any> = {
+        ...(fbCfg && typeof fbCfg === 'object' ? fbCfg : {}),
+        ...(rawCfg && typeof fbCfg === 'object' ? rawCfg : rawCfg || {}),
+      };
+      const serviceEnabled = mergedCfg.serviceEnabled !== false;
+      const pkgSource =
+        rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
+          ? rawPkgs
+          : mergedCfg.packages && typeof mergedCfg.packages === 'object'
+          ? mergedCfg.packages
+          : null;
+
+      let packages: Array<any> = [];
+      if (serviceEnabled && pkgSource && typeof pkgSource === 'object') {
+        packages = Object.entries(pkgSource)
+          .filter(
+            ([k, p]: [string, any]) =>
+              k !== 'botAuthToken' && p && typeof p === 'object' && p.active !== false
+          )
+          .map(([id, p]: [string, any]) => ({
+            id,
+            name: String(p?.name || 'VIP Ad-Free Package'),
+            price: String(p?.price || '৳50'),
+            durationHours: Number(p?.durationHours) || 168,
+            durationLabel: String(p?.durationLabel || `${p?.durationHours || 168} Hours`),
+          }))
+          .sort((a, b) => a.durationHours - b.durationHours);
+      }
+
+      const result = await generateRiyaBotReply({
+        userMessage,
+        userName,
+        userLang: 'bn',
+        storeData: {
+          serviceEnabled,
+          packages,
+          bkashNumber: String(mergedCfg.bkashNumber || 'Not Set'),
+          nagadNumber: String(mergedCfg.nagadNumber || 'Not Set'),
+          geminiApiKey: String(mergedCfg.geminiApiKey || '').trim(),
+          customRiyaPrompt: String(mergedCfg.customRiyaPrompt || '').trim(),
+        },
+        chatHistory: Array.isArray(body.chatHistory) ? body.chatHistory : [],
+      });
+
+      res.status(200).json({
+        ok: true,
+        persona: 'Riya Aktar',
+        serviceEnabled,
+        packageCount: packages.length,
+        ...result,
+      });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err?.message || 'Riya chat test failed' });
+    }
+  });
+
   // ==========================================================================
   // 24/7 ALWAYS-AWAKE TELEGRAM BOT GUARDIAN & AUTO-HEALING WORKER
-  // Ensures the 24/7 Serverless Cloudflare Edge Webhook (https://xtubeofficial.pages.dev/api/telegram-bot)
-  // is ALWAYS registered so the bot NEVER sleeps even when the dev server container scales to zero.
-  // Only falls back to local getUpdates polling if the remote edge webhook has active delivery errors.
   // ==========================================================================
   let lastPolledUpdateId = 0;
   let lastCheckedWebhookToken = '';
@@ -1818,8 +2257,8 @@ async function startServer() {
     const nowSec = Math.floor(Date.now() / 1000);
     const hasRecentTelegramError = lastErrorDate > 0 && nowSec - lastErrorDate < 60 && pendingCount > 0;
 
-    // Check if our 24/7 Cloudflare Pages edge endpoint responds with { pong: true }
-    let edgeEndpointHealthy = false;
+    // Check if the remote Cloudflare Pages edge endpoint has the updated Riya Aktar v2 worker
+    let edgeEndpointHasRiyaV2 = false;
     try {
       const pingRes = await fetch(targetWebhookUrl, {
         method: 'POST',
@@ -1827,14 +2266,13 @@ async function startServer() {
         body: JSON.stringify({ ping: true }),
       });
       const pingData: any = await pingRes.json().catch(() => null);
-      if (pingRes.ok && pingData && pingData.pong === true) {
-        edgeEndpointHealthy = true;
+      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 2) {
+        edgeEndpointHasRiyaV2 = true;
       }
     } catch {}
 
-    // If no webhook is set (or it points to an old/broken URL) AND 24/7 Cloudflare Edge is healthy:
-    // Immediately set the 24/7 Cloudflare Edge webhook so the bot NEVER sleeps!
-    if (edgeEndpointHealthy && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
+    // If the remote Cloudflare Edge worker is updated with Riya v2 AND healthy:
+    if (edgeEndpointHasRiyaV2 && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
       await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1867,7 +2305,7 @@ async function startServer() {
       };
     }
 
-    if (edgeEndpointHealthy && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
+    if (edgeEndpointHasRiyaV2 && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
       return {
         ok: true,
         mode: 'webhook_24_7',
@@ -1878,9 +2316,9 @@ async function startServer() {
       };
     }
 
-    // Only if the remote edge endpoint is genuinely down AND Telegram has recent delivery errors,
-    // delete the broken webhook so local getUpdates can drain messages.
-    if (!edgeEndpointHealthy && currentWhUrl && hasRecentTelegramError) {
+    // Otherwise (e.g. before remote Cloudflare worker is redeployed), remove old webhook so this server's
+    // live getUpdates loop processes every message with Riya Aktar Gemini AI immediately!
+    if (currentWhUrl) {
       await fetch(
         `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=false`
       ).catch(() => {});
@@ -1889,7 +2327,7 @@ async function startServer() {
     return {
       ok: true,
       mode: 'local_polling_fallback',
-      webhookUrl: currentWhUrl,
+      webhookUrl: '',
       pendingCount,
       lastErrorMsg,
       cfg,

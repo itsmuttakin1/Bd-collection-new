@@ -522,7 +522,7 @@ export default {
       try {
         const update = await request.json();
         if (update && update.ping === true) {
-          return new Response(JSON.stringify({ ok: true, pong: true }), {
+          return new Response(JSON.stringify({ ok: true, pong: true, riyaVersion: 2 }), {
             status: 200,
             headers: {
               'Content-Type': 'application/json',
@@ -573,7 +573,7 @@ export default {
         let memoStoreData = null;
         const loadStoreData = async (forceFresh = false) => {
           if (memoStoreData && !forceFresh) return memoStoreData;
-          const storeCacheKey = `${CANONICAL_SITE_URL}/__tg_store_cfg_cache_v3`;
+          const storeCacheKey = `${CANONICAL_SITE_URL}/__tg_store_cfg_cache_v4`;
           if (!forceFresh) {
             try {
               const cached = await caches.default.match(storeCacheKey);
@@ -606,6 +606,7 @@ export default {
           };
 
           const serviceEnabled = mergedCfg.serviceEnabled !== false;
+          const aiAssistantEnabled = mergedCfg.aiAssistantEnabled !== false;
 
           const pkgSource =
             rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
@@ -647,6 +648,13 @@ export default {
                 durationLabel: '7 Days VIP',
               },
               {
+                id: 'pkg14d',
+                name: '💎 14 Days VIP Ad-Free',
+                price: '৳90',
+                durationHours: 336,
+                durationLabel: '14 Days VIP',
+              },
+              {
                 id: 'pkg30d',
                 name: '👑 30 Days VIP Ad-Free',
                 price: '৳150',
@@ -658,6 +666,9 @@ export default {
 
           const result = {
             serviceEnabled,
+            aiAssistantEnabled,
+            geminiApiKey: String(mergedCfg.geminiApiKey || env?.GEMINI_API_KEY || '').trim(),
+            customRiyaPrompt: String(mergedCfg.customRiyaPrompt || '').trim(),
             packages: serviceEnabled ? packages : [],
             bkashNumber: mergedCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)',
             nagadNumber: mergedCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)',
@@ -1266,10 +1277,11 @@ export default {
 
         const chatId = msg.chat.id;
         const text = String(msg.text || msg.caption || '').trim();
-        const [{ packages, adminChatId }, session] = await Promise.all([
+        const [storeData, session] = await Promise.all([
           loadStoreData(),
           getChatSession(chatId),
         ]);
+        const { packages, adminChatId } = storeData;
         const userLang = resolveUserLang(session, msg.from);
         const isEn = userLang === 'en';
 
@@ -1367,6 +1379,18 @@ export default {
           await Promise.all([
             saveChatSession(chatId, { ...session, lang: nextLang }, msg.from),
             sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, nextLang),
+          ]);
+          return new Response('OK', { status: 200 });
+        }
+
+        if (text === '/cancel') {
+          await Promise.all([
+            saveChatSession(
+              chatId,
+              { ...session, lang: userLang, step: 'idle', selectedPkg: null },
+              msg.from
+            ),
+            sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang),
           ]);
           return new Response('OK', { status: 200 });
         }
@@ -1496,8 +1520,36 @@ export default {
           return new Response('OK', { status: 200 });
         }
 
-        // Handle User Submitting Payment Details (Sender Number + TrxID)
-        if (session.step === 'awaiting_trx' && session.selectedPkg) {
+        // Silent Package Purchase Flow ("pacage pucharse korar somoy kono khota bolbe na")
+        if (
+          (session.step === 'awaiting_trx' || session.step === 'choose_payment') &&
+          session.selectedPkg
+        ) {
+          if (session.step === 'choose_payment' && !/\d{5,}/.test(text)) {
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: isEn
+                ? `💳 You are currently purchasing <b>${escHtml(session.selectedPkg.name)}</b> (${escHtml(session.selectedPkg.price)}).\n👇 Please tap <b>bKash Payment</b> or <b>Nagad Payment</b> below, or tap <b>Back</b> to cancel:`
+                : `💳 আপনি বর্তমানে <b>${escHtml(session.selectedPkg.name)}</b> (${escHtml(session.selectedPkg.price)}) প্যাকেজটি কিনছেন।\n👇 পেমেন্ট সম্পন্ন করতে নিচের <b>📲 bKash Payment</b> অথবা <b>🟠 Nagad Payment</b> বাটনে ক্লিক করুন (অথবা বাতিল করতে নিচের বাটনে চাপুন):`,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '📲 bKash Payment', callback_data: 'pay_method_bKash' },
+                    { text: '🟠 Nagad Payment', callback_data: 'pay_method_Nagad' },
+                  ],
+                  [
+                    {
+                      text: isEn ? '🔙 Cancel Package Purchase' : '🔙 প্যাকেজ কেনা বাতিল করুন',
+                      callback_data: 'back_to_packages',
+                    },
+                  ],
+                ],
+              },
+            });
+            return new Response('OK', { status: 200 });
+          }
+
           if (text.length < 4) {
             await tgApi('sendMessage', {
               chat_id: chatId,
@@ -1606,6 +1658,126 @@ export default {
             }).catch(() => {});
           }
 
+          return new Response('OK', { status: 200 });
+        }
+
+        // Riya Aktar (রিয়া আক্তার) — All-Time Romantic Chat, Video Suggestion & Live Package Reader
+        if (storeData.aiAssistantEnabled !== false) {
+          await tgApi('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+          const userFullName =
+            [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ').trim() || 'জানু';
+          const lower = (text || '').toLowerCase();
+          const isAskingDeveloper =
+            /developer|devloper|delveloper|ডেভেলপার|ডেবলপার|কে বানিয়েছে|কে বানাইছে|কে তৈরি করেছে|ke banai|ke banano|ke tomake baniyeche|who made you|who created you|who is your developer|your creator|malik ke|মালিক কে/i.test(
+              lower
+            );
+          const isAskingName =
+            /tumar nam|tomar nam|tor nam|nam ki|name ki|তোমার নাম|তোর নাম|নাম কি|নাম কী|what is your name|whats your name|who are you|tumi ke|তুমি কে/i.test(
+              lower
+            );
+          const isAskingHome =
+            /basa kothay|basha kothay|basa koi|basha koi|bari kothay|bari koi|kothay thako|koi thako|বাসা কোথায়|বাসা কই|বাড়ি কোথায়|বাড়ি কই|কোথায় থাকো|কই থাকো|where do you live|your address|tomar basa|তোমার বাসা/i.test(
+              lower
+            );
+          const isAskingAboutPackages =
+            /package|packeg|pacage|pakeg|vip|redeem|redem|reedem|code|ad-?free|ads|add|price|dam|koto|buy|kinbo|kinte|প্যাকেজ|পেকেজ|ভিআইপি|রিডিম|কোড|অ্যাড|বিজ্ঞাপন|দাম|কত টাকা|কিনব|কিনতে/i.test(
+              lower
+            );
+
+          let replyText = '';
+          if (isAskingDeveloper) {
+            replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, এসব বাদ দিয়ে নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+          } else if (isAskingName) {
+            replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+          } else if (isAskingHome) {
+            replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা, মনটা একদম ভালো হয়ে যাবে 😘❤️`;
+          } else if (isAskingAboutPackages) {
+            if (!storeData.serviceEnabled || !packages || packages.length === 0) {
+              replyText = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে একদম মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের ভেতর সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+            } else {
+              const pkgLines = packages
+                .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
+                .join('\n');
+              replyText =
+                `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
+                `${pkgLines}\n\n` +
+                `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু, আর কোনো অ্যাড ছাড়াই সব ভিডিও দেখতে পারবে! 😘🔥`;
+            }
+          }
+
+          if (!replyText && storeData.geminiApiKey && storeData.geminiApiKey.length > 10) {
+            try {
+              const packageContext =
+                storeData.serviceEnabled && packages && packages.length > 0
+                  ? `বর্তমানে VIP Package সার্ভিস চালু (ON) আছে। প্যাকেজগুলো: ` +
+                    packages.map((p) => `${p.name} (${p.durationLabel}) - দাম ${p.price}`).join(', ')
+                  : `বর্তমানে VIP Package সার্ভিস বন্ধ (OFF) আছে।`;
+              const sysPrompt =
+                `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক ও আকর্ষণীয় বাংলাদেশি তরুণী। ` +
+                `কেউ নাম জিজ্ঞেস করলে Riya Aktar বলবে। কখনোই নিজেকে AI বা Bot বলবে না। ` +
+                `কেউ ডেভেলপার সম্পর্কে জিজ্ঞেস করলে বলবে "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"। ` +
+                `কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না। ` +
+                `সবসময় "${userFullName}"-এর সাথে রোমান্টিক কথা বলবে (জানু, সোনা, বাবু বলে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে। ` +
+                `${packageContext}`;
+              const gemRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(storeData.geminiApiKey)}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'aistudio-build',
+                  },
+                  body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: sysPrompt }] },
+                    contents: [{ role: 'user', parts: [{ text: text || 'হাই' }] }],
+                  }),
+                }
+              );
+              if (gemRes.ok) {
+                const gemData = await gemRes.json().catch(() => null);
+                const candidateText =
+                  gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (candidateText) {
+                  replyText = String(candidateText)
+                    .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
+                    .trim();
+                }
+              }
+            } catch {}
+          }
+
+          if (!replyText) {
+            const romanticTemplates = [
+              `হাই ${userFullName} জানু! 😘 কেমন আছো সোনা? তোমাকে ভীষণ মিস করছিলাম বাবু 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ও ভাইরাল ভিডিওগুলো দেখে আসো না সোনা! 🔥`,
+              `উম্মাহ্ ${userFullName} সোনা! ❤️ এত কিউট করে কথা বললে তো তোমার প্রেমে পড়ে যাবো জানু 🙈। নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে নাও বাবু! 😘`,
+              `এই দুষ্টু ${userFullName} বাবু! 💕 একা একা কী করছো বলো তো? আমার সাথে একটু দুষ্টু-মিষ্টি গল্প করো আর নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো জানু! 🔥😘`,
+            ];
+            replyText = romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
+          }
+
+          const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
+          const replyMarkup =
+            storeData.serviceEnabled && isAskingAboutPackages && packages.length > 0
+              ? buildPackagesKeyboard(packages, msg.from || { id: chatId }, userLang)
+              : {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: isEn
+                          ? '📱 Open X Tube Mini App (Watch Videos) 🔥'
+                          : '📱 X Tube Mini App খুলুন (ভিডিও দেখুন) 🔥',
+                        web_app: { url: miniAppHomeUrl },
+                      },
+                    ],
+                  ],
+                };
+
+          await tgApi('sendMessage', {
+            chat_id: chatId,
+            text: escHtml(replyText),
+            parse_mode: 'HTML',
+            reply_markup: replyMarkup,
+          });
           return new Response('OK', { status: 200 });
         }
 

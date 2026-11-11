@@ -1315,6 +1315,122 @@
           </div>
         </section>
 
+        <!-- ROW 3.5: RIYA AKTAR (রিয়া আক্তার) TELEGRAM BOT PERSONA & LIVE PACKAGE AUTO-RESPONDER -->
+        <section class="p-4 sm:p-6 rounded-2xl border border-pink-500/50 bg-gradient-to-br from-pink-950/30 via-zinc-900/90 to-zinc-950 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="riya-assistant-status-pill" class="px-2.5 py-0.5 rounded-full bg-pink-500 text-zinc-950 text-[11px] font-extrabold">
+                  💖 RIYA AKTAR ACTIVE (ON)
+                </span>
+                <h2 class="text-base sm:text-lg font-bold text-white">
+                  Riya Aktar (রিয়া আক্তার) — Telegram Bot Romantic Auto-Reply &amp; Live Package Reader
+                </h2>
+              </div>
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                টেলিগ্রাম বটে ইউজার মেসেজ দিলে <strong>Riya Aktar</strong> রোমান্টিক কথা বলবে, ভিডিও দেখতে বলবে এবং কেউ প্যাকেজের কথা জিজ্ঞেস করলে আগে চেক করবে <strong>Package Service ON নাকি OFF</strong> — ON থাকলে আপনার দেওয়া লাইভ প্যাকেজগুলো পড়ে শোনাবে ও বাটন দেখাবে! (প্যাকেজ কেনার সময় চুপ থাকবে, নিজের নাম <strong>Riya Aktar</strong> বলবে, বাসার ঠিকানা বলবে না এবং ডেভেলপার কে জিজ্ঞেস করলে বলবে <em>"আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"</em>)
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button id="toggle-riya-assistant-btn" type="button"
+                class="px-4 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-pink-600/25">
+                🔴 Turn OFF Riya Auto-Reply
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 text-xs">
+            <!-- Left 6 Cols: Riya Custom Instructions (Synced to Firebase) -->
+            <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs sm:text-sm font-bold text-pink-400">⚙️ Riya Aktar Persona Rules &amp; Firebase Sync</h3>
+                <span id="riya-firebase-sync-badge" class="text-[11px] font-mono text-emerald-400">✓ Firebase Connected</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-[11px]">
+                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <span class="text-zinc-400 block">নাম (Name):</span>
+                  <strong class="text-pink-300">Riya Aktar (রিয়া আক্তার)</strong>
+                </div>
+                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <span class="text-zinc-400 block">ডেভেলপার জিজ্ঞেস করলে:</span>
+                  <strong class="text-emerald-300">"আমি মানুষ ভাই, ডেভেলপার নাই"</strong>
+                </div>
+                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <span class="text-zinc-400 block">প্যাকেজ কেনার সময়:</span>
+                  <strong class="text-amber-300">Silent (কোনো কথা বলবে না)</strong>
+                </div>
+                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <span class="text-zinc-400 block">প্যাকেজ জিজ্ঞেস করলে:</span>
+                  <strong class="text-sky-300">ON/OFF চেক করে লাইভ প্যাকেজ বলবে</strong>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">
+                  অতিরিক্ত রোমান্টিক নির্দেশনা বা কাস্টম নোট (ঐচ্ছিক — Firebase-এ সেভ থাকবে):
+                </label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input id="riya-custom-prompt-input" type="text"
+                    placeholder="যেমন: সবসময় জানু ও সোনা বলে ডাকবে এবং নতুন ভিডিও দেখতে বলবে..."
+                    class="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-pink-500" />
+                  <button id="save-riya-config-btn" type="button"
+                    class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold cursor-pointer shrink-0">
+                    💾 Save to Firebase
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right 6 Cols: Live Test Chat with Riya Aktar -->
+            <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 flex flex-col justify-between space-y-3">
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs sm:text-sm font-bold text-white">💬 Live Test Chat with Riya Aktar</h3>
+                  <span class="text-[10px] font-mono text-pink-300">Instant Preview</span>
+                </div>
+
+                <!-- 1-Click Quick Test Prompts -->
+                <div class="flex flex-wrap gap-1.5">
+                  <button type="button" data-riya-test-msg="তোমার নাম কি?"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-pink-300 cursor-pointer">
+                    তোমার নাম কি?
+                  </button>
+                  <button type="button" data-riya-test-msg="তোমার ডেভেলপার কে?"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-emerald-300 cursor-pointer">
+                    তোমার ডেভেলপার কে?
+                  </button>
+                  <button type="button" data-riya-test-msg="তোমার বাসা কোথায়?"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-amber-300 cursor-pointer">
+                    তোমার বাসা কোথায়?
+                  </button>
+                  <button type="button" data-riya-test-msg="VIP প্যাকেজ কত টাকা?"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-sky-300 cursor-pointer">
+                    VIP প্যাকেজ কত টাকা?
+                  </button>
+                  <button type="button" data-riya-test-msg="হাই জানু কি করো?"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-purple-300 cursor-pointer">
+                    হাই জানু কি করো?
+                  </button>
+                </div>
+
+                <div id="riya-test-reply-box" class="p-3 rounded-xl bg-zinc-900/90 border border-pink-500/30 text-xs text-zinc-100 whitespace-pre-wrap leading-relaxed min-h-[76px]">
+                  💖 উপরে যেকোনো বাটনে ক্লিক করুন অথবা নিচে মেসেজ লিখে Riya Aktar-এর রিপ্লাই টেস্ট করুন!
+                </div>
+              </div>
+
+              <div class="flex gap-2">
+                <input id="riya-test-msg-input" type="text" placeholder="Riya Aktar-কে মেসেজ লিখুন..."
+                  class="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-pink-500" />
+                <button id="riya-test-send-btn" type="button"
+                  class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold cursor-pointer shrink-0">
+                  Send 💌
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ROW 4: TELEGRAM BROADCAST SYSTEM (SEND MESSAGE / PHOTO + BUTTON TO ALL USERS) -->
         <section class="p-4 sm:p-6 rounded-2xl border border-purple-600/60 bg-gradient-to-br from-purple-950/35 via-zinc-900/90 to-zinc-950 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
@@ -7227,6 +7343,38 @@ service cloud.firestore {
       }
     };
 
+    // Riya Aktar (রিয়া আক্তার) Telegram Bot Persona Controls
+    const riyaAssistantStatusPill = document.getElementById('riya-assistant-status-pill');
+    const toggleRiyaAssistantBtn = document.getElementById('toggle-riya-assistant-btn');
+    const riyaCustomPromptInput = document.getElementById('riya-custom-prompt-input');
+    const saveRiyaConfigBtn = document.getElementById('save-riya-config-btn');
+    const riyaTestReplyBox = document.getElementById('riya-test-reply-box');
+    const riyaTestMsgInput = document.getElementById('riya-test-msg-input');
+    const riyaTestSendBtn = document.getElementById('riya-test-send-btn');
+
+    let isRiyaAssistantEnabled = true;
+
+    const updateRiyaAssistantUi = (enabled) => {
+      isRiyaAssistantEnabled = enabled !== false;
+      if (riyaAssistantStatusPill) {
+        riyaAssistantStatusPill.textContent = isRiyaAssistantEnabled
+          ? '🟢 Riya Aktar Active (ON)'
+          : '🔴 Riya Aktar Paused (OFF)';
+        riyaAssistantStatusPill.style.background = isRiyaAssistantEnabled
+          ? 'rgba(16, 185, 129, 0.16)'
+          : 'rgba(239, 68, 68, 0.16)';
+        riyaAssistantStatusPill.style.borderColor = isRiyaAssistantEnabled
+          ? 'rgba(16, 185, 129, 0.35)'
+          : 'rgba(239, 68, 68, 0.35)';
+        riyaAssistantStatusPill.style.color = isRiyaAssistantEnabled ? '#34d399' : '#f87171';
+      }
+      if (toggleRiyaAssistantBtn) {
+        toggleRiyaAssistantBtn.textContent = isRiyaAssistantEnabled
+          ? '🔴 Turn OFF Riya Aktar Auto-Reply'
+          : '🟢 Turn ON Riya Aktar Auto-Reply';
+      }
+    };
+
     const TG_STORE_LOCAL_KEY = 'xtube_tg_store_cfg_v3';
 
     const getSavedLocalStoreConfig = () => {
@@ -7253,6 +7401,9 @@ service cloud.firestore {
         const now = Date.now();
         if (!force && now - lastAutoWakeCheckAt < 25000) return;
         lastAutoWakeCheckAt = now;
+
+        // Also trigger local server keepalive so Riya Aktar polling stays active
+        fetch('/api/bot-keepalive').catch(() => {});
 
         let cleanDom = String(cfg?.domain || cachedStoreDomain || 'https://xtubeofficial.pages.dev')
           .trim()
@@ -7286,14 +7437,15 @@ service cloud.firestore {
         const whInfo = whInfoRes ? await whInfoRes.json().catch(() => null) : null;
         const currentWhUrl = String(whInfo?.result?.url || '').trim();
 
-        if (!currentWhUrl || currentWhUrl !== targetWhUrl) {
-          const pingRes = await fetch(targetWhUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ping: true }),
-          }).catch(() => null);
-          const pingData = pingRes ? await pingRes.json().catch(() => null) : null;
-          if (pingRes && pingRes.ok && pingData && pingData.pong === true) {
+        const pingRes = await fetch(targetWhUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ping: true }),
+        }).catch(() => null);
+        const pingData = pingRes ? await pingRes.json().catch(() => null) : null;
+
+        if (pingRes && pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 2) {
+          if (!currentWhUrl || currentWhUrl !== targetWhUrl) {
             await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -7304,15 +7456,19 @@ service cloud.firestore {
               }),
             }).catch(() => {});
           }
+        } else if (currentWhUrl) {
+          await fetch(
+            `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=false`
+          ).catch(() => {});
         }
 
         if (tgUploadStatusBadge) {
           tgUploadStatusBadge.textContent = `🟢 24/7 Always Awake (@${cfg?.botUsername || 'xtubeofficial_bot'})`;
         }
         if (tgUploadWebhookInfo) {
-          tgUploadWebhookInfo.textContent = `🟢 24/7 Anti-Sleep Webhook Active (@${
+          tgUploadWebhookInfo.textContent = `🟢 24/7 Anti-Sleep Active (@${
             cfg?.botUsername || 'xtubeofficial_bot'
-          }) | bKash: ${cfg?.bkashNumber || 'Not Set'} | Nagad: ${cfg?.nagadNumber || 'Not Set'}`;
+          }) | Riya Aktar: ${isRiyaAssistantEnabled ? 'ON' : 'OFF'} | bKash: ${cfg?.bkashNumber || 'Not Set'} | Nagad: ${cfg?.nagadNumber || 'Not Set'}`;
         }
       } catch {}
     };
@@ -7329,6 +7485,14 @@ service cloud.firestore {
       saveLocalStoreConfig(cfg);
       if (cfg.serviceEnabled !== undefined) {
         updateRedeemServiceMasterUi(cfg.serviceEnabled !== false);
+      }
+      if (cfg.aiAssistantEnabled !== undefined) {
+        updateRiyaAssistantUi(cfg.aiAssistantEnabled !== false);
+      }
+      if (cfg.customRiyaPrompt !== undefined && riyaCustomPromptInput) {
+        if (document.activeElement !== riyaCustomPromptInput) {
+          riyaCustomPromptInput.value = String(cfg.customRiyaPrompt || '');
+        }
       }
       if (cfg.botToken && String(cfg.botToken).includes(':')) {
         cachedStoreBotToken = String(cfg.botToken).trim();
@@ -7368,7 +7532,7 @@ service cloud.firestore {
         tgUploadStatusBadge.textContent = `🟢 24/7 Always Awake (@${cfg.botUsername})`;
       }
       if (tgUploadWebhookInfo && (cfg.botUsername || cfg.botToken)) {
-        tgUploadWebhookInfo.textContent = `🟢 24/7 Anti-Sleep Webhook Active (@${cfg.botUsername || 'Ready'}) | bKash: ${cfg.bkashNumber || 'Not Set'} | Nagad: ${cfg.nagadNumber || 'Not Set'}`;
+        tgUploadWebhookInfo.textContent = `🟢 24/7 Anti-Sleep Active (@${cfg.botUsername || 'Ready'}) | Riya Aktar: ${isRiyaAssistantEnabled ? 'ON' : 'OFF'} | bKash: ${cfg.bkashNumber || 'Not Set'} | Nagad: ${cfg.nagadNumber || 'Not Set'}`;
       }
       if (cfg.botToken && String(cfg.botToken).includes(':')) {
         autoEnsureBot24x7Awake(cfg, false);
@@ -7403,6 +7567,131 @@ service cloud.firestore {
       });
     }
 
+    if (toggleRiyaAssistantBtn) {
+      toggleRiyaAssistantBtn.addEventListener('click', async () => {
+        const nextEnabled = !isRiyaAssistantEnabled;
+        updateRiyaAssistantUi(nextEnabled);
+        const patch = {
+          aiAssistantEnabled: nextEnabled,
+          customRiyaPrompt: (riyaCustomPromptInput?.value || '').trim(),
+          updatedAt: Date.now(),
+          botAuthToken: 'xtube_tg_bot_2026',
+        };
+        saveLocalStoreConfig(patch);
+        try {
+          await Promise.all([
+            update(ref(db, 'settings/telegramUploadBot'), patch).catch(() => {}),
+            update(ref(db, 'telegramBotSessions/_storeConfig'), patch).catch(() => {}),
+            update(ref(db, 'redeemStoreConfig'), patch).catch(() => {}),
+          ]);
+          fetch('/api/bot-keepalive').catch(() => {});
+          showStatus(
+            nextEnabled
+              ? '💖 Riya Aktar (রিয়া আক্তার) Auto-Reply চালু (ON) করা হয়েছে! এখন টেলিগ্রাম বটে মেসেজ দিলে রোমান্টিক রিপ্লাই ও প্যাকেজ আপডেট দিবে।'
+              : '🔴 Riya Aktar Auto-Reply বন্ধ (OFF) করা হয়েছে।',
+            nextEnabled ? 'success' : 'info'
+          );
+        } catch (err) {
+          showStatus(`Riya Toggle Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    if (saveRiyaConfigBtn) {
+      saveRiyaConfigBtn.addEventListener('click', async () => {
+        const customRiyaPrompt = (riyaCustomPromptInput?.value || '').trim();
+        const patch = {
+          aiAssistantEnabled: isRiyaAssistantEnabled,
+          customRiyaPrompt,
+          updatedAt: Date.now(),
+          botAuthToken: 'xtube_tg_bot_2026',
+        };
+        saveLocalStoreConfig(patch);
+        const origText = saveRiyaConfigBtn.textContent;
+        saveRiyaConfigBtn.textContent = '💾 Saving to Firebase...';
+        try {
+          await Promise.all([
+            update(ref(db, 'settings/telegramUploadBot'), patch).catch(() => {}),
+            update(ref(db, 'telegramBotSessions/_storeConfig'), patch).catch(() => {}),
+            update(ref(db, 'redeemStoreConfig'), patch).catch(() => {}),
+          ]);
+          fetch('/api/bot-keepalive').catch(() => {});
+          saveRiyaConfigBtn.textContent = '✓ Saved Riya Aktar Settings to Firebase!';
+          showStatus(
+            '💖 Riya Aktar (রিয়া আক্তার) কনফিগারেশন Firebase-এ সফলভাবে সেভ হয়েছে!',
+            'success'
+          );
+          setTimeout(() => {
+            saveRiyaConfigBtn.textContent = origText;
+          }, 2200);
+        } catch (err) {
+          saveRiyaConfigBtn.textContent = origText;
+          showStatus(`Save Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    const runRiyaTestMessage = async (rawMessage) => {
+      const msg = String(rawMessage || '').trim();
+      if (!msg) return;
+      if (riyaTestMsgInput) riyaTestMsgInput.value = msg;
+      if (riyaTestReplyBox) {
+        riyaTestReplyBox.innerHTML = `<div style="color:var(--text-muted);">💬 <b>You:</b> ${msg.replace(/</g, '&lt;')}</div><div style="margin-top:4px;color:#f472b6;">⏳ <b>Riya Aktar typing...</b></div>`;
+      }
+      if (riyaTestSendBtn) riyaTestSendBtn.disabled = true;
+      try {
+        const res = await fetch('/api/riya-chat-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: msg,
+            firstName: 'জানু',
+            customRiyaPrompt: (riyaCustomPromptInput?.value || '').trim(),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.ok && data.reply) {
+          const pkgBadge = data.serviceEnabled
+            ? `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(16,185,129,0.16);color:#34d399;margin-left:6px;">📦 Package System: ON (${data.packagesCount || 0} pkgs)</span>`
+            : `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(239,68,68,0.16);color:#f87171;margin-left:6px;">📦 Package System: OFF</span>`;
+          if (riyaTestReplyBox) {
+            riyaTestReplyBox.innerHTML = `<div style="color:var(--text-muted);font-size:11.5px;margin-bottom:4px;">💬 <b>You:</b> ${msg.replace(/</g, '&lt;')} ${pkgBadge}</div><div style="color:#fdf2f8;font-weight:600;white-space:pre-wrap;">💖 <b>Riya Aktar:</b> ${String(data.reply).replace(/</g, '&lt;')}</div>`;
+          }
+        } else {
+          if (riyaTestReplyBox) {
+            riyaTestReplyBox.textContent = `⚠️ Error: ${data?.error || 'Could not reach Riya test endpoint'}`;
+          }
+        }
+      } catch (err) {
+        if (riyaTestReplyBox) {
+          riyaTestReplyBox.textContent = `⚠️ Error: ${err.message}`;
+        }
+      } finally {
+        if (riyaTestSendBtn) riyaTestSendBtn.disabled = false;
+      }
+    };
+
+    document.querySelectorAll('[data-riya-test-msg]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const msg = btn.getAttribute('data-riya-test-msg');
+        if (msg) runRiyaTestMessage(msg);
+      });
+    });
+
+    if (riyaTestSendBtn) {
+      riyaTestSendBtn.addEventListener('click', () => {
+        runRiyaTestMessage(riyaTestMsgInput?.value || '');
+      });
+    }
+    if (riyaTestMsgInput) {
+      riyaTestMsgInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runRiyaTestMessage(riyaTestMsgInput.value || '');
+        }
+      });
+    }
+
     // 1. Immediately restore from localStorage so refresh NEVER loses Bot Token
     applyStoreConfigToInputs(getSavedLocalStoreConfig());
 
@@ -7426,6 +7715,7 @@ service cloud.firestore {
       const bkashNumber = (tgBkashInput?.value || '').trim();
       const nagadNumber = (tgNagadInput?.value || '').trim();
       const paymentNote = (tgNoteInput?.value || '').trim();
+      const customRiyaPrompt = (riyaCustomPromptInput?.value || '').trim();
       let domain = normalizeBaseUrl(tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev');
       if (domain.endsWith('.pages.') || domain.endsWith('.pages.d') || domain.endsWith('.pages.de')) {
         domain = 'https://xtubeofficial.pages.dev';
@@ -7444,6 +7734,8 @@ service cloud.firestore {
         paymentNote,
         domain,
         serviceEnabled: isRedeemServiceEnabled,
+        aiAssistantEnabled: isRiyaAssistantEnabled,
+        customRiyaPrompt,
         updatedAt: Date.now(),
         botAuthToken: 'xtube_tg_bot_2026',
       };
@@ -7465,6 +7757,7 @@ service cloud.firestore {
       tgNagadInput,
       tgNoteInput,
       tgUploadDomainInput,
+      riyaCustomPromptInput,
     ].forEach((inputEl) => {
       if (inputEl) {
         inputEl.addEventListener('input', persistDraftBotConfig);
@@ -7480,6 +7773,7 @@ service cloud.firestore {
         const bkashNumber = (tgBkashInput?.value || '').trim() || 'Not Set';
         const nagadNumber = (tgNagadInput?.value || '').trim() || 'Not Set';
         const paymentNote = (tgNoteInput?.value || '').trim();
+        const customRiyaPrompt = (riyaCustomPromptInput?.value || '').trim();
         let domainBase = normalizeBaseUrl(
           tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev'
         );
@@ -7507,7 +7801,7 @@ service cloud.firestore {
           if (nagadNumber && nagadNumber !== 'Not Set') webhookUrlObj.searchParams.set('nagad', nagadNumber);
           if (adminChatId) webhookUrlObj.searchParams.set('adminId', adminChatId);
 
-          // Test if the remote webhook endpoint has the latest worker code ({ ping: true } -> { pong: true })
+          // Test if the remote webhook endpoint has the latest worker code ({ ping: true } -> { pong: true, riyaVersion: 2 })
           let remoteWebhookReady = false;
           try {
             const pingRes = await fetch(webhookUrlObj.toString(), {
@@ -7516,7 +7810,7 @@ service cloud.firestore {
               body: JSON.stringify({ ping: true }),
             });
             const pingData = await pingRes.json().catch(() => null);
-            if (pingRes.ok && pingData && pingData.pong === true) {
+            if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 2) {
               remoteWebhookReady = true;
             }
           } catch {}
@@ -7587,6 +7881,8 @@ service cloud.firestore {
             paymentNote,
             domain: domainBase,
             serviceEnabled: isRedeemServiceEnabled,
+            aiAssistantEnabled: isRiyaAssistantEnabled,
+            customRiyaPrompt,
             updatedAt: Date.now(),
             botAuthToken: 'xtube_tg_bot_2026',
           };
@@ -7603,15 +7899,17 @@ service cloud.firestore {
             set(ref(db, 'seoConfig/telegramBotUrl'), `https://t.me/${botUsername}`).catch(() => {}),
           ]);
 
+          fetch('/api/bot-keepalive').catch(() => {});
+
           if (tgUploadStatusBadge) {
             tgUploadStatusBadge.textContent = `✓ Saved & Active (@${botUsername})`;
           }
           if (tgUploadWebhookInfo) {
-            tgUploadWebhookInfo.textContent = `✅ Active Store Bot: @${botUsername} (${remoteWebhookReady ? 'Webhook Active' : 'Live Auto-Responder Active'}) | bKash: ${bkashNumber} | Nagad: ${nagadNumber}`;
+            tgUploadWebhookInfo.textContent = `✅ Active Store Bot: @${botUsername} (${remoteWebhookReady ? 'Webhook Active' : 'Riya Aktar Live Auto-Responder Active'}) | bKash: ${bkashNumber} | Nagad: ${nagadNumber}`;
           }
           activateTgUploadBotBtn.textContent = `✓ Store Bot Saved & Connected (@${botUsername})!`;
           showStatus(
-            `🎉 Telegram Bot (@${botUsername}) সফলভাবে চালু হয়েছে এবং Direct WebApp Menu সেট হয়েছে!`,
+            `🎉 Telegram Bot (@${botUsername}) এবং Riya Aktar Auto-Responder সফলভাবে চালু হয়েছে!`,
             'success'
           );
         } catch (err) {
