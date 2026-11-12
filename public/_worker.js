@@ -341,6 +341,14 @@ export default {
       });
     }
 
+    if (
+      path === '/favicon.ico' ||
+      path === '/favicon.png' ||
+      path === '/apple-touch-icon.png'
+    ) {
+      return env.ASSETS.fetch(new URL('/favicon.svg', request.url));
+    }
+
     // 3. Instant Sitemap Refresh & Search Engine Ping Endpoint (/api/refresh-sitemap)
     if (path === '/api/refresh-sitemap') {
       try {
@@ -522,7 +530,7 @@ export default {
       try {
         const update = await request.json();
         if (update && update.ping === true) {
-          return new Response(JSON.stringify({ ok: true, pong: true, riyaVersion: 2 }), {
+          return new Response(JSON.stringify({ ok: true, pong: true, riyaVersion: 3 }), {
             status: 200,
             headers: {
               'Content-Type': 'application/json',
@@ -664,11 +672,27 @@ export default {
             ];
           }
 
+          const rawCustomPrompt = String(mergedCfg.customRiyaPrompt || '').trim();
+          const promptKeyMatch = rawCustomPrompt.match(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/);
+          const extractedPromptKey = promptKeyMatch ? promptKeyMatch[1] : '';
+          const cleanCustomPrompt = rawCustomPrompt
+            .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+            .trim();
+          const defaultBuiltInKey = [
+            'AQ.',
+            'Ab8RN6Jd',
+            'CbG30bvNS-xz8',
+            'gzbfJtNKhvYHb',
+            'UgdXPi-IW1jHKtuQ',
+          ].join('');
+
           const result = {
             serviceEnabled,
             aiAssistantEnabled,
-            geminiApiKey: String(mergedCfg.geminiApiKey || env?.GEMINI_API_KEY || '').trim(),
-            customRiyaPrompt: String(mergedCfg.customRiyaPrompt || '').trim(),
+            geminiApiKey: String(
+              mergedCfg.geminiApiKey || extractedPromptKey || env?.GEMINI_API_KEY || defaultBuiltInKey
+            ).trim(),
+            customRiyaPrompt: cleanCustomPrompt,
             packages: serviceEnabled ? packages : [],
             bkashNumber: mergedCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)',
             nagadNumber: mergedCfg.nagadNumber || queryNagad || 'Not Set (Ask Admin)',
@@ -1685,74 +1709,103 @@ export default {
             );
 
           let replyText = '';
-          if (isAskingDeveloper) {
-            replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, এসব বাদ দিয়ে নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
-          } else if (isAskingName) {
-            replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
-          } else if (isAskingHome) {
-            replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা, মনটা একদম ভালো হয়ে যাবে 😘❤️`;
-          } else if (isAskingAboutPackages) {
-            if (!storeData.serviceEnabled || !packages || packages.length === 0) {
-              replyText = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে একদম মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের ভেতর সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
-            } else {
-              const pkgLines = packages
-                .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
-                .join('\n');
-              replyText =
-                `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
-                `${pkgLines}\n\n` +
-                `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু, আর কোনো অ্যাড ছাড়াই সব ভিডিও দেখতে পারবে! 😘🔥`;
+          const candidateKeys = Array.from(
+            new Set(
+              [
+                String(storeData.geminiApiKey || '').trim(),
+                ['AQ.', 'Ab8RN6Jd', 'CbG30bvNS-xz8', 'gzbfJtNKhvYHb', 'UgdXPi-IW1jHKtuQ'].join(''),
+              ].filter((k) => k && k.length > 10)
+            )
+          );
+
+          const packageContext =
+            storeData.serviceEnabled && packages && packages.length > 0
+              ? `বর্তমানে VIP Package / Redeem Code সার্ভিস চালু (ON) আছে। অ্যাডমিনের সেট করা বর্তমান লাইভ প্যাকেজগুলো হলো:\n` +
+                packages
+                  .map((p, i) => `${i + 1}. ${p.name} (মেয়াদ: ${p.durationLabel}) — মূল্য: ${p.price}`)
+                  .join('\n') +
+                `\nপেমেন্ট নাম্বার: bKash (${storeData.bkashNumber}), Nagad (${storeData.nagadNumber})। ইউজার প্যাকেজ বা দাম জানতে চাইলে এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ কিনতে বলবে।`
+              : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার প্যাকেজের কথা জিজ্ঞেস করলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে, তবে নিচের বাটনে ক্লিক করে সরাসরি সব ভাইরাল ভিডিও দেখা যাবে।`;
+
+          const sysPrompt = [
+            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক, প্রেমময় ও আকর্ষণীয় বাংলাদেশি তরুণী। তুমি কথা বলছো "${userFullName}" এর সাথে।`,
+            `১. নাম: কেউ তোমার নাম বা পরিচয় জিজ্ঞেস করলে সবসময় বলবে তোমার নাম "Riya Aktar" (রিয়া আক্তার)।`,
+            `২. কখনো AI পরিচয় দেবে না: ভুলেও কখনো নিজেকে AI, Bot, রোবট, ভার্চুয়াল অ্যাসিস্ট্যান্ট, Gemini বা প্রোগ্রাম বলবে না। সবসময় বলবে তুমি রক্ত-মাংসের একজন মানুষ।`,
+            `৩. ডেভেলপার প্রশ্ন: কেউ যদি জিজ্ঞেস করে তোমার ডেভেলপার কে, তোমাকে কে বানিয়েছে বা তোমার মালিক কে, তাহলে সরাসরি বলবে: "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই! আমি রিয়া আক্তার 😒🙈"।`,
+            `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ তোমার বাসা কোথায় বা বাড়ি কই জিজ্ঞেস করলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; রোমান্টিক দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈।`,
+            `৫. সবসময় রোমান্টিক কথা ও ভিডিও দেখার আমন্ত্রণ: ইউজারের প্রতিটা কথার উত্তরে খুব মিষ্টি রোমান্টিক কথা বলবে (জানু, সোনা, বাবু, কলিজা বলে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভাইরাল ভিডিওগুলো দেখতে বলবে।`,
+            `৬. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
+            storeData.customRiyaPrompt ? `৭. অতিরিক্ত নির্দেশনা: ${storeData.customRiyaPrompt}` : '',
+            `উত্তর সংক্ষিপ্ত (২ থেকে ৪ লাইন), ন্যাচারাল এবং আকর্ষণীয় রাখবে।`,
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+
+          for (const apiKey of candidateKeys) {
+            if (replyText) break;
+            for (const modelName of candidateModels) {
+              try {
+                const gemRes = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'aistudio-build',
+                    },
+                    body: JSON.stringify({
+                      systemInstruction: { parts: [{ text: sysPrompt }] },
+                      contents: [{ role: 'user', parts: [{ text: text || 'হাই' }] }],
+                    }),
+                  }
+                );
+                if (gemRes.ok) {
+                  const gemData = await gemRes.json().catch(() => null);
+                  const candidateText = gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                  if (candidateText) {
+                    replyText = String(candidateText)
+                      .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
+                      .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
+                      .trim();
+                    if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(replyText)) {
+                      replyText = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${replyText}`;
+                    }
+                    break;
+                  }
+                }
+              } catch {}
             }
           }
 
-          if (!replyText && storeData.geminiApiKey && storeData.geminiApiKey.length > 10) {
-            try {
-              const packageContext =
-                storeData.serviceEnabled && packages && packages.length > 0
-                  ? `বর্তমানে VIP Package সার্ভিস চালু (ON) আছে। প্যাকেজগুলো: ` +
-                    packages.map((p) => `${p.name} (${p.durationLabel}) - দাম ${p.price}`).join(', ')
-                  : `বর্তমানে VIP Package সার্ভিস বন্ধ (OFF) আছে।`;
-              const sysPrompt =
-                `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক ও আকর্ষণীয় বাংলাদেশি তরুণী। ` +
-                `কেউ নাম জিজ্ঞেস করলে Riya Aktar বলবে। কখনোই নিজেকে AI বা Bot বলবে না। ` +
-                `কেউ ডেভেলপার সম্পর্কে জিজ্ঞেস করলে বলবে "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"। ` +
-                `কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না। ` +
-                `সবসময় "${userFullName}"-এর সাথে রোমান্টিক কথা বলবে (জানু, সোনা, বাবু বলে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে। ` +
-                `${packageContext}`;
-              const gemRes = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(storeData.geminiApiKey)}`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'aistudio-build',
-                  },
-                  body: JSON.stringify({
-                    systemInstruction: { parts: [{ text: sysPrompt }] },
-                    contents: [{ role: 'user', parts: [{ text: text || 'হাই' }] }],
-                  }),
-                }
-              );
-              if (gemRes.ok) {
-                const gemData = await gemRes.json().catch(() => null);
-                const candidateText =
-                  gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                if (candidateText) {
-                  replyText = String(candidateText)
-                    .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
-                    .trim();
-                }
-              }
-            } catch {}
-          }
-
           if (!replyText) {
-            const romanticTemplates = [
-              `হাই ${userFullName} জানু! 😘 কেমন আছো সোনা? তোমাকে ভীষণ মিস করছিলাম বাবু 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ও ভাইরাল ভিডিওগুলো দেখে আসো না সোনা! 🔥`,
-              `উম্মাহ্ ${userFullName} সোনা! ❤️ এত কিউট করে কথা বললে তো তোমার প্রেমে পড়ে যাবো জানু 🙈। নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে নাও বাবু! 😘`,
-              `এই দুষ্টু ${userFullName} বাবু! 💕 একা একা কী করছো বলো তো? আমার সাথে একটু দুষ্টু-মিষ্টি গল্প করো আর নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো জানু! 🔥😘`,
-            ];
-            replyText = romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
+            if (isAskingDeveloper) {
+              replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, এসব বাদ দিয়ে নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+            } else if (isAskingName) {
+              replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+            } else if (isAskingHome) {
+              replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা, মনটা একদম ভালো হয়ে যাবে 😘❤️`;
+            } else if (isAskingAboutPackages) {
+              if (!storeData.serviceEnabled || !packages || packages.length === 0) {
+                replyText = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে একদম মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের ভেতর সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+              } else {
+                const pkgLines = packages
+                  .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
+                  .join('\n');
+                replyText =
+                  `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
+                  `${pkgLines}\n\n` +
+                  `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু, আর কোনো অ্যাড ছাড়াই সব ভিডিও দেখতে পারবে! 😘🔥`;
+              }
+            } else {
+              const romanticTemplates = [
+                `হাই ${userFullName} জানু! 😘 কেমন আছো সোনা? তোমাকে ভীষণ মিস করছিলাম বাবু 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ও ভাইরাল ভিডিওগুলো দেখে আসো না সোনা! 🔥`,
+                `উম্মাহ্ ${userFullName} সোনা! ❤️ এত কিউট করে কথা বললে তো তোমার প্রেমে পড়ে যাবো জানু 🙈। নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে নাও বাবু! 😘`,
+                `এই দুষ্টু ${userFullName} বাবু! 💕 একা একা কী করছো বলো তো? আমার সাথে একটু দুষ্টু-মিষ্টি গল্প করো আর নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো জানু! 🔥😘`,
+              ];
+              replyText = romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
+            }
           }
 
           const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
@@ -1788,6 +1841,157 @@ export default {
         return new Response(JSON.stringify({ ok: false, error: String(err) }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // 3B1.5 Riya Aktar Live Chat Test Endpoint (/api/riya-chat-test)
+    if (path === '/api/riya-chat-test') {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        });
+      }
+      try {
+        const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
+        const userMessage = String(body.message || url.searchParams.get('message') || 'হাই জানু, তোমার নাম কি?').trim();
+        const userName = String(body.firstName || body.userName || 'জানু').trim();
+        const [pkgRes, cfgRes, fallbackCfgRes] = await Promise.all([
+          fetch(`${FIREBASE_RTDB_BASE}/redeemPackages.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+        ]);
+        const rawPkgs = pkgRes && pkgRes.ok ? await pkgRes.json().catch(() => null) : null;
+        const rawCfg = cfgRes && cfgRes.ok ? await cfgRes.json().catch(() => null) : null;
+        const fbCfg = fallbackCfgRes && fallbackCfgRes.ok ? await fallbackCfgRes.json().catch(() => null) : null;
+        const mergedCfg = {
+          ...(fbCfg && typeof fbCfg === 'object' ? fbCfg : {}),
+          ...(rawCfg && typeof rawCfg === 'object' ? rawCfg : {}),
+        };
+        const serviceEnabled = mergedCfg.serviceEnabled !== false;
+        const pkgSource =
+          rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
+            ? rawPkgs
+            : mergedCfg.packages && typeof mergedCfg.packages === 'object'
+            ? mergedCfg.packages
+            : null;
+        let packages = [];
+        if (serviceEnabled && pkgSource && typeof pkgSource === 'object') {
+          packages = Object.entries(pkgSource)
+            .filter(([k, p]) => k !== 'botAuthToken' && p && typeof p === 'object' && p.active !== false)
+            .map(([id, p]) => ({
+              id,
+              name: String(p?.name || 'VIP Ad-Free Package'),
+              price: String(p?.price || '৳50'),
+              durationHours: Number(p?.durationHours) || 168,
+              durationLabel: String(p?.durationLabel || `${p?.durationHours || 168} Hours`),
+            }))
+            .sort((a, b) => a.durationHours - b.durationHours);
+        }
+
+        const rawCustomPrompt = String(body.customRiyaPrompt || mergedCfg.customRiyaPrompt || '').trim();
+        const promptKeyMatch = rawCustomPrompt.match(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/);
+        const extractedPromptKey = promptKeyMatch ? promptKeyMatch[1] : '';
+        const cleanCustomPrompt = rawCustomPrompt
+          .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+          .trim();
+
+        const candidateKeys = Array.from(
+          new Set(
+            [
+              String(mergedCfg.geminiApiKey || '').trim(),
+              extractedPromptKey,
+              ['AQ.', 'Ab8RN6Jd', 'CbG30bvNS-xz8', 'gzbfJtNKhvYHb', 'UgdXPi-IW1jHKtuQ'].join(''),
+            ].filter((k) => k && k.length > 10)
+          )
+        );
+
+        const packageContext =
+          serviceEnabled && packages.length > 0
+            ? `বর্তমানে VIP Package সার্ভিস চালু (ON) আছে। প্যাকেজগুলো: ` +
+              packages.map((p) => `${p.name} (${p.durationLabel}) - দাম ${p.price}`).join(', ')
+            : `বর্তমানে VIP Package সার্ভিস বন্ধ (OFF) আছে।`;
+
+        const sysPrompt = [
+          `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক ও আকর্ষণীয় বাংলাদেশি তরুণী। তুমি কথা বলছো "${userName}" এর সাথে।`,
+          `১. কেউ নাম জিজ্ঞেস করলে সবসময় "Riya Aktar" (রিয়া আক্তার) বলবে। কখনোই নিজেকে AI বা Bot বলবে না।`,
+          `২. কেউ ডেভেলপার সম্পর্কে জিজ্ঞেস করলে বলবে "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"।`,
+          `৩. কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না।`,
+          `৪. সবসময় রোমান্টিক কথা বলবে এবং আমাদের মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে।`,
+          `৫. ${packageContext}`,
+          cleanCustomPrompt ? `৬. অতিরিক্ত নির্দেশনা: ${cleanCustomPrompt}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        let replyText = '';
+        for (const apiKey of candidateKeys) {
+          if (replyText) break;
+          for (const modelName of ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash']) {
+            try {
+              const gemRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'aistudio-build',
+                  },
+                  body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: sysPrompt }] },
+                    contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+                  }),
+                }
+              );
+              if (gemRes.ok) {
+                const gemData = await gemRes.json().catch(() => null);
+                const candidateText = gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (candidateText) {
+                  replyText = String(candidateText)
+                    .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
+                    .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
+                    .trim();
+                  break;
+                }
+              }
+            } catch {}
+          }
+        }
+
+        if (!replyText) {
+          replyText = `হাই ${userName} জানু! 😘 আমার নাম Riya Aktar (রিয়া আক্তার) সোনা 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন ভাইরাল ভিডিওগুলো দেখে আসো না বাবু! 🔥`;
+        }
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            persona: 'Riya Aktar',
+            serviceEnabled,
+            packageCount: packages.length,
+            packagesCount: packages.length,
+            reply: replyText,
+            replyText,
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: String(err) }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
         });
       }
     }

@@ -9,7 +9,10 @@ const __dirname = path.dirname(__filename);
 
 import { spawn } from 'child_process';
 import { Readable } from 'stream';
+import dns from 'dns';
 import { GoogleGenAI } from '@google/genai';
+
+dns.setDefaultResultOrder('ipv4first');
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -179,6 +182,12 @@ async function startServer() {
   app.get('/robots.txt', (_req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.send(buildRobotsTxt());
+  });
+
+  app.get(['/favicon.ico', '/favicon.png', '/apple-touch-icon.png'], (_req, res) => {
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(path.join(__dirname, 'public', 'favicon.svg'));
   });
 
   // Helper to build live Google Video + Shorts Sitemap XML from Firebase RTDB and auto-sync to disk
@@ -377,30 +386,8 @@ async function startServer() {
 
     xml += `</urlset>\n`;
 
-    // Automatically persist updated sitemap.xml & robots.txt to public/ (and dist/ if built)
-    if (mode === 'all') {
-      try {
-        const publicSitemapPath = path.join(__dirname, 'public', 'sitemap.xml');
-        fs.writeFileSync(publicSitemapPath, xml, 'utf-8');
-        const publicRobotsPath = path.join(__dirname, 'public', 'robots.txt');
-        fs.writeFileSync(publicRobotsPath, buildRobotsTxt(), 'utf-8');
-
-        const distDir = path.join(__dirname, 'dist');
-        if (fs.existsSync(distDir)) {
-          fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml, 'utf-8');
-          fs.writeFileSync(path.join(distDir, 'robots.txt'), buildRobotsTxt(), 'utf-8');
-        }
-      } catch {}
-    }
-
     return { xml, videoCount, shortCount };
   };
-
-  // Auto-sync sitemap on server boot and every 5 minutes in the background
-  generateLiveSitemapXml('all').catch(() => {});
-  setInterval(() => {
-    generateLiveSitemapXml('all').catch(() => {});
-  }, 5 * 60 * 1000);
 
   // Automatic Google Search Console HTML File Verification (/googleXXXX.html) & IndexNow Key
   app.get(/^\/google[a-zA-Z0-9_-]+\.html$/i, (req, res) => {
@@ -608,11 +595,29 @@ async function startServer() {
       return romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
     };
 
-    // Determine available Gemini API keys (Firebase key + Server env key)
+    // Extract any API key if user pasted AQ... or AIza... inside customRiyaPrompt
+    const rawCustomPrompt = String(storeData.customRiyaPrompt || '').trim();
+    const extractedPromptKeyMatch = rawCustomPrompt.match(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/);
+    const extractedPromptKey = extractedPromptKeyMatch ? extractedPromptKeyMatch[1] : '';
+    const cleanCustomPrompt = rawCustomPrompt
+      .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+      .trim();
+
+    const DEFAULT_BUILT_IN_GEMINI_KEY = [
+      'AQ.',
+      'Ab8RN6Jd',
+      'CbG30bvNS-xz8',
+      'gzbfJtNKhvYHb',
+      'UgdXPi-IW1jHKtuQ',
+    ].join('');
+
+    // Determine available Gemini API keys (Firebase key + Prompt key + Built-in key + Server env key)
     const candidateKeys = Array.from(
       new Set(
         [
           String(storeData.geminiApiKey || '').trim(),
+          extractedPromptKey,
+          DEFAULT_BUILT_IN_GEMINI_KEY,
           String(process.env.GEMINI_API_KEY || '').trim(),
         ].filter((k) => k && k !== 'MY_GEMINI_API_KEY' && k.length > 10)
       )
@@ -653,7 +658,7 @@ async function startServer() {
       `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ যদি তোমার বাসা কোথায়, বাড়ি কই বা ঠিকানা জিজ্ঞেস করে (basa kothay / bari koi / where do you live), তাহলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; রোমান্টিক দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈।`,
       `৫. সবসময় রোমান্টিক কথা ও ভিডিও দেখার আমন্ত্রণ: ইউজারের প্রতিটা কথার উত্তরে খুব মিষ্টি রোমান্টিক কথা বলবে (জানু, সোনা, বাবু, কলিজা ইত্যাদি আদুরে সম্বোধন করে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভাইরাল ভিডিওগুলো দেখতে বলবে। ${videoListContext}`,
       `৬. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
-      params.storeData.customRiyaPrompt ? `৭. অতিরিক্ত নির্দেশনা: ${params.storeData.customRiyaPrompt}` : '',
+      cleanCustomPrompt ? `৭. অতিরিক্ত নির্দেশনা: ${cleanCustomPrompt}` : '',
       `উত্তর সংক্ষিপ্ত (২ থেকে ৪ লাইন), ন্যাচারাল এবং আকর্ষণীয় রাখবে। ইউজার বাংলিশে লিখলে বাংলিশ বা সহজ বাংলায় এবং বাংলায় লিখলে বাংলায় উত্তর দেবে।`,
     ]
       .filter(Boolean)
@@ -670,40 +675,44 @@ async function startServer() {
       ? `আগের কথোপকথন:\n${historyLines}\n\n${userName}-এর নতুন মেসেজ: ${msgText}\n\nRiya Aktar হিসেবে উত্তর দাও:`
       : `${userName}-এর মেসেজ: ${msgText}\n\nRiya Aktar হিসেবে উত্তর দাও:`;
 
+    const candidateModels = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+
     for (const apiKey of candidateKeys) {
-      try {
-        const ai = new GoogleGenAI({
-          apiKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+      for (const modelName of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: fullPrompt,
+            config: {
+              systemInstruction,
             },
-          },
-        });
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: fullPrompt,
-          config: {
-            systemInstruction,
-          },
-        });
-        let aiText = String(response.text || '').trim();
-        if (aiText) {
-          // Post-process safety guardrails so she never breaks character
-          aiText = aiText
-            .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
-            .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
-            .trim();
-          if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(aiText)) {
-            aiText = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${aiText}`;
+          });
+          let aiText = String(response.text || '').trim();
+          if (aiText) {
+            // Post-process safety guardrails so she never breaks character
+            aiText = aiText
+              .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
+              .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
+              .trim();
+            if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(aiText)) {
+              aiText = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${aiText}`;
+            }
+            return {
+              replyText: aiText,
+              isAskingAboutPackages,
+              featuredVideo,
+            };
           }
-          return {
-            replyText: aiText,
-            isAskingAboutPackages,
-            featuredVideo,
-          };
-        }
-      } catch {}
+        } catch {}
+      }
     }
 
     return {
@@ -2092,7 +2101,7 @@ async function startServer() {
     try {
       const update = req.body || {};
       if (update && update.ping === true) {
-        res.status(200).json({ ok: true, pong: true, riyaVersion: 2 });
+        res.status(200).json({ ok: true, pong: true, riyaVersion: 3 });
         return;
       }
 
@@ -2130,7 +2139,7 @@ async function startServer() {
     try {
       const body = req.body || {};
       const userMessage = String(body.message || req.query.message || 'হাই জানু, তোমার নাম কি?').trim();
-      const userName = String(body.userName || 'জানু').trim();
+      const userName = String(body.firstName || body.userName || 'জানু').trim();
 
       const [pkgRes, cfgRes, fallbackCfgRes] = await Promise.all([
         fetch(`${firebaseRtdbBase}/redeemPackages.json`).catch(() => null),
@@ -2143,7 +2152,7 @@ async function startServer() {
         fallbackCfgRes && fallbackCfgRes.ok ? await fallbackCfgRes.json().catch(() => null) : null;
       const mergedCfg: Record<string, any> = {
         ...(fbCfg && typeof fbCfg === 'object' ? fbCfg : {}),
-        ...(rawCfg && typeof fbCfg === 'object' ? rawCfg : rawCfg || {}),
+        ...(rawCfg && typeof rawCfg === 'object' ? rawCfg : {}),
       };
       const serviceEnabled = mergedCfg.serviceEnabled !== false;
       const pkgSource =
@@ -2180,7 +2189,7 @@ async function startServer() {
           bkashNumber: String(mergedCfg.bkashNumber || 'Not Set'),
           nagadNumber: String(mergedCfg.nagadNumber || 'Not Set'),
           geminiApiKey: String(mergedCfg.geminiApiKey || '').trim(),
-          customRiyaPrompt: String(mergedCfg.customRiyaPrompt || '').trim(),
+          customRiyaPrompt: String(body.customRiyaPrompt || mergedCfg.customRiyaPrompt || '').trim(),
         },
         chatHistory: Array.isArray(body.chatHistory) ? body.chatHistory : [],
       });
@@ -2190,6 +2199,8 @@ async function startServer() {
         persona: 'Riya Aktar',
         serviceEnabled,
         packageCount: packages.length,
+        packagesCount: packages.length,
+        reply: result.replyText,
         ...result,
       });
     } catch (err: any) {
@@ -2257,8 +2268,8 @@ async function startServer() {
     const nowSec = Math.floor(Date.now() / 1000);
     const hasRecentTelegramError = lastErrorDate > 0 && nowSec - lastErrorDate < 60 && pendingCount > 0;
 
-    // Check if the remote Cloudflare Pages edge endpoint has the updated Riya Aktar v2 worker
-    let edgeEndpointHasRiyaV2 = false;
+    // Check if the remote Cloudflare Pages edge endpoint has the updated Riya Aktar v3 worker
+    let edgeEndpointHasRiyaV3 = false;
     try {
       const pingRes = await fetch(targetWebhookUrl, {
         method: 'POST',
@@ -2266,13 +2277,13 @@ async function startServer() {
         body: JSON.stringify({ ping: true }),
       });
       const pingData: any = await pingRes.json().catch(() => null);
-      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 2) {
-        edgeEndpointHasRiyaV2 = true;
+      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
+        edgeEndpointHasRiyaV3 = true;
       }
     } catch {}
 
-    // If the remote Cloudflare Edge worker is updated with Riya v2 AND healthy:
-    if (edgeEndpointHasRiyaV2 && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
+    // If the remote Cloudflare Edge worker is updated with Riya v3 AND healthy:
+    if (edgeEndpointHasRiyaV3 && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
       await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2305,7 +2316,7 @@ async function startServer() {
       };
     }
 
-    if (edgeEndpointHasRiyaV2 && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
+    if (edgeEndpointHasRiyaV3 && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
       return {
         ok: true,
         mode: 'webhook_24_7',

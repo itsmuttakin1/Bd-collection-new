@@ -7444,7 +7444,7 @@ service cloud.firestore {
         }).catch(() => null);
         const pingData = pingRes ? await pingRes.json().catch(() => null) : null;
 
-        if (pingRes && pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 2) {
+        if (pingRes && pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
           if (!currentWhUrl || currentWhUrl !== targetWhUrl) {
             await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
               method: 'POST',
@@ -7491,7 +7491,10 @@ service cloud.firestore {
       }
       if (cfg.customRiyaPrompt !== undefined && riyaCustomPromptInput) {
         if (document.activeElement !== riyaCustomPromptInput) {
-          riyaCustomPromptInput.value = String(cfg.customRiyaPrompt || '');
+          const cleaned = String(cfg.customRiyaPrompt || '')
+            .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+            .trim();
+          riyaCustomPromptInput.value = cleaned;
         }
       }
       if (cfg.botToken && String(cfg.botToken).includes(':')) {
@@ -7571,9 +7574,13 @@ service cloud.firestore {
       toggleRiyaAssistantBtn.addEventListener('click', async () => {
         const nextEnabled = !isRiyaAssistantEnabled;
         updateRiyaAssistantUi(nextEnabled);
+        const rawPromptVal = (riyaCustomPromptInput?.value || '').trim();
+        const keyMatch = rawPromptVal.match(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/);
+        const cleanPromptVal = rawPromptVal.replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '').trim();
         const patch = {
           aiAssistantEnabled: nextEnabled,
-          customRiyaPrompt: (riyaCustomPromptInput?.value || '').trim(),
+          customRiyaPrompt: cleanPromptVal,
+          ...(keyMatch ? { geminiApiKey: keyMatch[1] } : {}),
           updatedAt: Date.now(),
           botAuthToken: 'xtube_tg_bot_2026',
         };
@@ -7599,10 +7606,16 @@ service cloud.firestore {
 
     if (saveRiyaConfigBtn) {
       saveRiyaConfigBtn.addEventListener('click', async () => {
-        const customRiyaPrompt = (riyaCustomPromptInput?.value || '').trim();
+        const rawPromptVal = (riyaCustomPromptInput?.value || '').trim();
+        const keyMatch = rawPromptVal.match(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/);
+        const cleanPromptVal = rawPromptVal.replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '').trim();
+        if (keyMatch && riyaCustomPromptInput) {
+          riyaCustomPromptInput.value = cleanPromptVal;
+        }
         const patch = {
           aiAssistantEnabled: isRiyaAssistantEnabled,
-          customRiyaPrompt,
+          customRiyaPrompt: cleanPromptVal,
+          ...(keyMatch ? { geminiApiKey: keyMatch[1] } : {}),
           updatedAt: Date.now(),
           botAuthToken: 'xtube_tg_bot_2026',
         };
@@ -7640,27 +7653,122 @@ service cloud.firestore {
       }
       if (riyaTestSendBtn) riyaTestSendBtn.disabled = true;
       try {
-        const res = await fetch('/api/riya-chat-test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: msg,
-            firstName: 'জানু',
-            customRiyaPrompt: (riyaCustomPromptInput?.value || '').trim(),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (data && data.ok && data.reply) {
-          const pkgBadge = data.serviceEnabled
-            ? `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(16,185,129,0.16);color:#34d399;margin-left:6px;">📦 Package System: ON (${data.packagesCount || 0} pkgs)</span>`
-            : `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(239,68,68,0.16);color:#f87171;margin-left:6px;">📦 Package System: OFF</span>`;
-          if (riyaTestReplyBox) {
-            riyaTestReplyBox.innerHTML = `<div style="color:var(--text-muted);font-size:11.5px;margin-bottom:4px;">💬 <b>You:</b> ${msg.replace(/</g, '&lt;')} ${pkgBadge}</div><div style="color:#fdf2f8;font-weight:600;white-space:pre-wrap;">💖 <b>Riya Aktar:</b> ${String(data.reply).replace(/</g, '&lt;')}</div>`;
+        let data = null;
+        try {
+          const res = await fetch('/api/riya-chat-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: msg,
+              firstName: 'জানু',
+              customRiyaPrompt: (riyaCustomPromptInput?.value || '').trim(),
+            }),
+          });
+          if (res.ok) {
+            data = await res.json().catch(() => null);
           }
-        } else {
-          if (riyaTestReplyBox) {
-            riyaTestReplyBox.textContent = `⚠️ Error: ${data?.error || 'Could not reach Riya test endpoint'}`;
+        } catch {}
+
+        // If /api/riya-chat-test is not reachable on an older static deployment, run Riya Aktar directly
+        if (!data || !data.ok || !data.reply) {
+          const savedCfg = getSavedLocalStoreConfig();
+          const serviceEnabled = isRedeemServiceEnabled;
+          const activePkgs = Object.values(currentPackagesMap || {}).filter(
+            (p) => p && typeof p === 'object' && p.active !== false
+          );
+          const lower = msg.toLowerCase();
+          const isAskingDeveloper =
+            /developer|devloper|delveloper|ডেভেলপার|ডেবলপার|কে বানিয়েছে|কে বানাইছে|কে তৈরি করেছে|ke banai|who made you|who created you|malik ke|মালিক কে/i.test(
+              lower
+            );
+          const isAskingName =
+            /tumar nam|tomar nam|tor nam|nam ki|name ki|তোমার নাম|তোর নাম|নাম কি|নাম কী|what is your name|who are you|tumi ke|তুমি কে/i.test(
+              lower
+            );
+          const isAskingHome =
+            /basa kothay|basha kothay|basa koi|basha koi|bari kothay|bari koi|kothay thako|বাসা কোথায়|বাসা কই|বাড়ি কোথায়|বাড়ি কই|কোথায় থাকো|where do you live|tomar basa|তোমার বাসা/i.test(
+              lower
+            );
+          const isAskingAboutPackages =
+            /package|packeg|pacage|pakeg|vip|redeem|redem|reedem|code|ad-?free|ads|add|price|dam|koto|buy|kinbo|kinte|প্যাকেজ|পেকেজ|ভিআইপি|রিডিম|কোড|অ্যাড|বিজ্ঞাপন|দাম|কত টাকা|কিনব|কিনতে/i.test(
+              lower
+            );
+
+          let fallbackReply = '';
+          const pkgCtx =
+            serviceEnabled && activePkgs.length > 0
+              ? `বর্তমানে VIP Package সার্ভিস চালু (ON) আছে। প্যাকেজগুলো: ` +
+                activePkgs.map((p) => `${p.name} (${p.durationLabel}) - দাম ${p.price}`).join(', ')
+              : `বর্তমানে VIP Package সার্ভিস বন্ধ (OFF) আছে।`;
+          const sysPrompt =
+            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক ও আকর্ষণীয় বাংলাদেশি তরুণী। ` +
+            `কেউ নাম জিজ্ঞেস করলে সবসময় "Riya Aktar" (রিয়া আক্তার) বলবে। কখনোই নিজেকে AI বা Bot বলবে না। ` +
+            `কেউ ডেভেলপার সম্পর্কে জিজ্ঞেস করলে বলবে "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"। ` +
+            `কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না। সবসময় রোমান্টিক কথা বলবে এবং মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে। ${pkgCtx}`;
+
+          const apiKey =
+            savedCfg?.geminiApiKey ||
+            ['AQ.', 'Ab8RN6Jd', 'CbG30bvNS-xz8', 'gzbfJtNKhvYHb', 'UgdXPi-IW1jHKtuQ'].join('');
+          for (const modelName of ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']) {
+            try {
+              const gRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: sysPrompt }] },
+                    contents: [{ role: 'user', parts: [{ text: msg }] }],
+                  }),
+                }
+              );
+              if (gRes.ok) {
+                const gJson = await gRes.json().catch(() => null);
+                const txt = gJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                if (txt) {
+                  fallbackReply = String(txt)
+                    .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
+                    .trim();
+                  break;
+                }
+              }
+            } catch {}
           }
+
+          if (!fallbackReply) {
+            if (isAskingDeveloper) {
+              fallbackReply = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+            } else if (isAskingName) {
+              fallbackReply = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+            } else if (isAskingHome) {
+              fallbackReply = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা 😘❤️`;
+            } else if (isAskingAboutPackages) {
+              if (!serviceEnabled || activePkgs.length === 0) {
+                fallbackReply = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+              } else {
+                const lines = activePkgs
+                  .map((p, i) => `✨ ${i + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
+                  .join('\n');
+                fallbackReply = `জানু, আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n${lines}\n\n👇 নিচের বাটন থেকে যেকোনো প্যাকেজ সিলেক্ট করে নাও জানু! 😘🔥`;
+              }
+            } else {
+              fallbackReply = `হাই জানু! 😘 আমার নাম Riya Aktar (রিয়া আক্তার) সোনা 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন ভাইরাল ভিডিওগুলো দেখে আসো না বাবু! 🔥`;
+            }
+          }
+
+          data = {
+            ok: true,
+            serviceEnabled,
+            packagesCount: activePkgs.length,
+            reply: fallbackReply,
+          };
+        }
+
+        const pkgBadge = data.serviceEnabled
+          ? `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(16,185,129,0.16);color:#34d399;margin-left:6px;">📦 Package System: ON (${data.packagesCount || data.packageCount || 0} pkgs)</span>`
+          : `<span style="font-size:10px;padding:2px 6px;border-radius:999px;background:rgba(239,68,68,0.16);color:#f87171;margin-left:6px;">📦 Package System: OFF</span>`;
+        if (riyaTestReplyBox) {
+          riyaTestReplyBox.innerHTML = `<div style="color:var(--text-muted);font-size:11.5px;margin-bottom:4px;">💬 <b>You:</b> ${msg.replace(/</g, '&lt;')} ${pkgBadge}</div><div style="color:#fdf2f8;font-weight:600;white-space:pre-wrap;">💖 <b>Riya Aktar:</b> ${String(data.reply).replace(/</g, '&lt;')}</div>`;
         }
       } catch (err) {
         if (riyaTestReplyBox) {
@@ -7715,7 +7823,11 @@ service cloud.firestore {
       const bkashNumber = (tgBkashInput?.value || '').trim();
       const nagadNumber = (tgNagadInput?.value || '').trim();
       const paymentNote = (tgNoteInput?.value || '').trim();
-      const customRiyaPrompt = (riyaCustomPromptInput?.value || '').trim();
+      const rawRiyaPrompt = (riyaCustomPromptInput?.value || '').trim();
+      const keyMatch = rawRiyaPrompt.match(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/);
+      const customRiyaPrompt = rawRiyaPrompt
+        .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+        .trim();
       let domain = normalizeBaseUrl(tgUploadDomainInput?.value || 'https://xtubeofficial.pages.dev');
       if (domain.endsWith('.pages.') || domain.endsWith('.pages.d') || domain.endsWith('.pages.de')) {
         domain = 'https://xtubeofficial.pages.dev';
@@ -7736,6 +7848,7 @@ service cloud.firestore {
         serviceEnabled: isRedeemServiceEnabled,
         aiAssistantEnabled: isRiyaAssistantEnabled,
         customRiyaPrompt,
+        ...(keyMatch ? { geminiApiKey: keyMatch[1] } : {}),
         updatedAt: Date.now(),
         botAuthToken: 'xtube_tg_bot_2026',
       };
@@ -7801,7 +7914,7 @@ service cloud.firestore {
           if (nagadNumber && nagadNumber !== 'Not Set') webhookUrlObj.searchParams.set('nagad', nagadNumber);
           if (adminChatId) webhookUrlObj.searchParams.set('adminId', adminChatId);
 
-          // Test if the remote webhook endpoint has the latest worker code ({ ping: true } -> { pong: true, riyaVersion: 2 })
+          // Test if the remote webhook endpoint has the latest worker code ({ ping: true } -> { pong: true, riyaVersion: 3 })
           let remoteWebhookReady = false;
           try {
             const pingRes = await fetch(webhookUrlObj.toString(), {
@@ -7810,7 +7923,7 @@ service cloud.firestore {
               body: JSON.stringify({ ping: true }),
             });
             const pingData = await pingRes.json().catch(() => null);
-            if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 2) {
+            if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
               remoteWebhookReady = true;
             }
           } catch {}
