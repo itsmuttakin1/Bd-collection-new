@@ -605,19 +605,27 @@ async function startServer() {
 
     const DEFAULT_BUILT_IN_GEMINI_KEY = [
       'AQ.',
+      'Ab8RN6LpzXGp',
+      'RCkQOTo0Cp98',
+      'gse5cjWKxPAA',
+      'OpewMZXuPL4BRA',
+    ].join('');
+    const BACKUP_BUILT_IN_GEMINI_KEY = [
+      'AQ.',
       'Ab8RN6Jd',
       'CbG30bvNS-xz8',
       'gzbfJtNKhvYHb',
       'UgdXPi-IW1jHKtuQ',
     ].join('');
 
-    // Determine available Gemini API keys (Firebase key + Prompt key + Built-in key + Server env key)
+    // Determine available Gemini API keys (New built-in key + Firebase v4 key + Prompt key + Server env key)
     const candidateKeys = Array.from(
       new Set(
         [
-          String(storeData.geminiApiKey || '').trim(),
           extractedPromptKey,
           DEFAULT_BUILT_IN_GEMINI_KEY,
+          String(storeData.geminiApiKey || '').trim(),
+          BACKUP_BUILT_IN_GEMINI_KEY,
           String(process.env.GEMINI_API_KEY || '').trim(),
         ].filter((k) => k && k !== 'MY_GEMINI_API_KEY' && k.length > 10)
       )
@@ -774,7 +782,7 @@ async function startServer() {
       };
 
       const serviceEnabled = mergedCfg.serviceEnabled !== false;
-      const aiAssistantEnabled = mergedCfg.aiAssistantEnabled !== false;
+      const aiAssistantEnabled = mergedCfg.riyaDisabledByAdmin !== true;
 
       const pkgSource =
         rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
@@ -843,7 +851,7 @@ async function startServer() {
       memoStoreData = {
         serviceEnabled,
         aiAssistantEnabled,
-        geminiApiKey: String(mergedCfg.geminiApiKey || '').trim(),
+        geminiApiKey: String(mergedCfg.geminiApiKeyV4 || mergedCfg.geminiApiKey || '').trim(),
         customRiyaPrompt: String(mergedCfg.customRiyaPrompt || '').trim(),
         packages: serviceEnabled ? packages : [],
         bkashNumber: String(mergedCfg.bkashNumber || queryBkash || 'Not Set (Ask Admin)'),
@@ -2268,8 +2276,8 @@ async function startServer() {
     const nowSec = Math.floor(Date.now() / 1000);
     const hasRecentTelegramError = lastErrorDate > 0 && nowSec - lastErrorDate < 60 && pendingCount > 0;
 
-    // Check if the remote Cloudflare Pages edge endpoint has the updated Riya Aktar v3 worker
-    let edgeEndpointHasRiyaV3 = false;
+    // Check if the remote Cloudflare Pages edge endpoint is healthy
+    let edgeEndpointHealthy = false;
     try {
       const pingRes = await fetch(targetWebhookUrl, {
         method: 'POST',
@@ -2277,13 +2285,13 @@ async function startServer() {
         body: JSON.stringify({ ping: true }),
       });
       const pingData: any = await pingRes.json().catch(() => null);
-      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
-        edgeEndpointHasRiyaV3 = true;
+      if (pingRes.ok && pingData && pingData.pong === true) {
+        edgeEndpointHealthy = true;
       }
     } catch {}
 
-    // If the remote Cloudflare Edge worker is updated with Riya v3 AND healthy:
-    if (edgeEndpointHasRiyaV3 && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
+    // If the remote Cloudflare Edge worker is healthy, keep the 24/7 webhook registered (never fight with deleteWebhook!)
+    if (edgeEndpointHealthy && (!currentWhUrl || currentWhUrl !== targetWebhookUrl || hasRecentTelegramError)) {
       await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2316,7 +2324,7 @@ async function startServer() {
       };
     }
 
-    if (edgeEndpointHasRiyaV3 && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
+    if (edgeEndpointHealthy && currentWhUrl === targetWebhookUrl && !hasRecentTelegramError) {
       return {
         ok: true,
         mode: 'webhook_24_7',
@@ -2327,8 +2335,6 @@ async function startServer() {
       };
     }
 
-    // Otherwise (e.g. before remote Cloudflare worker is redeployed), remove old webhook so this server's
-    // live getUpdates loop processes every message with Riya Aktar Gemini AI immediately!
     if (currentWhUrl) {
       await fetch(
         `https://api.telegram.org/bot${botToken}/deleteWebhook?drop_pending_updates=false`

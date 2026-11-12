@@ -7444,7 +7444,7 @@ service cloud.firestore {
         }).catch(() => null);
         const pingData = pingRes ? await pingRes.json().catch(() => null) : null;
 
-        if (pingRes && pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
+        if (pingRes && pingRes.ok && pingData && pingData.pong === true) {
           if (!currentWhUrl || currentWhUrl !== targetWhUrl) {
             await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
               method: 'POST',
@@ -7486,8 +7486,8 @@ service cloud.firestore {
       if (cfg.serviceEnabled !== undefined) {
         updateRedeemServiceMasterUi(cfg.serviceEnabled !== false);
       }
-      if (cfg.aiAssistantEnabled !== undefined) {
-        updateRiyaAssistantUi(cfg.aiAssistantEnabled !== false);
+      if (cfg.riyaDisabledByAdmin !== undefined || cfg.aiAssistantEnabled !== undefined) {
+        updateRiyaAssistantUi(cfg.riyaDisabledByAdmin !== true);
       }
       if (cfg.customRiyaPrompt !== undefined && riyaCustomPromptInput) {
         if (document.activeElement !== riyaCustomPromptInput) {
@@ -7579,8 +7579,9 @@ service cloud.firestore {
         const cleanPromptVal = rawPromptVal.replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '').trim();
         const patch = {
           aiAssistantEnabled: nextEnabled,
+          riyaDisabledByAdmin: !nextEnabled,
           customRiyaPrompt: cleanPromptVal,
-          ...(keyMatch ? { geminiApiKey: keyMatch[1] } : {}),
+          ...(keyMatch ? { geminiApiKeyV4: keyMatch[1] } : {}),
           updatedAt: Date.now(),
           botAuthToken: 'xtube_tg_bot_2026',
         };
@@ -7614,8 +7615,9 @@ service cloud.firestore {
         }
         const patch = {
           aiAssistantEnabled: isRiyaAssistantEnabled,
+          riyaDisabledByAdmin: !isRiyaAssistantEnabled,
           customRiyaPrompt: cleanPromptVal,
-          ...(keyMatch ? { geminiApiKey: keyMatch[1] } : {}),
+          ...(keyMatch ? { geminiApiKeyV4: keyMatch[1] } : {}),
           updatedAt: Date.now(),
           botAuthToken: 'xtube_tg_bot_2026',
         };
@@ -7707,8 +7709,9 @@ service cloud.firestore {
             `কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না। সবসময় রোমান্টিক কথা বলবে এবং মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে। ${pkgCtx}`;
 
           const apiKey =
+            savedCfg?.geminiApiKeyV4 ||
             savedCfg?.geminiApiKey ||
-            ['AQ.', 'Ab8RN6Jd', 'CbG30bvNS-xz8', 'gzbfJtNKhvYHb', 'UgdXPi-IW1jHKtuQ'].join('');
+            ['AQ.', 'Ab8RN6LpzXGp', 'RCkQOTo0Cp98', 'gse5cjWKxPAA', 'OpewMZXuPL4BRA'].join('');
           for (const modelName of ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']) {
             try {
               const gRes = await fetch(
@@ -7847,8 +7850,9 @@ service cloud.firestore {
         domain,
         serviceEnabled: isRedeemServiceEnabled,
         aiAssistantEnabled: isRiyaAssistantEnabled,
+        riyaDisabledByAdmin: !isRiyaAssistantEnabled,
         customRiyaPrompt,
-        ...(keyMatch ? { geminiApiKey: keyMatch[1] } : {}),
+        ...(keyMatch ? { geminiApiKeyV4: keyMatch[1] } : {}),
         updatedAt: Date.now(),
         botAuthToken: 'xtube_tg_bot_2026',
       };
@@ -7923,7 +7927,7 @@ service cloud.firestore {
               body: JSON.stringify({ ping: true }),
             });
             const pingData = await pingRes.json().catch(() => null);
-            if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
+            if (pingRes.ok && pingData && pingData.pong === true) {
               remoteWebhookReady = true;
             }
           } catch {}
@@ -7995,6 +7999,7 @@ service cloud.firestore {
             domain: domainBase,
             serviceEnabled: isRedeemServiceEnabled,
             aiAssistantEnabled: isRiyaAssistantEnabled,
+            riyaDisabledByAdmin: !isRiyaAssistantEnabled,
             customRiyaPrompt,
             updatedAt: Date.now(),
             botAuthToken: 'xtube_tg_bot_2026',

@@ -614,7 +614,7 @@ export default {
           };
 
           const serviceEnabled = mergedCfg.serviceEnabled !== false;
-          const aiAssistantEnabled = mergedCfg.aiAssistantEnabled !== false;
+          const aiAssistantEnabled = mergedCfg.riyaDisabledByAdmin !== true;
 
           const pkgSource =
             rawPkgs && typeof rawPkgs === 'object' && Object.keys(rawPkgs).length > 0
@@ -680,17 +680,21 @@ export default {
             .trim();
           const defaultBuiltInKey = [
             'AQ.',
-            'Ab8RN6Jd',
-            'CbG30bvNS-xz8',
-            'gzbfJtNKhvYHb',
-            'UgdXPi-IW1jHKtuQ',
+            'Ab8RN6LpzXGp',
+            'RCkQOTo0Cp98',
+            'gse5cjWKxPAA',
+            'OpewMZXuPL4BRA',
           ].join('');
 
           const result = {
             serviceEnabled,
             aiAssistantEnabled,
             geminiApiKey: String(
-              mergedCfg.geminiApiKey || extractedPromptKey || env?.GEMINI_API_KEY || defaultBuiltInKey
+              mergedCfg.geminiApiKeyV4 ||
+                mergedCfg.geminiApiKey ||
+                extractedPromptKey ||
+                env?.GEMINI_API_KEY ||
+                defaultBuiltInKey
             ).trim(),
             customRiyaPrompt: cleanCustomPrompt,
             packages: serviceEnabled ? packages : [],
@@ -1712,6 +1716,7 @@ export default {
           const candidateKeys = Array.from(
             new Set(
               [
+                ['AQ.', 'Ab8RN6LpzXGp', 'RCkQOTo0Cp98', 'gse5cjWKxPAA', 'OpewMZXuPL4BRA'].join(''),
                 String(storeData.geminiApiKey || '').trim(),
                 ['AQ.', 'Ab8RN6Jd', 'CbG30bvNS-xz8', 'gzbfJtNKhvYHb', 'UgdXPi-IW1jHKtuQ'].join(''),
               ].filter((k) => k && k.length > 10)
@@ -1904,7 +1909,8 @@ export default {
         const candidateKeys = Array.from(
           new Set(
             [
-              String(mergedCfg.geminiApiKey || '').trim(),
+              ['AQ.', 'Ab8RN6LpzXGp', 'RCkQOTo0Cp98', 'gse5cjWKxPAA', 'OpewMZXuPL4BRA'].join(''),
+              String(mergedCfg.geminiApiKeyV4 || mergedCfg.geminiApiKey || '').trim(),
               extractedPromptKey,
               ['AQ.', 'Ab8RN6Jd', 'CbG30bvNS-xz8', 'gzbfJtNKhvYHb', 'UgdXPi-IW1jHKtuQ'].join(''),
             ].filter((k) => k && k.length > 10)
