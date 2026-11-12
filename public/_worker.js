@@ -498,7 +498,7 @@ export default {
     // - User selects Package -> Shows bKash & Nagad Numbers -> User selects bKash/Nagad & sends Sender Number + TrxID
     // - Order saved to Firebase (`redeemOrders`) -> Shows in Admin Panel (/ad.html) + Notifies Admin on Telegram
     // - Admin can 1-Click Generate & Send Redeem Code to User from Admin Panel OR directly from Telegram!
-    if (path === '/api/telegram-bot') {
+    if (path === '/api/telegram-bot' || path === '/v3/api/telegram-bot') {
       if (request.method === 'OPTIONS') {
         return new Response(null, {
           status: 204,

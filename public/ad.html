@@ -7444,7 +7444,7 @@ service cloud.firestore {
         }).catch(() => null);
         const pingData = pingRes ? await pingRes.json().catch(() => null) : null;
 
-        if (pingRes && pingRes.ok && pingData && pingData.pong === true) {
+        if (pingRes && pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
           if (!currentWhUrl || currentWhUrl !== targetWhUrl) {
             await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
               method: 'POST',
@@ -7927,7 +7927,7 @@ service cloud.firestore {
               body: JSON.stringify({ ping: true }),
             });
             const pingData = await pingRes.json().catch(() => null);
-            if (pingRes.ok && pingData && pingData.pong === true) {
+            if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
               remoteWebhookReady = true;
             }
           } catch {}

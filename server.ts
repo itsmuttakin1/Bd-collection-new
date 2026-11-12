@@ -2285,7 +2285,7 @@ async function startServer() {
         body: JSON.stringify({ ping: true }),
       });
       const pingData: any = await pingRes.json().catch(() => null);
-      if (pingRes.ok && pingData && pingData.pong === true) {
+      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
         edgeEndpointHealthy = true;
       }
     } catch {}

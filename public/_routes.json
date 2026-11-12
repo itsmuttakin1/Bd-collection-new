@@ -8,6 +8,7 @@
     "/google*.html",
     "/xtubeofficial2026.txt",
     "/api/*",
+    "/v3/api/*",
     "/",
     "/index.html"
   ],
