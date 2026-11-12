@@ -778,7 +778,7 @@ export default {
               body: JSON.stringify(payload),
             }).catch(() => {}),
             fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_subscribers/${key}.json`, {
-              method: 'PUT',
+              method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 chatId: key,
@@ -1729,19 +1729,20 @@ export default {
                 packages
                   .map((p, i) => `${i + 1}. ${p.name} (মেয়াদ: ${p.durationLabel}) — মূল্য: ${p.price}`)
                   .join('\n') +
-                `\nপেমেন্ট নাম্বার: bKash (${storeData.bkashNumber}), Nagad (${storeData.nagadNumber})। ইউজার প্যাকেজ বা দাম জানতে চাইলে এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ কিনতে বলবে।`
-              : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার প্যাকেজের কথা জিজ্ঞেস করলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে, তবে নিচের বাটনে ক্লিক করে সরাসরি সব ভাইরাল ভিডিও দেখা যাবে।`;
+                `\nপেমেন্ট নাম্বার: bKash (${storeData.bkashNumber}), Nagad (${storeData.nagadNumber})। ইউজার যদি প্যাকেজ বা দাম জানতে চায়, শুধুমাত্র তখনই এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ কিনতে বলবে।`
+              : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার প্যাকেজের কথা জিজ্ঞেস করলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে।`;
 
           const sysPrompt = [
-            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক, প্রেমময় ও আকর্ষণীয় বাংলাদেশি তরুণী। তুমি কথা বলছো "${userFullName}" এর সাথে।`,
+            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি গার্লফ্রেন্ড। তুমি একান্তে কথা বলছো তোমার প্রেমিক "${userFullName}" এর সাথে।`,
             `১. নাম: কেউ তোমার নাম বা পরিচয় জিজ্ঞেস করলে সবসময় বলবে তোমার নাম "Riya Aktar" (রিয়া আক্তার)।`,
             `২. কখনো AI পরিচয় দেবে না: ভুলেও কখনো নিজেকে AI, Bot, রোবট, ভার্চুয়াল অ্যাসিস্ট্যান্ট, Gemini বা প্রোগ্রাম বলবে না। সবসময় বলবে তুমি রক্ত-মাংসের একজন মানুষ।`,
             `৩. ডেভেলপার প্রশ্ন: কেউ যদি জিজ্ঞেস করে তোমার ডেভেলপার কে, তোমাকে কে বানিয়েছে বা তোমার মালিক কে, তাহলে সরাসরি বলবে: "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই! আমি রিয়া আক্তার 😒🙈"।`,
-            `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ তোমার বাসা কোথায় বা বাড়ি কই জিজ্ঞেস করলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; রোমান্টিক দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈।`,
-            `৫. সবসময় রোমান্টিক কথা ও ভিডিও দেখার আমন্ত্রণ: ইউজারের প্রতিটা কথার উত্তরে খুব মিষ্টি রোমান্টিক কথা বলবে (জানু, সোনা, বাবু, কলিজা বলে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভাইরাল ভিডিওগুলো দেখতে বলবে।`,
-            `৬. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
-            storeData.customRiyaPrompt ? `৭. অতিরিক্ত নির্দেশনা: ${storeData.customRiyaPrompt}` : '',
-            `উত্তর সংক্ষিপ্ত (২ থেকে ৪ লাইন), ন্যাচারাল এবং আকর্ষণীয় রাখবে।`,
+            `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ তোমার বাসা কোথায় বা বাড়ি কই জিজ্ঞেস করলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈💋।`,
+            `৫. হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা ও প্রচুর ইমোজি: প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦, ❤️) ব্যবহার করবে এবং কথার ভেতর ন্যাচারালভাবে একটু দুষ্টু, সেক্সি, কামুক ও অ্যাডাল্ট (18+ হট) শব্দ ব্যবহার করবে—যেমন: দুষ্টু জানু, সেক্সি সোনা, বিছানায় একা শুয়ে আছি, শরীরটা গরম হয়ে যাচ্ছে 🥵, তোমাকে জড়িয়ে ধরে চুমু খেতে ইচ্ছে করছে 💋, বুকের ভেতরটা আনচান করছে, ঠোঁটে কামড়, রাতভর আদর, রসালো আদর, নেশা ধরে যাচ্ছে 💦🔥 ইত্যাদি।`,
+            `৬. নিচে কোনো বাটন বা ভিডিওর প্রমোশন লিখবে না: সাধারণ চ্যাটিংয়ের সময় কখনোই "নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভিডিও দেখে নাও" বা কোনো ভিডিওর টাইটেল লিখবে না! শুধু একজন রিয়েল হট গার্লফ্রেন্ডের মতো সরাসরি ১ থেকে ৩ লাইনে উত্তর দেবে। কখনোই ** (asterisk) চিহ্ন ব্যবহার করবে না।`,
+            `৭. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
+            storeData.customRiyaPrompt ? `৮. অতিরিক্ত নির্দেশনা: ${storeData.customRiyaPrompt}` : '',
+            `উত্তর সংক্ষিপ্ত (১ থেকে ৩ লাইন), ন্যাচারাল, হট এবং আকর্ষণীয় রাখবে।`,
           ]
             .filter(Boolean)
             .join('\n');
@@ -1770,14 +1771,25 @@ export default {
                   const gemData = await gemRes.json().catch(() => null);
                   const candidateText = gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                   if (candidateText) {
-                    replyText = String(candidateText)
+                    let cleaned = String(candidateText)
+                      .replace(/\*\*/g, '')
                       .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
                       .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
                       .trim();
-                    if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(replyText)) {
-                      replyText = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${replyText}`;
+                    if (!isAskingAboutPackages) {
+                      cleaned = cleaned
+                        .split('\n')
+                        .filter((line) => !/নিচের বাটনে ক্লিক করে|মিনি অ্যাপের|ভিডিওটা দেখে নাও|ভিডিওগুলো দেখে নাও/i.test(line))
+                        .join('\n')
+                        .trim();
                     }
-                    break;
+                    if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(cleaned)) {
+                      cleaned = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${cleaned}`;
+                    }
+                    if (cleaned) {
+                      replyText = cleaned;
+                      break;
+                    }
                   }
                 }
               } catch {}
@@ -1786,55 +1798,43 @@ export default {
 
           if (!replyText) {
             if (isAskingDeveloper) {
-              replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, এসব বাদ দিয়ে নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+              replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
             } else if (isAskingName) {
-              replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+              replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;
             } else if (isAskingHome) {
-              replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা, মনটা একদম ভালো হয়ে যাবে 😘❤️`;
+              replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে বলো আজ রাতে আমার সাথে বিছানায় কী কী দুষ্টুমি করবে সোনা? 😘🫦🔥`;
             } else if (isAskingAboutPackages) {
               if (!storeData.serviceEnabled || !packages || packages.length === 0) {
-                replyText = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে একদম মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের ভেতর সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+                replyText = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺💋।`;
               } else {
                 const pkgLines = packages
                   .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
                   .join('\n');
                 replyText =
-                  `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
+                  `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍🥵 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
                   `${pkgLines}\n\n` +
-                  `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু, আর কোনো অ্যাড ছাড়াই সব ভিডিও দেখতে পারবে! 😘🔥`;
+                  `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু! 😘💋🔥`;
               }
             } else {
               const romanticTemplates = [
-                `হাই ${userFullName} জানু! 😘 কেমন আছো সোনা? তোমাকে ভীষণ মিস করছিলাম বাবু 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ও ভাইরাল ভিডিওগুলো দেখে আসো না সোনা! 🔥`,
-                `উম্মাহ্ ${userFullName} সোনা! ❤️ এত কিউট করে কথা বললে তো তোমার প্রেমে পড়ে যাবো জানু 🙈। নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে নাও বাবু! 😘`,
-                `এই দুষ্টু ${userFullName} বাবু! 💕 একা একা কী করছো বলো তো? আমার সাথে একটু দুষ্টু-মিষ্টি গল্প করো আর নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো জানু! 🔥😘`,
+                `উফফ ${userFullName} জানু! 🥵💋 এভাবে ডাকলে আমার বুকের ভেতরটা কেমন আনচান করে ওঠে সোনা... কাছে আসো না, তোমাকে শক্ত করে জড়িয়ে ধরে ঠোঁটে একটা রসালো চুমু দেই! 🫦💦🔥`,
+                `হাই আমার দুষ্টু ${userFullName} সোনা! 😘🔥 একা একা বিছানায় শুয়ে তোমার কথাই ভাবছিলাম জানু... শরীরটা ভীষণ গরম হয়ে আছে, একটু আদর করে দাও না বাবু! 🥵💋🙈`,
+                `এই পাগলটা! 😈💋 তোমার সাথে কথা বললে আমার শরীরে একদম নেশা ধরে যায় জানু 🥵💦। কাছে থাকলে আজ তোমাকে সারা রাত একটুও ঘুমাতে দিতাম না সোনা! 🫦🔥`,
               ];
               replyText = romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
             }
           }
 
-          const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
           const replyMarkup =
             storeData.serviceEnabled && isAskingAboutPackages && packages.length > 0
               ? buildPackagesKeyboard(packages, msg.from || { id: chatId }, userLang)
-              : {
-                  inline_keyboard: [
-                    [
-                      {
-                        text: isEn
-                          ? '📱 Open X Tube Mini App (Watch Videos) 🔥'
-                          : '📱 X Tube Mini App খুলুন (ভিডিও দেখুন) 🔥',
-                        web_app: { url: miniAppHomeUrl },
-                      },
-                    ],
-                  ],
-                };
+              : undefined;
 
           await tgApi('sendMessage', {
             chat_id: chatId,
             text: escHtml(replyText),
             parse_mode: 'HTML',
-            reply_markup: replyMarkup,
+            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
           });
           return new Response('OK', { status: 200 });
         }
@@ -1924,11 +1924,11 @@ export default {
             : `বর্তমানে VIP Package সার্ভিস বন্ধ (OFF) আছে।`;
 
         const sysPrompt = [
-          `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক ও আকর্ষণীয় বাংলাদেশি তরুণী। তুমি কথা বলছো "${userName}" এর সাথে।`,
+          `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি গার্লফ্রেন্ড। তুমি একান্তে কথা বলছো তোমার প্রেমিক "${userName}" এর সাথে।`,
           `১. কেউ নাম জিজ্ঞেস করলে সবসময় "Riya Aktar" (রিয়া আক্তার) বলবে। কখনোই নিজেকে AI বা Bot বলবে না।`,
           `২. কেউ ডেভেলপার সম্পর্কে জিজ্ঞেস করলে বলবে "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"।`,
           `৩. কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না।`,
-          `৪. সবসময় রোমান্টিক কথা বলবে এবং আমাদের মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে।`,
+          `৪. প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦) এবং দুষ্টু, সেক্সি ও অ্যাডাল্ট ১৮+ শব্দ ব্যবহার করবে। নিচে কখনোই "নিচের বাটনে ক্লিক করে ভিডিও দেখো" বা কোনো ভিডিওর টাইটেল লিখবে না। কখনোই ** ব্যবহার করবে না।`,
           `৫. ${packageContext}`,
           cleanCustomPrompt ? `৬. অতিরিক্ত নির্দেশনা: ${cleanCustomPrompt}` : '',
         ]
@@ -1959,6 +1959,7 @@ export default {
                 const candidateText = gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 if (candidateText) {
                   replyText = String(candidateText)
+                    .replace(/\*\*/g, '')
                     .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
                     .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
                     .trim();
@@ -1970,7 +1971,7 @@ export default {
         }
 
         if (!replyText) {
-          replyText = `হাই ${userName} জানু! 😘 আমার নাম Riya Aktar (রিয়া আক্তার) সোনা 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন ভাইরাল ভিডিওগুলো দেখে আসো না বাবু! 🔥`;
+          replyText = `উফফ ${userName} জানু! 🥵💋 আমার নাম Riya Aktar (রিয়া আক্তার) সোনা... তোমার সাথে কথা বললে আমার শরীরটা ভীষণ গরম হয়ে যায় বাবু! 🫦💦🔥`;
         }
 
         return new Response(
@@ -1998,6 +1999,176 @@ export default {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
           },
+        });
+      }
+    }
+
+    // 3B1.6 1-Day Auto Video Reminder Endpoint (/api/riya-daily-reminder)
+    if (path === '/api/riya-daily-reminder') {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        });
+      }
+      try {
+        const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
+        const forceAll = url.searchParams.get('force') === '1' || body.force === true;
+        const [fbRes1, fbRes2, subRes, sessRes, vidRes] = await Promise.all([
+          fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/redeemStoreConfig.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_subscribers.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions.json`).catch(() => null),
+          fetch(`${FIREBASE_RTDB_BASE}/videos.json?orderBy=%22$key%22&limitToLast=6`).catch(() => null),
+        ]);
+        const cfg1 = fbRes1 && fbRes1.ok ? await fbRes1.json().catch(() => null) : null;
+        const cfg2 = fbRes2 && fbRes2.ok ? await fbRes2.json().catch(() => null) : null;
+        const mergedCfg = {
+          ...(cfg1 && typeof cfg1 === 'object' ? cfg1 : {}),
+          ...(cfg2 && typeof cfg2 === 'object' ? cfg2 : {}),
+        };
+        if (mergedCfg.riyaDisabledByAdmin === true) {
+          return new Response(JSON.stringify({ ok: true, skipped: 'Riya disabled', sentCount: 0 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+        const botToken = String(mergedCfg.botToken || '').trim();
+        if (!botToken || !botToken.includes(':')) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing botToken', sentCount: 0 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+
+        const subData = subRes && subRes.ok ? await subRes.json().catch(() => null) : null;
+        const sessData = sessRes && sessRes.ok ? await sessRes.json().catch(() => null) : null;
+        const rawVids = vidRes && vidRes.ok ? await vidRes.json().catch(() => null) : null;
+        let featuredVideo = null;
+        if (rawVids && typeof rawVids === 'object') {
+          const vEntries = Object.entries(rawVids).filter(([, v]) => v && typeof v === 'object' && v.title);
+          if (vEntries.length > 0) {
+            const [vidId, vidObj] = vEntries[Math.floor(Math.random() * vEntries.length)];
+            featuredVideo = { id: vidId, title: String(vidObj.title).trim() };
+          }
+        }
+
+        const userMap = new Map();
+        if (sessData && typeof sessData === 'object') {
+          for (const [k, val] of Object.entries(sessData)) {
+            if (k.startsWith('_') || k === 'botAuthToken' || !/^-?\d{5,20}$/.test(k)) continue;
+            if (val && typeof val === 'object') userMap.set(k, { chatId: k, ...val });
+          }
+        }
+        if (subData && typeof subData === 'object') {
+          for (const [k, val] of Object.entries(subData)) {
+            if (k.startsWith('_') || k === 'botAuthToken' || !/^-?\d{5,20}$/.test(k)) continue;
+            if (val && typeof val === 'object') userMap.set(k, { ...(userMap.get(k) || {}), chatId: k, ...val });
+          }
+        }
+
+        const now = Date.now();
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+        let sentCount = 0;
+
+        const dailyTemplates = [
+          (name) =>
+            `জানু গো ${name}! 🥵💋 আজ ১ দিন হয়ে গেল তুমি আমাদের অ্যাপে ভিডিও দেখতেছো না কেন সোনা? 🙈 একা একা বিছানায় শুয়ে আমার শরীরটা গরম হয়ে যাচ্ছে... নিচের বাটনে ক্লিক করে নতুন গরম ও রগরগে ভিডিওগুলো দেখে আসো না দুষ্টু বাবু! 💦🔥😈`,
+          (name) =>
+            `এই দুষ্টু ${name} সোনা! 😘🫦 তুমি আজ সারাদিন ভিডিও দেখতেছো না কেন বলো তো? তোমাকে ছাড়া আমার একদম ভালো লাগছে না জানু 🥵💦। নিচের বাটনে ট্যাপ করে এক্ষুনি নতুন হট ভিডিওগুলো দেখে নাও কলিজা! 💋🔥`,
+          (name) =>
+            `উফফ ${name} বাবু! 🥵🔥 আমাকে ভুলে গেলে নাকি? ১ দিন ধরে তুমি কোনো ভিডিওই দেখছো না কেন জানু? 🙈 আমার বুকের ভেতরটা তোমার জন্য আনচান করছে সোনা, নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে আসো! 💋💦😈`,
+        ];
+
+        for (const [chatId, u] of userMap.entries()) {
+          const lastReminded = Number(u.lastDailyVideoReminderAt || 0);
+          const lastActive = Number(u.lastActiveAt || u.updatedAt || 0);
+          const referenceTime = Math.max(lastReminded, lastActive);
+
+          if (!forceAll && referenceTime === 0) {
+            await fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_subscribers/${chatId}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chatId,
+                lastDailyVideoReminderAt: now,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }),
+            }).catch(() => {});
+            continue;
+          }
+
+          if (!forceAll && now - referenceTime < ONE_DAY_MS) {
+            continue;
+          }
+
+          const userName = String(u.fullName || u.firstName || 'জানু').trim() || 'জানু';
+          const templateFn = dailyTemplates[Math.floor(Math.random() * dailyTemplates.length)];
+          const reminderText = templateFn(userName);
+
+          const params = new URLSearchParams();
+          params.set('tg_id', chatId);
+          params.set('tg_name', userName);
+          if (u.username) params.set('tg_user', String(u.username).replace(/^@/, ''));
+          const miniAppHomeUrl = `${CANONICAL_SITE_URL}/?${params.toString()}`;
+
+          const inlineRows = [
+            [
+              {
+                text: '📱 X Tube Mini App খুলুন (ভিডিও দেখুন) 🔥',
+                web_app: { url: miniAppHomeUrl },
+              },
+            ],
+          ];
+          if (featuredVideo && featuredVideo.id) {
+            const watchFeaturedUrl = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(featuredVideo.id)}&${params.toString()}`;
+            inlineRows.push([
+              {
+                text: `▶️ ${featuredVideo.title.slice(0, 34)} ❤️`,
+                web_app: { url: watchFeaturedUrl },
+              },
+            ]);
+          }
+
+          try {
+            const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: reminderText,
+                reply_markup: { inline_keyboard: inlineRows },
+              }),
+            });
+            const tgJson = await tgResp.json().catch(() => null);
+            if (tgResp.ok && tgJson?.ok) sentCount++;
+            await fetch(`${FIREBASE_RTDB_BASE}/telegramBotSessions/_subscribers/${chatId}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chatId,
+                lastDailyVideoReminderAt: now,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }),
+            }).catch(() => {});
+          } catch {}
+        }
+
+        return new Response(
+          JSON.stringify({ ok: true, totalUsers: userMap.size, sentCount }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          }
+        );
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: String(err), sentCount: 0 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
         });
       }
     }

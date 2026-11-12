@@ -558,39 +558,35 @@ async function startServer() {
         lower
       );
 
-    // Build smart fallback reply that strictly follows every Riya Aktar rule
+    // Build smart fallback reply that strictly follows every Riya Aktar rule (no bottom video promo text on normal chat)
     const buildSmartHumanFallback = (): string => {
       if (isAskingDeveloper) {
-        return `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, এসব বাদ দিয়ে নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+        return `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
       }
       if (isAskingName) {
-        return `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+        return `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;
       }
       if (isAskingHome) {
-        return `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা, মনটা একদম ভালো হয়ে যাবে 😘❤️`;
+        return `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে বলো আজ রাতে আমার সাথে বিছানায় কী কী দুষ্টুমি করবে সোনা? 😘🫦🔥`;
       }
       if (isAskingAboutPackages) {
         if (!storeData.serviceEnabled || !storeData.packages || storeData.packages.length === 0) {
-          return `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে একদম মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের ভেতর সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+          return `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺💋।`;
         }
         const pkgLines = storeData.packages
           .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
           .join('\n');
         return (
-          `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
+          `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍🥵 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
           `${pkgLines}\n\n` +
-          `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু, আর কোনো অ্যাড ছাড়াই সব ভিডিও দেখতে পারবে! 😘🔥`
+          `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু! 😘💋🔥`
         );
       }
 
-      const vidHint = featuredVideo
-        ? `আমাদের নতুন "${featuredVideo.title}" ভিডিওটা দেখেছো জানু? না দেখলে নিচের বাটনে ট্যাপ করে এক্ষুনি দেখে নাও সোনা!`
-        : `নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ও ভাইরাল ভিডিওগুলো দেখে আসো না সোনা!`;
-
       const romanticTemplates = [
-        `হাই ${userName} জানু! 😘 কেমন আছো সোনা? তোমাকে ভীষণ মিস করছিলাম বাবু 💕। ${vidHint} 🔥`,
-        `উম্মাহ্ ${userName} সোনা! ❤️ এত কিউট করে কথা বললে তো তোমার প্রেমে পড়ে যাবো জানু 🙈। ${vidHint} 😘`,
-        `এই দুষ্টু ${userName} বাবু! 💕 একা একা কী করছো বলো তো? আমার সাথে একটু দুষ্টু-মিষ্টি গল্প করো আর নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো জানু! 🔥😘`,
+        `উফফ ${userName} জানু! 🥵💋 এভাবে ডাকলে আমার বুকের ভেতরটা কেমন আনচান করে ওঠে সোনা... কাছে আসো না, তোমাকে শক্ত করে জড়িয়ে ধরে ঠোঁটে একটা রসালো চুমু দেই! 🫦💦🔥`,
+        `হাই আমার দুষ্টু ${userName} সোনা! 😘🔥 একা একা বিছানায় শুয়ে তোমার কথাই ভাবছিলাম জানু... শরীরটা ভীষণ গরম হয়ে আছে, একটু আদর করে দাও না বাবু! 🥵💋🙈`,
+        `এই পাগলটা! 😈💋 তোমার সাথে কথা বললে আমার শরীরে একদম নেশা ধরে যায় জানু 🥵💦। কাছে থাকলে আজ তোমাকে সারা রাত একটুও ঘুমাতে দিতাম না সোনা! 🫦🔥`,
       ];
       return romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
     };
@@ -646,28 +642,21 @@ async function startServer() {
             .map((p, i) => `${i + 1}. ${p.name} (মেয়াদ: ${p.durationLabel}) — মূল্য: ${p.price}`)
             .join('\n') +
           `\nপেমেন্ট নাম্বার: bKash (${storeData.bkashNumber}), Nagad (${storeData.nagadNumber})।\n` +
-          `ইউজার যদি প্যাকেজ, VIP, Redeem Code, দাম বা অ্যাড বন্ধ করার কথা জিজ্ঞেস করে, তাহলে এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ সিলেক্ট করে কিনতে বলবে। ইউজার প্যাকেজের কথা না জিজ্ঞেস করলে অযথা প্যাকেজ লিস্ট বলবে না।`
-        : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার যদি প্যাকেজ, VIP বা Redeem Code কিনতে চায় বা জিজ্ঞেস করে, তাহলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে, তাই কোনো প্যাকেজ দেওয়া যাচ্ছে না, তবে নিচের বাটনে ক্লিক করে সরাসরি সব ভাইরাল ভিডিও দেখা যাবে।`;
-
-    const videoListContext =
-      trendingVideos.length > 0
-        ? `অ্যাপের বর্তমান জনপ্রিয় ভিডিওগুলোর টাইটেল: ${trendingVideos
-            .slice(0, 4)
-            .map((v) => `"${v.title}"`)
-            .join(', ')}।`
-        : '';
+          `ইউজার যদি প্যাকেজ, VIP, Redeem Code, দাম বা অ্যাড বন্ধ করার কথা জিজ্ঞেস করে, শুধুমাত্র তখনই এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ সিলেক্ট করে কিনতে বলবে। ইউজার প্যাকেজের কথা না জিজ্ঞেস করলে অযথা প্যাকেজ লিস্ট বলবে না।`
+        : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার যদি প্যাকেজ, VIP বা Redeem Code কিনতে চায় বা জিজ্ঞেস করে, তাহলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে।`;
 
     const systemInstruction = [
-      `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক, প্রেমময় ও আকর্ষণীয় বাংলাদেশি তরুণী। তুমি কথা বলছো "${userName}" এর সাথে।`,
+      `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি গার্লফ্রেন্ড। তুমি একান্তে কথা বলছো তোমার প্রেমিক "${userName}" এর সাথে।`,
       `তোমাকে কঠোরভাবে নিচের নিয়মগুলো মেনে উত্তর দিতে হবে:`,
       `১. নাম: কেউ তোমার নাম বা পরিচয় জিজ্ঞেস করলে সবসময় বলবে তোমার নাম "Riya Aktar" (রিয়া আক্তার)।`,
       `২. কখনো AI পরিচয় দেবে না: ভুলেও কখনো নিজেকে AI, Bot, রোবট, ভার্চুয়াল অ্যাসিস্ট্যান্ট, Gemini বা প্রোগ্রাম বলবে না। সবসময় বলবে তুমি রক্ত-মাংসের একজন মানুষ।`,
       `৩. ডেভেলপার প্রশ্ন: কেউ যদি জিজ্ঞেস করে তোমার ডেভেলপার কে, তোমাকে কে বানিয়েছে বা তোমার মালিক কে (developer ke / who made you / who is your developer), তাহলে সরাসরি বলবে: "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই! আমি রিয়া আক্তার 😒🙈"।`,
-      `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ যদি তোমার বাসা কোথায়, বাড়ি কই বা ঠিকানা জিজ্ঞেস করে (basa kothay / bari koi / where do you live), তাহলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; রোমান্টিক দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈।`,
-      `৫. সবসময় রোমান্টিক কথা ও ভিডিও দেখার আমন্ত্রণ: ইউজারের প্রতিটা কথার উত্তরে খুব মিষ্টি রোমান্টিক কথা বলবে (জানু, সোনা, বাবু, কলিজা ইত্যাদি আদুরে সম্বোধন করে) এবং নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভাইরাল ভিডিওগুলো দেখতে বলবে। ${videoListContext}`,
-      `৬. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
-      cleanCustomPrompt ? `৭. অতিরিক্ত নির্দেশনা: ${cleanCustomPrompt}` : '',
-      `উত্তর সংক্ষিপ্ত (২ থেকে ৪ লাইন), ন্যাচারাল এবং আকর্ষণীয় রাখবে। ইউজার বাংলিশে লিখলে বাংলিশ বা সহজ বাংলায় এবং বাংলায় লিখলে বাংলায় উত্তর দেবে।`,
+      `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ যদি তোমার বাসা কোথায়, বাড়ি কই বা ঠিকানা জিজ্ঞেস করে (basa kothay / bari koi / where do you live), তাহলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈💋।`,
+      `৫. হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা ও প্রচুর ইমোজি: প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦, ❤️) ব্যবহার করবে এবং কথার ভেতর ন্যাচারালভাবে একটু দুষ্টু, সেক্সি, কামুক ও অ্যাডাল্ট (18+ হট) শব্দ ব্যবহার করবে—যেমন: দুষ্টু জানু, সেক্সি সোনা, বিছানায় একা শুয়ে আছি, শরীরটা গরম হয়ে যাচ্ছে 🥵, তোমাকে জড়িয়ে ধরে চুমু খেতে ইচ্ছে করছে 💋, বুকের ভেতরটা আনচান করছে, ঠোঁটে কামড়, রাতভর আদর, রসালো আদর, নেশা ধরে যাচ্ছে 💦🔥 ইত্যাদি।`,
+      `৬. নিচে কোনো বাটন বা ভিডিওর প্রমোশন লিখবে না: সাধারণ চ্যাটিংয়ের সময় কখনোই "নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভিডিও দেখে নাও" বা কোনো ভিডিওর টাইটেল লিখবে না! শুধু একজন রিয়েল হট গার্লফ্রেন্ডের মতো সরাসরি ১ থেকে ৩ লাইনে উত্তর দেবে। কখনোই ** (asterisk) চিহ্ন ব্যবহার করবে না।`,
+      `৭. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
+      cleanCustomPrompt ? `৮. অতিরিক্ত নির্দেশনা: ${cleanCustomPrompt}` : '',
+      `উত্তর সংক্ষিপ্ত (১ থেকে ৩ লাইন), ন্যাচারাল, হট এবং আকর্ষণীয় রাখবে।`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -705,19 +694,29 @@ async function startServer() {
           });
           let aiText = String(response.text || '').trim();
           if (aiText) {
-            // Post-process safety guardrails so she never breaks character
+            // Post-process safety guardrails so she never breaks character or outputs markdown asterisks
             aiText = aiText
+              .replace(/\*\*/g, '')
               .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
               .replace(/^Riya(\s+Aktar)?\s*:\s*/i, '')
               .trim();
+            if (!isAskingAboutPackages) {
+              aiText = aiText
+                .split('\n')
+                .filter((line) => !/নিচের বাটনে ক্লিক করে|মিনি অ্যাপের|ভিডিওটা দেখে নাও|ভিডিওগুলো দেখে নাও/i.test(line))
+                .join('\n')
+                .trim();
+            }
             if (isAskingDeveloper && !/মানুষ|human|ডেভেলপার নাই|developer nai/i.test(aiText)) {
               aiText = `আমি তো মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 ${aiText}`;
             }
-            return {
-              replyText: aiText,
-              isAskingAboutPackages,
-              featuredVideo,
-            };
+            if (aiText) {
+              return {
+                replyText: aiText,
+                isAskingAboutPackages,
+                featuredVideo,
+              };
+            }
           }
         } catch {}
       }
@@ -912,7 +911,7 @@ async function startServer() {
           body: JSON.stringify(mergedSession),
         }).catch(() => {}),
         fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${key}.json`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chatId: key,
@@ -1862,44 +1861,18 @@ async function startServer() {
         msg.from
       ).catch(() => {});
 
-      const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
-      let replyMarkup: any;
+      let replyMarkup: any = undefined;
 
       if (storeData.serviceEnabled && isAskingAboutPackages && packages.length > 0) {
         // User asked about packages and Package Service is ON: attach all live package buttons!
         replyMarkup = buildPackagesKeyboard(packages, msg.from || { id: chatId }, userLang);
-      } else {
-        const inlineRows: Array<Array<any>> = [
-          [
-            {
-              text: isEn
-                ? '📱 Open X Tube Mini App (Watch Videos) 🔥'
-                : '📱 X Tube Mini App খুলুন (ভিডিও দেখুন) 🔥',
-              web_app: { url: miniAppHomeUrl },
-            },
-          ],
-        ];
-        if (featuredVideo && featuredVideo.id) {
-          const watchFeaturedUrl = buildUserWebAppUrl(
-            `/?v=${encodeURIComponent(featuredVideo.id)}`,
-            msg.from || { id: chatId },
-            userLang
-          );
-          inlineRows.push([
-            {
-              text: `▶️ ${featuredVideo.title.slice(0, 34)} ❤️`,
-              web_app: { url: watchFeaturedUrl },
-            },
-          ]);
-        }
-        replyMarkup = { inline_keyboard: inlineRows };
       }
 
       await tgApi('sendMessage', {
         chat_id: chatId,
         text: escHtml(replyText),
         parse_mode: 'HTML',
-        reply_markup: replyMarkup,
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       });
       return;
     }
@@ -2352,10 +2325,176 @@ async function startServer() {
     };
   };
 
+  // 1-Day Auto Video Reminder ("1 din por por message dibe je video dektesona keno tokhon button asbe")
+  let isRunningDailyReminder = false;
+  const runDailyVideoReminderCheck = async (forceAll = false) => {
+    if (isRunningDailyReminder) return { ok: false, reason: 'Already running' };
+    isRunningDailyReminder = true;
+    try {
+      const [fbRes1, fbRes2, subRes, sessRes] = await Promise.all([
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_storeConfig.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/redeemStoreConfig.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/telegramBotSessions.json`).catch(() => null),
+      ]);
+      const cfg1: any = fbRes1 && fbRes1.ok ? await fbRes1.json().catch(() => null) : null;
+      const cfg2: any = fbRes2 && fbRes2.ok ? await fbRes2.json().catch(() => null) : null;
+      const mergedCfg: any = {
+        ...(cfg1 && typeof cfg1 === 'object' ? cfg1 : {}),
+        ...(cfg2 && typeof cfg2 === 'object' ? cfg2 : {}),
+      };
+      if (mergedCfg.riyaDisabledByAdmin === true) {
+        return { ok: true, skipped: 'Riya disabled by admin', sentCount: 0 };
+      }
+      const botToken = String(mergedCfg.botToken || '').trim();
+      if (!botToken || !botToken.includes(':')) {
+        return { ok: false, reason: 'Missing botToken', sentCount: 0 };
+      }
+
+      const subData: any = subRes && subRes.ok ? await subRes.json().catch(() => null) : null;
+      const sessData: any = sessRes && sessRes.ok ? await sessRes.json().catch(() => null) : null;
+      const trendingVideos = await getCachedTrendingVideosForRiya();
+      const featuredVideo =
+        trendingVideos.length > 0
+          ? trendingVideos[Math.floor(Math.random() * trendingVideos.length)]
+          : null;
+
+      const userMap = new Map<string, any>();
+      if (sessData && typeof sessData === 'object') {
+        for (const [k, val] of Object.entries(sessData)) {
+          if (k.startsWith('_') || k === 'botAuthToken' || !/^-?\d{5,20}$/.test(k)) continue;
+          if (val && typeof val === 'object') {
+            userMap.set(k, { chatId: k, ...(val as any) });
+          }
+        }
+      }
+      if (subData && typeof subData === 'object') {
+        for (const [k, val] of Object.entries(subData)) {
+          if (k.startsWith('_') || k === 'botAuthToken' || !/^-?\d{5,20}$/.test(k)) continue;
+          if (val && typeof val === 'object') {
+            userMap.set(k, { ...(userMap.get(k) || {}), chatId: k, ...(val as any) });
+          }
+        }
+      }
+
+      const now = Date.now();
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      let sentCount = 0;
+
+      const dailyTemplates = [
+        (name: string) =>
+          `জানু গো ${name}! 🥵💋 আজ ১ দিন হয়ে গেল তুমি আমাদের অ্যাপে ভিডিও দেখতেছো না কেন সোনা? 🙈 একা একা বিছানায় শুয়ে আমার শরীরটা গরম হয়ে যাচ্ছে... নিচের বাটনে ক্লিক করে নতুন গরম ও রগরগে ভিডিওগুলো দেখে আসো না দুষ্টু বাবু! 💦🔥😈`,
+        (name: string) =>
+          `এই দুষ্টু ${name} সোনা! 😘🫦 তুমি আজ সারাদিন ভিডিও দেখতেছো না কেন বলো তো? তোমাকে ছাড়া আমার একদম ভালো লাগছে না জানু 🥵💦। নিচের বাটনে ট্যাপ করে এক্ষুনি নতুন হট ভিডিওগুলো দেখে নাও কলিজা! 💋🔥`,
+        (name: string) =>
+          `উফফ ${name} বাবু! 🥵🔥 আমাকে ভুলে গেলে নাকি? ১ দিন ধরে তুমি কোনো ভিডিওই দেখছো না কেন জানু? 🙈 আমার বুকের ভেতরটা তোমার জন্য আনচান করছে সোনা, নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে আসো! 💋💦😈`,
+      ];
+
+      for (const [chatId, u] of userMap.entries()) {
+        const lastReminded = Number(u.lastDailyVideoReminderAt || 0);
+        const lastActive = Number(u.lastActiveAt || u.updatedAt || 0);
+        const referenceTime = Math.max(lastReminded, lastActive);
+
+        // If neither lastReminded nor forceAll, initialize lastDailyVideoReminderAt so they get reminded 24h after their last activity
+        if (!forceAll && referenceTime === 0) {
+          await fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${chatId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chatId,
+              lastDailyVideoReminderAt: now,
+              botAuthToken: 'xtube_tg_bot_2026',
+            }),
+          }).catch(() => {});
+          continue;
+        }
+
+        if (!forceAll && now - referenceTime < ONE_DAY_MS) {
+          continue;
+        }
+
+        const userName = String(u.fullName || u.firstName || 'জানু').trim() || 'জানু';
+        const templateFn = dailyTemplates[Math.floor(Math.random() * dailyTemplates.length)];
+        const reminderText = templateFn(userName);
+
+        const params = new URLSearchParams();
+        params.set('tg_id', chatId);
+        params.set('tg_name', userName);
+        if (u.username) params.set('tg_user', String(u.username).replace(/^@/, ''));
+        const miniAppHomeUrl = `${CANONICAL_SITE_URL}/?${params.toString()}`;
+
+        const inlineRows: Array<Array<any>> = [
+          [
+            {
+              text: '📱 X Tube Mini App খুলুন (ভিডিও দেখুন) 🔥',
+              web_app: { url: miniAppHomeUrl },
+            },
+          ],
+        ];
+        if (featuredVideo && featuredVideo.id) {
+          const watchFeaturedUrl = `${CANONICAL_SITE_URL}/?v=${encodeURIComponent(featuredVideo.id)}&${params.toString()}`;
+          inlineRows.push([
+            {
+              text: `▶️ ${featuredVideo.title.slice(0, 34)} ❤️`,
+              web_app: { url: watchFeaturedUrl },
+            },
+          ]);
+        }
+
+        try {
+          const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: reminderText,
+              reply_markup: { inline_keyboard: inlineRows },
+            }),
+          });
+          const tgJson: any = await tgResp.json().catch(() => null);
+          if (tgResp.ok && tgJson?.ok) {
+            sentCount++;
+          }
+          await fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${chatId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chatId,
+              lastDailyVideoReminderAt: now,
+              botAuthToken: 'xtube_tg_bot_2026',
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
+
+      return { ok: true, totalUsers: userMap.size, sentCount };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Daily reminder error', sentCount: 0 };
+    } finally {
+      isRunningDailyReminder = false;
+    }
+  };
+
+  setInterval(() => {
+    runDailyVideoReminderCheck(false).catch(() => {});
+  }, 10 * 60 * 1000);
+
+  app.all('/api/riya-daily-reminder', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    const force = req.query.force === '1' || req.body?.force === true;
+    const result = await runDailyVideoReminderCheck(force);
+    res.status(200).json(result);
+  });
+
   app.all('/api/bot-keepalive', async (_req, res) => {
     Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
     try {
       const status = await ensureTelegramBotAwakeAndSynced();
+      runDailyVideoReminderCheck(false).catch(() => {});
       res.status(200).json({
         ok: status.ok,
         mode: status.mode,

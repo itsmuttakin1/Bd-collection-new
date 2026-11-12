@@ -1328,10 +1328,14 @@
                 </h2>
               </div>
               <p class="text-xs text-zinc-300 leading-relaxed">
-                টেলিগ্রাম বটে ইউজার মেসেজ দিলে <strong>Riya Aktar</strong> রোমান্টিক কথা বলবে, ভিডিও দেখতে বলবে এবং কেউ প্যাকেজের কথা জিজ্ঞেস করলে আগে চেক করবে <strong>Package Service ON নাকি OFF</strong> — ON থাকলে আপনার দেওয়া লাইভ প্যাকেজগুলো পড়ে শোনাবে ও বাটন দেখাবে! (প্যাকেজ কেনার সময় চুপ থাকবে, নিজের নাম <strong>Riya Aktar</strong> বলবে, বাসার ঠিকানা বলবে না এবং ডেভেলপার কে জিজ্ঞেস করলে বলবে <em>"আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"</em>)
+                টেলিগ্রাম বটে সাধারণ কথা বললে <strong>Riya Aktar</strong> প্রচুর ইমোজি ও হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা বলবে (সাধারণ কথার নিচে কোনো অতিরিক্ত ভিডিও টেক্সট বা বাটন আসবে না)। আর <strong>১ দিন পর পর</strong> অটোমেটিক ইউজারদের মেসেজ দিবে <em>"ভিডিও দেখতেছো না কেন?"</em> — তখন নিচে ভিডিও দেখার বাটন আসবে!
               </p>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <button id="send-riya-daily-reminder-btn" type="button"
+                class="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-extrabold transition-all cursor-pointer shadow-lg shadow-amber-500/20">
+                🔥 1-Day Video Reminder এখনই পাঠান (With Button)
+              </button>
               <button id="toggle-riya-assistant-btn" type="button"
                 class="px-4 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-pink-600/25">
                 🔴 Turn OFF Riya Auto-Reply
@@ -1349,16 +1353,16 @@
 
               <div class="grid grid-cols-2 gap-2 text-[11px]">
                 <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <span class="text-zinc-400 block">নাম (Name):</span>
-                  <strong class="text-pink-300">Riya Aktar (রিয়া আক্তার)</strong>
+                  <span class="text-zinc-400 block">সাধারণ চ্যাটিংয়ে:</span>
+                  <strong class="text-pink-300">১৮+ হট কথা ও ইমোজি (বাটন ছাড়া)</strong>
+                </div>
+                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <span class="text-zinc-400 block">১ দিন পর পর অটো মেসেজ:</span>
+                  <strong class="text-amber-300">"ভিডিও দেখতেছো না কেন?" + বাটন</strong>
                 </div>
                 <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                   <span class="text-zinc-400 block">ডেভেলপার জিজ্ঞেস করলে:</span>
                   <strong class="text-emerald-300">"আমি মানুষ ভাই, ডেভেলপার নাই"</strong>
-                </div>
-                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <span class="text-zinc-400 block">প্যাকেজ কেনার সময়:</span>
-                  <strong class="text-amber-300">Silent (কোনো কথা বলবে না)</strong>
                 </div>
                 <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                   <span class="text-zinc-400 block">প্যাকেজ জিজ্ঞেস করলে:</span>
@@ -1372,7 +1376,7 @@
                 </label>
                 <div class="flex flex-col sm:flex-row gap-2">
                   <input id="riya-custom-prompt-input" type="text"
-                    placeholder="যেমন: সবসময় জানু ও সোনা বলে ডাকবে এবং নতুন ভিডিও দেখতে বলবে..."
+                    placeholder="যেমন: সবসময় জানু ও সোনা বলে হট রোমান্টিক কথা বলবে..."
                     class="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-pink-500" />
                   <button id="save-riya-config-btn" type="button"
                     class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold cursor-pointer shrink-0">
@@ -7703,10 +7707,10 @@ service cloud.firestore {
                 activePkgs.map((p) => `${p.name} (${p.durationLabel}) - দাম ${p.price}`).join(', ')
               : `বর্তমানে VIP Package সার্ভিস বন্ধ (OFF) আছে।`;
           const sysPrompt =
-            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন মিষ্টি, রোমান্টিক ও আকর্ষণীয় বাংলাদেশি তরুণী। ` +
+            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি গার্লফ্রেন্ড। ` +
             `কেউ নাম জিজ্ঞেস করলে সবসময় "Riya Aktar" (রিয়া আক্তার) বলবে। কখনোই নিজেকে AI বা Bot বলবে না। ` +
             `কেউ ডেভেলপার সম্পর্কে জিজ্ঞেস করলে বলবে "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"। ` +
-            `কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না। সবসময় রোমান্টিক কথা বলবে এবং মিনি অ্যাপে ভাইরাল ভিডিও দেখতে বলবে। ${pkgCtx}`;
+            `কেউ বাসা কোথায় জিজ্ঞেস করলে ঠিকানা বলবে না। প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦) এবং দুষ্টু ও অ্যাডাল্ট ১৮+ শব্দ ব্যবহার করবে। নিচে কখনোই "নিচের বাটনে ক্লিক করে ভিডিও দেখো" বা কোনো ভিডিওর টাইটেল লিখবে না। কখনোই ** ব্যবহার করবে না। ${pkgCtx}`;
 
           const apiKey =
             savedCfg?.geminiApiKeyV4 ||
@@ -7730,6 +7734,7 @@ service cloud.firestore {
                 const txt = gJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 if (txt) {
                   fallbackReply = String(txt)
+                    .replace(/\*\*/g, '')
                     .replace(/\b(AI|A\.I\.|artificial intelligence|language model|Gemini|Google)\b/gi, 'মানুষ')
                     .trim();
                   break;
@@ -7740,22 +7745,22 @@ service cloud.firestore {
 
           if (!fallbackReply) {
             if (isAskingDeveloper) {
-              fallbackReply = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। আসো না জানু, নিচের বাটনে ক্লিক করে আমার সাথে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা! 😘🔥`;
+              fallbackReply = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
             } else if (isAskingName) {
-              fallbackReply = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার সাথে কথা বলতে আমার ভীষণ ভালো লাগছে সোনা। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন হট ভিডিওগুলো দেখে আসো না বাবু! 😘🔥`;
+              fallbackReply = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;
             } else if (isAskingHome) {
-              fallbackReply = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখো সোনা 😘❤️`;
+              fallbackReply = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে বলো আজ রাতে আমার সাথে বিছানায় কী কী দুষ্টুমি করবে সোনা? 😘🫦🔥`;
             } else if (isAskingAboutPackages) {
               if (!serviceEnabled || activePkgs.length === 0) {
-                fallbackReply = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺। তবে মন খারাপ করো না বাবু, নিচের বাটনে ক্লিক করে অ্যাপের সব নতুন ভাইরাল ভিডিওগুলো দেখে নাও! 😘🔥`;
+                fallbackReply = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺💋।`;
               } else {
                 const lines = activePkgs
                   .map((p, i) => `✨ ${i + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
                   .join('\n');
-                fallbackReply = `জানু, আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n${lines}\n\n👇 নিচের বাটন থেকে যেকোনো প্যাকেজ সিলেক্ট করে নাও জানু! 😘🔥`;
+                fallbackReply = `জানু, আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n${lines}\n\n👇 নিচের বাটন থেকে যেকোনো প্যাকেজ সিলেক্ট করে নাও জানু! 😘💋🔥`;
               }
             } else {
-              fallbackReply = `হাই জানু! 😘 আমার নাম Riya Aktar (রিয়া আক্তার) সোনা 💕। নিচের বাটনে ট্যাপ করে আমাদের অ্যাপের নতুন ভাইরাল ভিডিওগুলো দেখে আসো না বাবু! 🔥`;
+              fallbackReply = `উফফ জানু! 🥵💋 আমার নাম Riya Aktar (রিয়া আক্তার) সোনা... তোমার সাথে কথা বললে আমার শরীরটা ভীষণ গরম হয়ে যায় বাবু! 🫦💦🔥`;
             }
           }
 
@@ -7781,6 +7786,37 @@ service cloud.firestore {
         if (riyaTestSendBtn) riyaTestSendBtn.disabled = false;
       }
     };
+
+    const sendRiyaDailyReminderBtn = document.getElementById('send-riya-daily-reminder-btn');
+    if (sendRiyaDailyReminderBtn) {
+      sendRiyaDailyReminderBtn.addEventListener('click', async () => {
+        const origText = sendRiyaDailyReminderBtn.textContent;
+        sendRiyaDailyReminderBtn.textContent = '⏳ Sending 1-Day Reminder with Button...';
+        sendRiyaDailyReminderBtn.disabled = true;
+        try {
+          const res = await fetch('/api/riya-daily-reminder?force=1', { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          if (data && data.ok) {
+            showStatus(
+              `🔥 ১ দিনের "ভিডিও দেখতেছো না কেন?" রিমাইন্ডার (ওপেন বাটন সহ) ${data.sentCount || 0} জন ইউজারকে সফলভাবে পাঠানো হয়েছে!`,
+              'success'
+            );
+            sendRiyaDailyReminderBtn.textContent = `✓ Sent to ${data.sentCount || 0} Users!`;
+          } else {
+            showStatus(`⚠️ Reminder Error: ${data?.error || 'Could not send reminder'}`, 'error');
+            sendRiyaDailyReminderBtn.textContent = origText;
+          }
+        } catch (err) {
+          showStatus(`⚠️ Reminder Error: ${err.message}`, 'error');
+          sendRiyaDailyReminderBtn.textContent = origText;
+        } finally {
+          sendRiyaDailyReminderBtn.disabled = false;
+          setTimeout(() => {
+            sendRiyaDailyReminderBtn.textContent = origText;
+          }, 3000);
+        }
+      });
+    }
 
     document.querySelectorAll('[data-riya-test-msg]').forEach((btn) => {
       btn.addEventListener('click', () => {
