@@ -32,6 +32,7 @@ import {
   SocialBarLoader,
   AntiAdBlockGuard,
   useAdFreeVip,
+  bindVipUserCrmKey,
   formatVipCountdown,
   triggerPopunderAd,
   openStepSmartlinkWithPopunder,
@@ -933,6 +934,7 @@ export default function App() {
     activeCode,
     expiresAt,
     durationLabel,
+    dailyVideoLimit,
     remainingMs,
     activateCode,
   } = useAdFreeVip();
@@ -942,6 +944,20 @@ export default function App() {
   const [redeemFeedback, setRedeemFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [redeemPackages, setRedeemPackages] = useState<RedeemPackageItem[]>([]);
   const [storeConfig, setStoreConfig] = useState<RedeemStoreConfig>({ serviceEnabled: true });
+
+  // Daily Video Watch Rate Limit State (Admin Controlled per VIP User / Redeem Code)
+  const getTodayDateKey = () => new Date().toISOString().slice(0, 10);
+  const [dailyWatchedCount, setDailyWatchedCount] = useState<number>(() => {
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const saved = Number(localStorage.getItem(`xtube_daily_watch_count_${todayKey}`) || '0');
+      return isNaN(saved) || saved < 0 ? 0 : saved;
+    } catch {
+      return 0;
+    }
+  });
+  const [dailyLimitModalOpen, setDailyLimitModalOpen] = useState<boolean>(false);
+  const countedTodayVideoIdsRef = useRef<Record<string, boolean>>({});
 
   const isRedeemServiceEnabled = storeConfig.serviceEnabled !== false;
 
@@ -1880,6 +1896,29 @@ export default function App() {
     const crmKeyForNotice = tgProfile.isRealTelegramUser
       ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')
       : presenceKey;
+    bindVipUserCrmKey(crmKeyForNotice);
+
+    const todayKey = getTodayDateKey();
+    const dailyUsageRef = ref(db, `userDailyVideoUsage/${crmKeyForNotice}/${todayKey}`);
+    const unsubDailyUsage = onValue(
+      dailyUsageRef,
+      (snap) => {
+        if (snap.exists()) {
+          const remoteVal = Number(snap.val()) || 0;
+          if (remoteVal >= 0) {
+            setDailyWatchedCount((prev) => {
+              const next = Math.max(prev, remoteVal);
+              try {
+                localStorage.setItem(`xtube_daily_watch_count_${todayKey}`, String(next));
+              } catch {}
+              return next;
+            });
+          }
+        }
+      },
+      () => {}
+    );
+
     const userCrmRef = ref(db, `telegramBotSessions/${crmKeyForNotice}`);
     const unsubUserCrm = onValue(
       userCrmRef,
@@ -1888,6 +1927,9 @@ export default function App() {
         if (!val || typeof val !== 'object') return;
         if (typeof val.videosWatchedCount === 'number' && val.videosWatchedCount > 0) {
           setRemoteWatchedCount((prev) => Math.max(prev, val.videosWatchedCount));
+        }
+        if (val.dailyWatchedDate === todayKey && typeof val.dailyWatchedCount === 'number') {
+          setDailyWatchedCount((prev) => Math.max(prev, val.dailyWatchedCount));
         }
         const pNotice = val.personalNotice;
         if (
@@ -1972,6 +2014,7 @@ export default function App() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
+      unsubDailyUsage();
       unsubUserCrm();
       unsubConnected();
       unsubAllPresence();
@@ -2448,10 +2491,46 @@ export default function App() {
     setProfileRevision((r) => r + 1);
   };
 
+  // Checks and records daily video watch count against Admin's dailyVideoLimit
+  const checkCanWatchAndRecordDailyLimit = (videoId: string, recordNow: boolean): boolean => {
+    const todayKey = getTodayDateKey();
+    const sessionKey = `${todayKey}_${videoId}`;
+    const alreadyCountedThisVideoToday = Boolean(countedTodayVideoIdsRef.current[sessionKey]);
+
+    if (dailyVideoLimit > 0 && !alreadyCountedThisVideoToday && dailyWatchedCount >= dailyVideoLimit) {
+      setDailyLimitModalOpen(true);
+      return false;
+    }
+
+    if (recordNow && !alreadyCountedThisVideoToday) {
+      countedTodayVideoIdsRef.current[sessionKey] = true;
+      const nextCount = dailyWatchedCount + 1;
+      setDailyWatchedCount(nextCount);
+      try {
+        localStorage.setItem(`xtube_daily_watch_count_${todayKey}`, String(nextCount));
+      } catch {}
+      const crmKey = getUserCrmKey();
+      if (crmKey) {
+        set(ref(db, `userDailyVideoUsage/${crmKey}/${todayKey}`), nextCount).catch(() => {});
+        update(ref(db, `telegramBotSessions/${crmKey}`), {
+          dailyWatchedCount: nextCount,
+          dailyWatchedDate: todayKey,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+      }
+    }
+    return true;
+  };
+
   // Opens the 3-Step Smartlink Verification Screen (Step 1 -> Step 2 -> Step 3, 20s each in Mini WebView)
   // No popup/redirect ads trigger on click; once Step 3 completes, the video plays immediately!
   const startVideoStepVerification = (video: VideoItem) => {
     if ((!isAdFree && adBlockActive) || !video) return;
+
+    // Enforce Admin Daily Video Watch Rate Limit before opening/playing video
+    if (!checkCanWatchAndRecordDailyLimit(video.id, false)) {
+      return;
+    }
 
     userNavigatedRef.current = true;
     initialSharedResolvedRef.current = true;
@@ -2463,6 +2542,9 @@ export default function App() {
     syncUrlWithVideo(video.id);
 
     if (isAdFree || unlockedVideos[video.id]) {
+      if (!checkCanWatchAndRecordDailyLimit(video.id, true)) {
+        return;
+      }
       stepGatePendingIdRef.current = null;
       setStepGatePendingId(null);
       setStepGateVideo(null);
@@ -2530,6 +2612,9 @@ export default function App() {
     setStepAdClicked(false);
 
     if (target) {
+      if (!checkCanWatchAndRecordDailyLimit(target.id, true)) {
+        return;
+      }
       setUnlockedVideos((prev) => ({ ...prev, [target.id]: true }));
       activeVideoIdRef.current = target.id;
       setActiveVideo(target);
@@ -3737,6 +3822,15 @@ export default function App() {
                       </strong>
                     </span>
                   </div>
+
+                  <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-slate-300">🎬 Daily Video Watch Limit:</span>
+                    <strong className={dailyVideoLimit > 0 && dailyWatchedCount >= dailyVideoLimit ? 'text-rose-400' : 'text-amber-300'}>
+                      {dailyVideoLimit > 0
+                        ? `${dailyWatchedCount} / ${dailyVideoLimit} Videos Today`
+                        : `${dailyWatchedCount} Watched Today (Unlimited)`}
+                    </strong>
+                  </div>
                 </div>
 
                 {/* Redeem Code Input Form Inside Profile */}
@@ -4379,6 +4473,42 @@ export default function App() {
             <span className="text-[10px] font-semibold mt-0.5">{ui.profile}</span>
           </button>
         </nav>
+      )}
+
+      {/* Daily Video Rate Limit Reached Popup Modal */}
+      {dailyLimitModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#141923] border-2 border-rose-500/70 p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mx-auto text-2xl">
+              ⛔
+            </div>
+            <h3 className="text-lg font-extrabold text-white">
+              আজকের ডেইলি ভিডিও লিমিট শেষ!
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              আপনার প্রোফাইলে প্রতিদিন সর্বোচ্চ <strong className="text-amber-300">{dailyVideoLimit}টি ভিডিও</strong> দেখার লিমিট নির্ধারণ করা আছে। আপনি আজ ইতিমধ্যে <strong className="text-rose-400">{dailyWatchedCount}/{dailyVideoLimit}টি ভিডিও</strong> দেখে ফেলেছেন। আগামীকাল আবার নতুন ভিডিও দেখতে পারবেন!
+            </p>
+            <div className="flex items-center justify-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDailyLimitModalOpen(false);
+                  setViewMode('profile');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs cursor-pointer"
+              >
+                👤 View Profile Status
+              </button>
+              <button
+                type="button"
+                onClick={() => setDailyLimitModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs cursor-pointer"
+              >
+                ✕ বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

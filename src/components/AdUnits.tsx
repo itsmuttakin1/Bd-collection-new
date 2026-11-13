@@ -32,6 +32,7 @@ interface VipRuntimeState {
   activeCode: string;
   expiresAt: number;
   durationLabel: string;
+  dailyVideoLimit: number;
 }
 
 let currentVipState: VipRuntimeState = {
@@ -39,9 +40,39 @@ let currentVipState: VipRuntimeState = {
   activeCode: '',
   expiresAt: 0,
   durationLabel: '',
+  dailyVideoLimit: 0,
+};
+
+let codeSnapshotState: {
+  valid: boolean;
+  active: boolean;
+  code: string;
+  expiresAt: number;
+  durationLabel: string;
+  dailyVideoLimit: number;
+} = {
+  valid: false,
+  active: false,
+  code: '',
+  expiresAt: 0,
+  durationLabel: '',
+  dailyVideoLimit: 0,
+};
+
+let userControlSnapshotState: {
+  exists: boolean;
+  vipActive?: boolean;
+  expiresAt?: number;
+  dailyVideoLimit?: number;
+  activeCode?: string;
+  durationLabel?: string;
+} = {
+  exists: false,
 };
 
 let activeFirebaseUnsub: (() => void) | null = null;
+let activeUserControlUnsub: (() => void) | null = null;
+let boundCrmUserKey = '';
 let expiryTickerId: number | null = null;
 
 function broadcastVipStateChange() {
@@ -139,6 +170,135 @@ function cleanupInjectedAdDomElements() {
   } catch {}
 }
 
+function recomputeEffectiveVipState() {
+  const now = getAuthoritativeNow();
+  const uc = userControlSnapshotState;
+  const cs = codeSnapshotState;
+
+  // Determine dailyVideoLimit: Admin user control takes priority if set (>= 0), else redeem code limit
+  let effectiveDailyLimit = 0;
+  if (uc.exists && typeof uc.dailyVideoLimit === 'number' && uc.dailyVideoLimit >= 0) {
+    effectiveDailyLimit = Math.floor(uc.dailyVideoLimit);
+  } else if (cs.valid && cs.dailyVideoLimit > 0) {
+    effectiveDailyLimit = Math.floor(cs.dailyVideoLimit);
+  }
+
+  // Determine if Admin explicitly turned VIP OFF or ON for this user in vipUsersControl
+  let isAdFree = false;
+  let activeCode = '';
+  let expiresAt = 0;
+  let durationLabel = '';
+
+  if (uc.exists && uc.vipActive === false) {
+    // Admin explicitly forced VIP OFF for this user
+    isAdFree = false;
+    activeCode = '';
+    expiresAt = 0;
+    durationLabel = '';
+  } else if (uc.exists && uc.vipActive === true && Number(uc.expiresAt) > now) {
+    // Admin explicitly enabled/adjusted VIP for this user
+    isAdFree = true;
+    expiresAt = Number(uc.expiresAt);
+    activeCode = uc.activeCode || cs.code || 'ADMIN-VIP';
+    durationLabel = uc.durationLabel || cs.durationLabel || 'VIP Ad-Free';
+  } else if (cs.valid && cs.active && cs.expiresAt > now) {
+    isAdFree = true;
+    expiresAt = cs.expiresAt;
+    activeCode = cs.code;
+    durationLabel = cs.durationLabel || 'VIP Ad-Free';
+  }
+
+  const wasAdFree = currentVipState.isAdFree;
+  currentVipState = {
+    isAdFree,
+    activeCode,
+    expiresAt,
+    durationLabel,
+    dailyVideoLimit: effectiveDailyLimit,
+  };
+
+  if (isAdFree && !wasAdFree) {
+    cleanupInjectedAdDomElements();
+  }
+
+  ensureExpiryTicker();
+  broadcastVipStateChange();
+}
+
+function ensureExpiryTicker() {
+  if (typeof window === 'undefined') return;
+  if (currentVipState.isAdFree && expiryTickerId === null) {
+    expiryTickerId = window.setInterval(() => {
+      if (!currentVipState.isAdFree) return;
+      if (getAuthoritativeNow() >= currentVipState.expiresAt) {
+        recomputeEffectiveVipState();
+      } else {
+        broadcastVipStateChange();
+      }
+    }, 1000);
+  } else if (!currentVipState.isAdFree && expiryTickerId !== null) {
+    window.clearInterval(expiryTickerId);
+    expiryTickerId = null;
+  }
+}
+
+export function bindVipUserCrmKey(crmKey: string) {
+  const cleanKey = String(crmKey || '').trim().replace(/[.#$[\]/]/g, '_');
+  if (!cleanKey || cleanKey === boundCrmUserKey) return;
+  boundCrmUserKey = cleanKey;
+  initServerTimeSync();
+
+  if (activeUserControlUnsub) {
+    try {
+      activeUserControlUnsub();
+    } catch {}
+    activeUserControlUnsub = null;
+  }
+
+  const ucRef = ref(db, `vipUsersControl/${cleanKey}`);
+  activeUserControlUnsub = onValue(
+    ucRef,
+    (snap) => {
+      if (snap.exists() && snap.val() && typeof snap.val() === 'object') {
+        const val = snap.val();
+        userControlSnapshotState = {
+          exists: true,
+          vipActive: typeof val.vipActive === 'boolean' ? val.vipActive : undefined,
+          expiresAt: typeof val.expiresAt === 'number' ? val.expiresAt : Number(val.expiresAt) || 0,
+          dailyVideoLimit:
+            typeof val.dailyVideoLimit === 'number'
+              ? val.dailyVideoLimit
+              : val.dailyVideoLimit !== undefined
+              ? Number(val.dailyVideoLimit) || 0
+              : undefined,
+          activeCode: val.activeCode || '',
+          durationLabel: val.durationLabel || '',
+        };
+        // If Admin assigned a specific redeem code to this user and browser has none or different, watch it too
+        if (val.activeCode && val.activeCode !== 'ADMIN-VIP' && val.vipActive !== false) {
+          const cleanAssigned = String(val.activeCode)
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9_-]/g, '');
+          if (cleanAssigned && cleanAssigned !== codeSnapshotState.code) {
+            try {
+              localStorage.setItem(REDEEM_STORAGE_KEY, cleanAssigned);
+            } catch {}
+            startLiveFirebaseCodeWatch(cleanAssigned);
+          }
+        }
+      } else {
+        userControlSnapshotState = { exists: false };
+      }
+      recomputeEffectiveVipState();
+    },
+    () => {
+      userControlSnapshotState = { exists: false };
+      recomputeEffectiveVipState();
+    }
+  );
+}
+
 function stopActiveCodeMonitoring(clearStorage = false) {
   if (activeFirebaseUnsub) {
     try {
@@ -146,24 +306,20 @@ function stopActiveCodeMonitoring(clearStorage = false) {
     } catch {}
     activeFirebaseUnsub = null;
   }
-  if (expiryTickerId !== null && typeof window !== 'undefined') {
-    window.clearInterval(expiryTickerId);
-    expiryTickerId = null;
-  }
   if (clearStorage) {
     try {
       localStorage.removeItem(REDEEM_STORAGE_KEY);
     } catch {}
   }
-  if (currentVipState.isAdFree || currentVipState.activeCode) {
-    currentVipState = {
-      isAdFree: false,
-      activeCode: '',
-      expiresAt: 0,
-      durationLabel: '',
-    };
-    broadcastVipStateChange();
-  }
+  codeSnapshotState = {
+    valid: false,
+    active: false,
+    code: '',
+    expiresAt: 0,
+    durationLabel: '',
+    dailyVideoLimit: 0,
+  };
+  recomputeEffectiveVipState();
 }
 
 function startLiveFirebaseCodeWatch(cleanCode: string) {
@@ -175,10 +331,6 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
       activeFirebaseUnsub();
     } catch {}
     activeFirebaseUnsub = null;
-  }
-  if (expiryTickerId !== null && typeof window !== 'undefined') {
-    window.clearInterval(expiryTickerId);
-    expiryTickerId = null;
   }
 
   const codeRef = ref(db, `redeemCodes/${cleanCode}`);
@@ -194,16 +346,25 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
     const isActiveFlag = val.active !== false;
     const now = getAuthoritativeNow();
     const maxDevices = Number(val.maxDevices) || 1;
-
-    // Check if expired or revoked by Admin
-    if (!isActiveFlag || expiresAt <= now) {
-      stopActiveCodeMonitoring(true);
-      return;
-    }
+    const dailyVideoLimit = Math.max(0, Number(val.dailyVideoLimit) || 0);
 
     // Check single-browser lock (unless Admin explicitly set maxDevices > 1)
     if (maxDevices <= 1 && val.boundDeviceId && val.boundDeviceId !== deviceId) {
       stopActiveCodeMonitoring(true);
+      return;
+    }
+
+    // Check if expired or turned OFF by Admin
+    if (!isActiveFlag || expiresAt <= now) {
+      codeSnapshotState = {
+        valid: true,
+        active: false,
+        code: cleanCode,
+        expiresAt,
+        durationLabel: val.durationLabel || (val as any).packageName || 'VIP Ad-Free',
+        dailyVideoLimit,
+      };
+      recomputeEffectiveVipState();
       return;
     }
 
@@ -223,17 +384,15 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
       }
     }
 
-    const wasAdFree = currentVipState.isAdFree;
-    currentVipState = {
-      isAdFree: true,
-      activeCode: cleanCode,
+    codeSnapshotState = {
+      valid: true,
+      active: true,
+      code: cleanCode,
       expiresAt,
       durationLabel: val.durationLabel || (val as any).packageName || 'VIP Ad-Free',
+      dailyVideoLimit,
     };
-    if (!wasAdFree) {
-      cleanupInjectedAdDomElements();
-    }
-    broadcastVipStateChange();
+    recomputeEffectiveVipState();
   };
 
   activeFirebaseUnsub = onValue(
@@ -260,19 +419,6 @@ function startLiveFirebaseCodeWatch(cleanCode: string) {
       );
     }
   );
-
-  // Authoritative 1-second expiration enforcement ticker:
-  // The exact second `getAuthoritativeNow() >= currentVipState.expiresAt`, Ad-Free turns OFF and Ads return!
-  if (typeof window !== 'undefined') {
-    expiryTickerId = window.setInterval(() => {
-      if (!currentVipState.isAdFree) return;
-      if (getAuthoritativeNow() >= currentVipState.expiresAt) {
-        stopActiveCodeMonitoring(true);
-      } else {
-        broadcastVipStateChange();
-      }
-    }, 1000);
-  }
 }
 
 // Automatically resume & verify saved Redeem Code on browser boot
@@ -461,6 +607,7 @@ export function useAdFreeVip() {
     activeCode: vipState.activeCode,
     expiresAt: vipState.expiresAt,
     durationLabel: vipState.durationLabel,
+    dailyVideoLimit: vipState.dailyVideoLimit,
     remainingMs,
     activateCode: activateRedeemCodeOnBrowser,
     clearCode: deactivateRedeemCodeOnBrowser,

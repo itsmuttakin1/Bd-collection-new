@@ -92,7 +92,19 @@ export interface RedeemCodeItem {
   boundDeviceId?: string;
   activatedAt?: number;
   maxDevices?: number;
+  dailyVideoLimit?: number;
+  userId?: string;
   note?: string;
+}
+
+export interface VipUserControlItem {
+  userId: string;
+  vipActive: boolean;
+  expiresAt: number;
+  dailyVideoLimit?: number;
+  activeCode?: string;
+  durationLabel?: string;
+  updatedAt: number;
 }
 
 export interface RedeemPackageItem {

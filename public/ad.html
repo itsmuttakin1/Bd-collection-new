@@ -659,6 +659,95 @@
             </div>
           </div>
 
+          <!-- ADMIN ONLY: VIP TIME CONTROL (+ / - MIN, HOUR, DAY), VIP ON/OFF & DAILY VIDEO RATE LIMIT -->
+          <div class="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/45 via-zinc-900/95 to-zinc-950 border-2 border-emerald-500/60 space-y-3.5 shadow-xl">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
+              <div>
+                <span class="px-2 py-0.5 rounded bg-emerald-500 text-zinc-950 text-[10px] font-extrabold uppercase">👑 ADMIN ONLY ACCESS (ANTI-HACK)</span>
+                <h4 class="text-xs sm:text-sm font-extrabold text-white mt-1">VIP Time Control (± Min / Hour / Day), VIP ON/OFF &amp; Daily Video Limit</h4>
+              </div>
+              <button id="crm-toggle-vip-status-btn" type="button"
+                class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer transition-all shadow-md">
+                🟢 Turn VIP ON / OFF
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
+              <!-- Left 7 Cols: Time + / - Adjuster (Min, Hour, Day) -->
+              <div class="md:col-span-7 p-3 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-emerald-300">⏱️ VIP সময় বাড়ান বা কমান (Min / Hour / Day ±):</span>
+                  <span id="crm-vip-live-expiry-text" class="text-[10px] font-mono text-amber-300">No Active VIP</span>
+                </div>
+
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-1.5">
+                  <input id="crm-vip-adjust-amount" type="number" min="1" max="10000" value="1"
+                    class="w-20 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono font-bold text-white focus:outline-none focus:border-emerald-500" />
+                  <select id="crm-vip-adjust-unit"
+                    class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-semibold text-amber-300 focus:outline-none focus:border-emerald-500">
+                    <option value="min">Minutes (মিনিট)</option>
+                    <option value="hour">Hours (ঘণ্টা)</option>
+                    <option value="day" selected>Days (দিন)</option>
+                  </select>
+                  <button id="crm-vip-add-time-btn" type="button"
+                    class="flex-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-extrabold cursor-pointer">
+                    ➕ সময় বাড়ান (+)
+                  </button>
+                  <button id="crm-vip-sub-time-btn" type="button"
+                    class="flex-1 px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-extrabold cursor-pointer">
+                    ➖ সময় কমান (-)
+                  </button>
+                </div>
+
+                <!-- 1-Click Quick Time +/- Buttons -->
+                <div class="flex flex-wrap items-center gap-1 pt-0.5">
+                  <button type="button" data-crm-time-delta="15" data-crm-time-unit="min" class="crm-quick-time-btn px-2 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 text-[10px] font-mono font-bold text-emerald-300 cursor-pointer">+15m</button>
+                  <button type="button" data-crm-time-delta="-15" data-crm-time-unit="min" class="crm-quick-time-btn px-2 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300 cursor-pointer">-15m</button>
+                  <button type="button" data-crm-time-delta="1" data-crm-time-unit="hour" class="crm-quick-time-btn px-2 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 text-[10px] font-mono font-bold text-emerald-300 cursor-pointer">+1h</button>
+                  <button type="button" data-crm-time-delta="-1" data-crm-time-unit="hour" class="crm-quick-time-btn px-2 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300 cursor-pointer">-1h</button>
+                  <button type="button" data-crm-time-delta="1" data-crm-time-unit="day" class="crm-quick-time-btn px-2 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 text-[10px] font-mono font-bold text-emerald-300 cursor-pointer">+1d</button>
+                  <button type="button" data-crm-time-delta="-1" data-crm-time-unit="day" class="crm-quick-time-btn px-2 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300 cursor-pointer">-1d</button>
+                  <button type="button" data-crm-time-delta="7" data-crm-time-unit="day" class="crm-quick-time-btn px-2 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 text-[10px] font-mono font-bold text-emerald-300 cursor-pointer">+7d</button>
+                  <button type="button" data-crm-time-delta="14" data-crm-time-unit="day" class="crm-quick-time-btn px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/60 text-[10px] font-mono font-bold text-amber-300 cursor-pointer">💎 +14d</button>
+                  <button type="button" data-crm-time-delta="-14" data-crm-time-unit="day" class="crm-quick-time-btn px-2 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300 cursor-pointer">-14d</button>
+                </div>
+              </div>
+
+              <!-- Right 5 Cols: Daily Video Watch Rate Limit (Per Day Max Videos) -->
+              <div class="md:col-span-5 p-3 rounded-xl bg-zinc-950/90 border border-amber-500/40 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-amber-300">🎬 Daily Video Rate Limit (প্রতিদিন কয়টা ভিডিও):</span>
+                  <span id="crm-daily-watched-badge" class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-emerald-300">Today: 0 / ∞</span>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                  <input id="crm-daily-video-limit-input" type="number" min="0" max="10000" value="0"
+                    placeholder="0 = Unlimited, বা 10"
+                    class="flex-1 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400" />
+                  <button id="crm-save-daily-limit-btn" type="button"
+                    class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[11px] font-extrabold cursor-pointer shrink-0">
+                    💾 Set Limit
+                  </button>
+                  <button id="crm-reset-daily-watched-btn" type="button" title="আজকের দেখা ভিডিও কাউন্ট 0 করুন"
+                    class="px-2 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold cursor-pointer shrink-0">
+                    🔄 Reset 0
+                  </button>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1">
+                  <button type="button" data-crm-limit-preset="0" class="crm-limit-preset-btn px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-emerald-300 cursor-pointer">∞ Unlimited (0)</button>
+                  <button type="button" data-crm-limit-preset="5" class="crm-limit-preset-btn px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-amber-300 cursor-pointer">5/day</button>
+                  <button type="button" data-crm-limit-preset="10" class="crm-limit-preset-btn px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-amber-300 cursor-pointer">10/day</button>
+                  <button type="button" data-crm-limit-preset="15" class="crm-limit-preset-btn px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-amber-300 cursor-pointer">15/day</button>
+                  <button type="button" data-crm-limit-preset="20" class="crm-limit-preset-btn px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-amber-300 cursor-pointer">20/day</button>
+                  <button type="button" data-crm-limit-preset="30" class="crm-limit-preset-btn px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-amber-300 cursor-pointer">30/day</button>
+                </div>
+              </div>
+            </div>
+
+            <p id="crm-vip-control-feedback" class="hidden text-[11px] font-mono text-emerald-300 bg-zinc-950/90 border border-emerald-700/50 rounded-lg px-3 py-1.5"></p>
+          </div>
+
           <!-- 3 Action Grid: 1) Personal Bot Message, 2) Personal VIP Package, 3) Personal WebApp Profile Popup Notice -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <!-- Action 1: Direct Personal Telegram Bot Message (with Optional 14 Days / VIP Package Attachment) -->
@@ -716,6 +805,8 @@
                   </select>
                   <input id="crm-vip-custom-mins" type="number" min="1" placeholder="অথবা কাস্টম মিনিট লিখুন (যেমন: 10, 45, 120)..."
                     class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500" />
+                  <input id="crm-vip-pkg-daily-limit" type="number" min="0" max="10000" value="0" placeholder="Per Day Video Limit (যেমন: 10, আর 0 = Unlimited)"
+                    class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-amber-500/40 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400" />
                   <input id="crm-vip-custom-note" type="text" placeholder="Optional মেসেজ (যেমন: আপনার জন্য ১৪ দিনের স্পেশাল ভিআইপি প্যাস!)"
                     class="w-full px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500" />
                 </div>
@@ -1100,17 +1191,23 @@
                 </p>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label class="block text-[11px] text-zinc-400 mb-1">Package Label</label>
                   <input id="redeem-package-label-input" type="text" value="VIP Ad-Free Pass"
-                    placeholder="1 Day VIP Ad-Free"
+                    placeholder="14 Days VIP Ad-Free"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-400" />
                 </div>
                 <div>
-                  <label class="block text-[11px] text-zinc-400 mb-1">User Note / Telegram ID (ঐচ্ছিক)</label>
+                  <label class="block text-[11px] text-amber-300 font-semibold mb-1">🎬 Daily Video Limit (০=∞)</label>
+                  <input id="redeem-daily-limit-input" type="number" min="0" max="10000" value="0"
+                    placeholder="0 = Unlimited, বা 10"
+                    class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-amber-500/40 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400" />
+                </div>
+                <div>
+                  <label class="block text-[11px] text-zinc-400 mb-1">User Note / TG ID (ঐচ্ছিক)</label>
                   <input id="redeem-note-input" type="text"
-                    placeholder="@username বা মোবাইল নাম্বার"
+                    placeholder="@username বা TG ID"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-400" />
                 </div>
               </div>
@@ -2302,8 +2399,8 @@ export default {
       const botOrAdmin = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026')`;
       // Strict anti-hack rule for redeemCodes:
       // 1. Only Admin or Bot can create/delete a redeem code, and Bot cannot extend an existing code's expiresAt.
-      // 2. A browser activating an existing active code can ONLY bind its `boundDeviceId` ONCE, and CANNOT change `code`, `expiresAt`, or `active`!
-      const redeemCodeWriteRule = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || data.child('expiresAt').val() === newData.child('expiresAt').val())) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val())`;
+      // 2. A browser activating an existing active code can ONLY bind its `boundDeviceId` ONCE, and CANNOT change `code`, `expiresAt`, `active`, or `dailyVideoLimit`!
+      const redeemCodeWriteRule = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || (data.child('expiresAt').val() === newData.child('expiresAt').val() && data.child('active').val() === newData.child('active').val() && data.child('dailyVideoLimit').val() === newData.child('dailyVideoLimit').val()))) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val())`;
 
       return JSON.stringify(
         {
@@ -2341,6 +2438,20 @@ export default {
                 },
                 "$other": {
                   ".write": botOrAdmin
+                }
+              }
+            },
+            vipUsersControl: {
+              ".read": true,
+              ".write": adminOnly
+            },
+            userDailyVideoUsage: {
+              ".read": true,
+              ".write": adminOnly,
+              "$userId": {
+                ".read": true,
+                "$dateKey": {
+                  ".write": `(${adminOnly}) || (newData.exists() && newData.isNumber() && (!data.exists() || newData.val() >= data.val()))`
                 }
               }
             },
@@ -6891,6 +7002,7 @@ service cloud.firestore {
           (durationMinutes < 60 ? `${durationMinutes} Minutes VIP Ad-Free` : 'VIP Ad-Free Pass')
         ).trim();
         const note = (redeemNoteInput?.value || '').trim();
+        const dailyVideoLimit = Math.max(0, Math.floor(Number(document.getElementById('redeem-daily-limit-input')?.value || 0)));
 
         try {
           const now = Date.now();
@@ -6900,6 +7012,7 @@ service cloud.firestore {
             durationMinutes,
             durationHours,
             durationLabel: durationMinutes < 60 ? `${durationMinutes} Minutes` : packageName,
+            dailyVideoLimit,
             createdAt: now,
             expiresAt: expiryTs,
             active: true,
@@ -6914,7 +7027,7 @@ service cloud.firestore {
 
           navigator.clipboard.writeText(rawCode).catch(() => {});
           if (newlyGenBox && newlyGenDisplay) {
-            newlyGenDisplay.textContent = `${rawCode} (${durationMinutes < 60 ? `${durationMinutes} Mins` : `${durationHours}h`} · Expires: ${new Date(expiryTs).toLocaleString()})`;
+            newlyGenDisplay.textContent = `${rawCode} (${durationMinutes < 60 ? `${durationMinutes} Mins` : `${durationHours}h`}${dailyVideoLimit > 0 ? ` · Limit: ${dailyVideoLimit}/day` : ' · Unlimited/day'} · Expires: ${new Date(expiryTs).toLocaleString()})`;
             newlyGenBox.classList.remove('hidden');
           }
           if (copyNewlyGenBtn) {
@@ -6926,7 +7039,7 @@ service cloud.firestore {
           if (redeemCodeInput) redeemCodeInput.value = generateRandomVipCode();
           if (redeemNoteInput) redeemNoteInput.value = '';
           showStatus(
-            `✅ Redeem Code "${rawCode}" (${durationMinutes < 60 ? `${durationMinutes} মিনিট` : `${durationHours} ঘণ্টা`}) তৈরি ও কপি হয়েছে!`,
+            `✅ Redeem Code "${rawCode}" (${durationMinutes < 60 ? `${durationMinutes} মিনিট` : `${durationHours} ঘণ্টা`}${dailyVideoLimit > 0 ? `, ডেইলি লিমিট: ${dailyVideoLimit}টি ভিডিও` : ''}) তৈরি ও কপি হয়েছে!`,
             'success'
           );
         } catch (err) {
@@ -6934,6 +7047,36 @@ service cloud.firestore {
         }
       });
     }
+
+    const adjustRedeemCodeTimeByDelta = async (code, deltaMs, labelText) => {
+      const target = cachedRedeemCodes.find((c) => c.code === code);
+      if (!target) return;
+      const now = Date.now();
+      const baseTime = target.active && target.expiresAt > now ? target.expiresAt : now;
+      const nextExpiresAt = Math.max(now, baseTime + deltaMs);
+      const nextActive = nextExpiresAt > now;
+      try {
+        await Promise.all([
+          update(ref(db, `redeemCodes/${code}`), {
+            expiresAt: nextExpiresAt,
+            active: nextActive,
+            updatedAt: now,
+          }).catch(() => {}),
+          update(ref(db, `telegramBotSessions/_codes/${code}`), {
+            expiresAt: nextExpiresAt,
+            active: nextActive,
+            updatedAt: now,
+            botAuthToken: 'xtube_tg_bot_2026',
+          }).catch(() => {}),
+        ]);
+        showStatus(
+          `⏱️ Code ${code}: সময় ${labelText} আপডেট হয়েছে! নতুন মেয়াদ: ${new Date(nextExpiresAt).toLocaleString()}`,
+          'success'
+        );
+      } catch (err) {
+        showStatus(`Time Adjust Error: ${err.message}`, 'error');
+      }
+    };
 
     const renderRedeemCodesList = () => {
       if (!redeemCodesListWrap) return;
@@ -6952,54 +7095,170 @@ service cloud.firestore {
       const now = Date.now();
       cachedRedeemCodes.forEach((item) => {
         const isExpired = !item.active || now >= item.expiresAt;
+        const dailyLimit = Math.max(0, Number(item.dailyVideoLimit) || 0);
         const row = document.createElement('div');
-        row.className = `p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
+        row.className = `p-3.5 rounded-xl border flex flex-col gap-2.5 text-xs ${
           isExpired
-            ? 'border-zinc-800 bg-zinc-950/40 text-zinc-500 opacity-75'
+            ? 'border-zinc-800 bg-zinc-950/50 text-zinc-400'
             : 'border-amber-500/40 bg-zinc-950/90 text-zinc-100'
         }`;
 
         const deviceBadge = item.boundDeviceId
-          ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[10px] font-mono text-sky-300">🔒 Locked to 1 Browser</span>`
+          ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[10px] font-mono text-sky-300">🔒 Locked (${escSafeHtml(String(item.boundDeviceId).slice(0, 12))}..)</span>`
           : `<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-[10px] font-mono text-emerald-300">🟢 Unused (Ready)</span>`;
 
+        const limitBadge = dailyLimit > 0
+          ? `<span class="px-2 py-0.5 rounded bg-rose-950/80 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300">🎬 Limit: ${dailyLimit} videos/day</span>`
+          : `<span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-emerald-300">🎬 ∞ Unlimited/day</span>`;
+
+        // Extract possible Telegram ID from note if present
+        const matchedTgId = (String(item.note || '').match(/\b\d{6,16}\b/) || [])[0] || item.userId || '';
+
         row.innerHTML = `
-          <div class="space-y-1 min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-mono font-extrabold text-sm ${isExpired ? 'text-zinc-400 line-through' : 'text-amber-300'} select-all">${item.code}</span>
-              <span class="px-2 py-0.5 rounded ${isExpired ? 'bg-red-950/80 text-red-300 border border-red-800/60' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'} text-[10px] font-mono font-bold" data-live-countdown="${item.expiresAt}" data-live-active="${item.active}">
-                ${isExpired ? 'EXPIRED (Ads Active)' : formatRemainingTime(item.expiresAt)}
-              </span>
-              ${deviceBadge}
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="space-y-1 min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="font-mono font-extrabold text-sm ${isExpired ? 'text-zinc-400 line-through' : 'text-amber-300'} select-all">${item.code}</span>
+                <span class="px-2 py-0.5 rounded ${isExpired ? 'bg-red-950/80 text-red-300 border border-red-800/60' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'} text-[10px] font-mono font-bold" data-live-countdown="${item.expiresAt}" data-live-active="${item.active}">
+                  ${!item.active ? '🔴 VIP OFF (Paused)' : isExpired ? 'EXPIRED (Ads Active)' : formatRemainingTime(item.expiresAt)}
+                </span>
+                ${deviceBadge}
+                ${limitBadge}
+              </div>
+              <p class="text-[11px] text-zinc-400">
+                📦 ${escSafeHtml(item.packageName || 'VIP Pass')} · 📅 Exp: <span class="font-mono text-zinc-300">${new Date(item.expiresAt).toLocaleString()}</span>
+                ${item.note ? ` · 👤 <span class="text-emerald-300">${escSafeHtml(item.note)}</span>` : ''}
+              </p>
             </div>
-            <p class="text-[11px] text-zinc-400">
-              📦 ${item.packageName || 'VIP Pass'} · 📅 Expires: <span class="font-mono text-zinc-300">${new Date(item.expiresAt).toLocaleString()}</span>
-              ${item.note ? ` · 👤 <span class="text-emerald-300">${item.note}</span>` : ''}
-            </p>
+
+            <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+              <button type="button" data-toggle-redeem-active="${item.code}"
+                class="px-2.5 py-1 rounded-lg ${item.active && !isExpired ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-zinc-800 hover:bg-emerald-700 text-amber-300'} text-[10px] font-extrabold cursor-pointer">
+                ${item.active && !isExpired ? '🟢 VIP ON (Click OFF)' : '🔴 VIP OFF (Click ON)'}
+              </button>
+              <button type="button" data-copy-redeem="${item.code}"
+                class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-[10px] font-semibold cursor-pointer">
+                📋 Copy
+              </button>
+              ${
+                matchedTgId
+                  ? `<button type="button" data-open-crm-from-code="${escSafeHtml(matchedTgId)}"
+                      class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-[10px] font-bold cursor-pointer">
+                      🔔 Profile Popup / Control
+                    </button>`
+                  : ''
+              }
+              ${
+                item.boundDeviceId
+                  ? `<button type="button" data-unlock-redeem="${item.code}"
+                      class="px-2 py-1 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-700/60 text-sky-300 text-[10px] font-semibold cursor-pointer">
+                      🔓 Reset Lock
+                    </button>`
+                  : ''
+              }
+              <button type="button" data-del-redeem="${item.code}"
+                class="px-2 py-1 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[10px] font-semibold cursor-pointer">
+                🗑️ Delete
+              </button>
+            </div>
           </div>
-          <div class="flex flex-wrap items-center gap-1.5 shrink-0">
-            <button type="button" data-copy-redeem="${item.code}"
-              class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-[11px] font-semibold cursor-pointer">
-              📋 Copy
-            </button>
-            ${
-              item.boundDeviceId
-                ? `<button type="button" data-unlock-redeem="${item.code}"
-                    class="px-2.5 py-1.5 rounded-lg bg-sky-950/80 hover:bg-sky-900 border border-sky-700/60 text-sky-300 text-[11px] font-semibold cursor-pointer">
-                    🔓 Reset Lock
-                  </button>`
-                : ''
-            }
-            <button type="button" data-del-redeem="${item.code}"
-              class="px-2.5 py-1.5 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-semibold cursor-pointer">
-              🗑️ Delete
-            </button>
+
+          <!-- Admin Direct Time +/- (Min, Hour, Day) & Daily Video Rate Limit Controls for this VIP Code -->
+          <div class="pt-2 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+            <div class="flex flex-wrap items-center gap-1">
+              <span class="text-zinc-400 font-bold mr-1">⏱️ Time ±:</span>
+              <button type="button" data-code-delta-mins="15" class="px-1.5 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-mono text-emerald-300 cursor-pointer">+15m</button>
+              <button type="button" data-code-delta-mins="-15" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-15m</button>
+              <button type="button" data-code-delta-mins="60" class="px-1.5 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-mono text-emerald-300 cursor-pointer">+1h</button>
+              <button type="button" data-code-delta-mins="-60" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-1h</button>
+              <button type="button" data-code-delta-mins="1440" class="px-1.5 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-mono text-emerald-300 cursor-pointer">+1d</button>
+              <button type="button" data-code-delta-mins="-1440" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-1d</button>
+              <button type="button" data-code-delta-mins="20160" class="px-1.5 py-0.5 rounded bg-amber-950/80 hover:bg-amber-900 border border-amber-600/60 font-mono text-amber-300 cursor-pointer">+14d</button>
+              <button type="button" data-code-delta-mins="-20160" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-14d</button>
+            </div>
+
+            <div class="flex items-center gap-1">
+              <span class="text-amber-300 font-bold">🎬 Daily Limit:</span>
+              <input type="number" min="0" max="10000" value="${dailyLimit}" data-code-limit-input="${item.code}"
+                title="0 = Unlimited, অথবা প্রতিদিন কয়টা ভিডিও দেখতে পারবে"
+                class="w-16 px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700 font-mono text-amber-300 text-[10px]" />
+              <button type="button" data-save-code-limit="${item.code}"
+                class="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-[10px] cursor-pointer">
+                Set/Day
+              </button>
+            </div>
           </div>
         `;
 
         row.querySelector('[data-copy-redeem]')?.addEventListener('click', () => {
           navigator.clipboard.writeText(item.code);
           showStatus(`Copied Redeem Code: ${item.code}`, 'success');
+        });
+
+        row.querySelector('[data-open-crm-from-code]')?.addEventListener('click', (e) => {
+          const targetId = e.currentTarget.getAttribute('data-open-crm-from-code');
+          if (targetId && typeof window.openUserCrmModal === 'function') {
+            window.openUserCrmModal(targetId);
+          }
+        });
+
+        row.querySelector('[data-toggle-redeem-active]')?.addEventListener('click', async () => {
+          const nowTs = Date.now();
+          const willBeActive = !(item.active && item.expiresAt > nowTs);
+          const nextExp = willBeActive && item.expiresAt <= nowTs ? nowTs + 24 * 3600 * 1000 : item.expiresAt;
+          try {
+            await Promise.all([
+              update(ref(db, `redeemCodes/${item.code}`), {
+                active: willBeActive,
+                expiresAt: nextExp,
+              }).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_codes/${item.code}`), {
+                active: willBeActive,
+                expiresAt: nextExp,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }).catch(() => {}),
+            ]);
+            showStatus(
+              willBeActive
+                ? `🟢 VIP Code ${item.code} ON করা হয়েছে!`
+                : `🔴 VIP Code ${item.code} OFF করা হয়েছে (ইউজার আর অ্যাড-ফ্রি সুবিধা পাবে না)!`,
+              willBeActive ? 'success' : 'info'
+            );
+          } catch (err) {
+            showStatus(`Toggle Error: ${err.message}`, 'error');
+          }
+        });
+
+        row.querySelectorAll('[data-code-delta-mins]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const mins = Number(btn.getAttribute('data-code-delta-mins')) || 0;
+            if (!mins) return;
+            adjustRedeemCodeTimeByDelta(item.code, mins * 60 * 1000, btn.textContent || `${mins}m`);
+          });
+        });
+
+        row.querySelector('[data-save-code-limit]')?.addEventListener('click', async () => {
+          const inp = row.querySelector(`[data-code-limit-input="${item.code}"]`);
+          const nextLimit = Math.max(0, Math.floor(Number(inp?.value || 0)));
+          try {
+            await Promise.all([
+              update(ref(db, `redeemCodes/${item.code}`), {
+                dailyVideoLimit: nextLimit,
+              }).catch(() => {}),
+              update(ref(db, `telegramBotSessions/_codes/${item.code}`), {
+                dailyVideoLimit: nextLimit,
+                botAuthToken: 'xtube_tg_bot_2026',
+              }).catch(() => {}),
+            ]);
+            showStatus(
+              nextLimit > 0
+                ? `🎬 Code ${item.code}-এর ডেইলি ভিডিও লিমিট ${nextLimit}টি/দিন সেট করা হয়েছে!`
+                : `🎬 Code ${item.code}-এর ডেইলি ভিডিও লিমিট Unlimited (আনলিমিটেড) করা হয়েছে!`,
+              'success'
+            );
+          } catch (err) {
+            showStatus(`Limit Save Error: ${err.message}`, 'error');
+          }
         });
 
         row.querySelector('[data-unlock-redeem]')?.addEventListener('click', async () => {
@@ -7048,6 +7307,8 @@ service cloud.firestore {
           code: String(item?.code || key).toUpperCase(),
           packageName: item?.packageName || 'VIP Ad-Free Pass',
           durationHours: Number(item?.durationHours) || 24,
+          dailyVideoLimit: Math.max(0, Number(item?.dailyVideoLimit) || 0),
+          userId: item?.userId || '',
           createdAt: Number(item?.createdAt) || 0,
           expiresAt: Number(item?.expiresAt) || 0,
           active: item?.active !== false,
@@ -8500,15 +8761,68 @@ service cloud.firestore {
 
     // ============================================================================
     // ALL TELEGRAM BOT & APP USERS DIRECTORY + PERSONAL PROFILE CRM MODAL
-    // (Send Personal Bot Message, Send Personal VIP Package, Set Personal WebApp
-    //  Profile Popup Notice, and View User's Watched Videos Count & History)
+    // (Admin VIP Time +/- Min/Hour/Day, VIP ON/OFF, Daily Video Rate Limit,
+    //  Profile Popup Notice, and Last Active Time in Telegram/User Search)
     // ============================================================================
     let activeCrmUserKey = '';
     const crmUsersMap = new Map();
+    let vipUsersControlMap = {};
+    let dailyVideoUsageMap = {};
+
+    onValue(ref(db, 'vipUsersControl'), (snap) => {
+      vipUsersControlMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      if (typeof window.renderAllBotUsersDirectory === 'function') {
+        window.renderAllBotUsersDirectory();
+      }
+      if (activeCrmUserKey) {
+        window.refreshActiveCrmModalData?.();
+      }
+    });
+
+    onValue(ref(db, 'userDailyVideoUsage'), (snap) => {
+      dailyVideoUsageMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+      if (activeCrmUserKey) {
+        window.refreshActiveCrmModalData?.();
+      }
+    });
+
+    // Helper: Format when a user was last active (কখন অ্যাক্টিভ ছিল) in Bengali + exact timestamp
+    const formatUserLastActiveText = (lastSeenTs, isOnlineNow) => {
+      if (isOnlineNow) {
+        return '🟢 এখন অনলাইনে (Active Now)';
+      }
+      const ts = Number(lastSeenTs) || 0;
+      if (!ts || ts <= 0) {
+        return '🕒 অ্যাক্টিভ সময়: N/A';
+      }
+      const diffSec = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+      let agoStr = '';
+      if (diffSec < 60) {
+        agoStr = `${diffSec} সেকেন্ড আগে`;
+      } else if (diffSec < 3600) {
+        agoStr = `${Math.floor(diffSec / 60)} মিনিট আগে`;
+      } else if (diffSec < 86400) {
+        const hrs = Math.floor(diffSec / 3600);
+        const mins = Math.floor((diffSec % 3600) / 60);
+        agoStr = mins > 0 ? `${hrs} ঘণ্টা ${mins} মিনিট আগে` : `${hrs} ঘণ্টা আগে`;
+      } else {
+        const days = Math.floor(diffSec / 86400);
+        agoStr = `${days} দিন আগে`;
+      }
+      const exactStr = new Date(ts).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return `🕒 অ্যাক্টিভ ছিল: ${agoStr} (${exactStr})`;
+    };
 
     const buildMergedCrmUsersList = () => {
       crmUsersMap.clear();
       const now = Date.now();
+      const todayKey = new Date().toISOString().slice(0, 10);
       const liveOnlineMap = window.__latestOnlineUsersMap || new Map();
 
       const upsertUser = (rawKey, rawObj, sourceHint = 'bot') => {
@@ -8531,8 +8845,12 @@ service cloud.firestore {
           fullName: isTg ? 'Telegram User' : `Web Visitor (${canonicalKey})`,
           username: '',
           videosWatchedCount: 0,
+          dailyWatchedCount: 0,
+          dailyVideoLimit: 0,
           watchedVideos: [],
           vipActive: false,
+          vipExpiresAt: 0,
+          activeVipCode: '',
           device: isTg ? 'Telegram Mini App / Bot' : 'Web Browser',
           lastSeen: 0,
           isOnlineNow: false,
@@ -8556,8 +8874,14 @@ service cloud.firestore {
             existing.videosWatchedCount
           );
           existing.videosWatchedCount = wCount;
+          if (rawObj.dailyWatchedDate === todayKey && typeof rawObj.dailyWatchedCount === 'number') {
+            existing.dailyWatchedCount = Math.max(existing.dailyWatchedCount, rawObj.dailyWatchedCount);
+          }
           if (rawObj.vipActive !== undefined) {
             existing.vipActive = Boolean(rawObj.vipActive);
+          }
+          if (Number(rawObj.vipExpiresAt) > existing.vipExpiresAt) {
+            existing.vipExpiresAt = Number(rawObj.vipExpiresAt);
           }
           if (rawObj.device) {
             existing.device = String(rawObj.device);
@@ -8571,7 +8895,30 @@ service cloud.firestore {
           }
         }
 
-        const onlineCheckKey = isTg ? `tg_${ existing.tgId }` : `web_${ existing.webId }`;
+        // Merge Admin vipUsersControl override
+        const uc = vipUsersControlMap[canonicalKey];
+        if (uc && typeof uc === 'object') {
+          if (typeof uc.vipActive === 'boolean') {
+            existing.vipActive = uc.vipActive && Number(uc.expiresAt || 0) > now;
+          }
+          if (Number(uc.expiresAt) > 0) {
+            existing.vipExpiresAt = Number(uc.expiresAt);
+          }
+          if (typeof uc.dailyVideoLimit === 'number') {
+            existing.dailyVideoLimit = Math.max(0, uc.dailyVideoLimit);
+          }
+          if (uc.activeCode) {
+            existing.activeVipCode = String(uc.activeCode);
+          }
+        }
+
+        // Merge today's watched count from userDailyVideoUsage
+        const usageForUser = dailyVideoUsageMap[canonicalKey];
+        if (usageForUser && typeof usageForUser === 'object' && typeof usageForUser[todayKey] === 'number') {
+          existing.dailyWatchedCount = Math.max(existing.dailyWatchedCount, usageForUser[todayKey]);
+        }
+
+        const onlineCheckKey = isTg ? `tg_${existing.tgId}` : `web_${existing.webId}`;
         const onlineEntry = liveOnlineMap.get(onlineCheckKey);
         if (onlineEntry) {
           existing.isOnlineNow = true;
@@ -8622,7 +8969,14 @@ service cloud.firestore {
         }
       }
 
-      // 4. Ingest from currently online users
+      // 4. Ingest from vipUsersControl so Admin-controlled VIP users are always listed
+      if (vipUsersControlMap && typeof vipUsersControlMap === 'object') {
+        for (const [k, val] of Object.entries(vipUsersControlMap)) {
+          upsertUser(k, val, 'vipControl');
+        }
+      }
+
+      // 5. Ingest from currently online users
       if (liveOnlineMap && typeof liveOnlineMap.forEach === 'function') {
         liveOnlineMap.forEach((u) => {
           upsertUser(u.isTelegram ? u.tgId : u.crmKey, u, 'online');
@@ -8667,12 +9021,20 @@ service cloud.firestore {
         return;
       }
 
+      const now = Date.now();
       crmDirectoryEl.innerHTML = filtered
         .map((u) => {
           const safeKey = escSafeHtml(u.crmKey);
+          const isVipNow = Boolean(u.vipActive && (!u.vipExpiresAt || u.vipExpiresAt > now));
           const onlineBadge = u.isOnlineNow
             ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/50 text-[9px] font-mono font-bold text-emerald-300">🟢 Online</span>`
             : `<span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[9px] font-mono text-zinc-400">Offline</span>`;
+          const vipBadge = isVipNow
+            ? `<span class="px-1.5 py-0.5 rounded bg-amber-500 text-zinc-950 text-[9px] font-mono font-extrabold">👑 VIP ON</span>`
+            : '';
+          const limitBadge = u.dailyVideoLimit > 0
+            ? `<span class="px-1.5 py-0.5 rounded bg-rose-950 border border-rose-700/60 text-[9px] font-mono font-bold text-rose-300">🎬 ${u.dailyWatchedCount || 0}/${u.dailyVideoLimit}/day</span>`
+            : '';
           const watchedBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-[9px] font-mono font-bold text-emerald-300">🎬 ${u.videosWatchedCount || 0} ভিডিও</span>`;
           const noticeActive = u.personalNotice && u.personalNotice.active !== false;
           const noticeBadge = noticeActive
@@ -8680,11 +9042,16 @@ service cloud.firestore {
               ? `<span class="px-1.5 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[9px] font-bold text-sky-300">✓ Notice Seen</span>`
               : `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-bold text-amber-300">🔔 Popup Sent</span>`
             : '';
+          const lastActiveStr = formatUserLastActiveText(u.lastSeen, u.isOnlineNow);
 
           return `
             <div onclick="window.openUserCrmModal('${safeKey}')"
               class="p-3 rounded-xl bg-zinc-900/90 hover:bg-zinc-900 border ${
-                u.isTelegram ? 'border-sky-800/60 hover:border-sky-400' : 'border-zinc-800 hover:border-amber-500/60'
+                isVipNow
+                  ? 'border-amber-500/70 hover:border-amber-400'
+                  : u.isTelegram
+                  ? 'border-sky-800/60 hover:border-sky-400'
+                  : 'border-zinc-800 hover:border-amber-500/60'
               } flex items-center justify-between gap-2.5 text-xs cursor-pointer transition-all">
               <div class="min-w-0 space-y-1 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -8693,7 +9060,9 @@ service cloud.firestore {
                   } text-[9px] font-extrabold">${u.isTelegram ? '📱 TG' : '🌐 WEB'}</span>
                   <span class="font-extrabold text-white truncate">${escSafeHtml(u.fullName)}</span>
                   ${onlineBadge}
+                  ${vipBadge}
                   ${watchedBadge}
+                  ${limitBadge}
                   ${noticeBadge}
                 </div>
                 <p class="text-[11px] font-mono ${u.isTelegram ? 'text-sky-300' : 'text-amber-300'} truncate">
@@ -8705,10 +9074,13 @@ service cloud.firestore {
                       : `Visitor: <strong class="text-zinc-200">${escSafeHtml(u.webId || u.crmKey)}</strong>`
                   }
                 </p>
+                <p class="text-[10px] font-mono ${u.isOnlineNow ? 'text-emerald-400 font-bold' : 'text-zinc-400'} truncate">
+                  ${escSafeHtml(lastActiveStr)}
+                </p>
               </div>
               <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${safeKey}')"
                 class="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 text-white text-[10px] font-extrabold cursor-pointer shrink-0 shadow">
-                👤 Msg / Pkg / Popup
+                👑 VIP / Msg / Limit
               </button>
             </div>
           `;
@@ -8744,9 +9116,29 @@ service cloud.firestore {
     const crmPopupCodeInput = document.getElementById('crm-popup-code-input');
     const crmPopupMsgInput = document.getElementById('crm-popup-msg-input');
 
+    // Admin VIP Control Elements in Modal
+    const crmToggleVipBtn = document.getElementById('crm-toggle-vip-status-btn');
+    const crmVipLiveExpiryText = document.getElementById('crm-vip-live-expiry-text');
+    const crmVipAdjustAmount = document.getElementById('crm-vip-adjust-amount');
+    const crmVipAdjustUnit = document.getElementById('crm-vip-adjust-unit');
+    const crmVipAddTimeBtn = document.getElementById('crm-vip-add-time-btn');
+    const crmVipSubTimeBtn = document.getElementById('crm-vip-sub-time-btn');
+    const crmDailyWatchedBadge = document.getElementById('crm-daily-watched-badge');
+    const crmDailyLimitInput = document.getElementById('crm-daily-video-limit-input');
+    const crmSaveDailyLimitBtn = document.getElementById('crm-save-daily-limit-btn');
+    const crmResetDailyWatchedBtn = document.getElementById('crm-reset-daily-watched-btn');
+    const crmVipControlFeedback = document.getElementById('crm-vip-control-feedback');
+
+    const showCrmVipFeedback = (msg) => {
+      if (!crmVipControlFeedback) return;
+      crmVipControlFeedback.textContent = msg;
+      crmVipControlFeedback.classList.remove('hidden');
+    };
+
     window.refreshActiveCrmModalData = () => {
       if (!activeCrmUserKey) return;
       buildMergedCrmUsersList();
+      const now = Date.now();
       const isNum = /^\d{5,20}$/.test(activeCrmUserKey);
       const userObj = crmUsersMap.get(activeCrmUserKey) || {
         crmKey: activeCrmUserKey,
@@ -8756,11 +9148,19 @@ service cloud.firestore {
         fullName: isNum ? `Telegram User (${activeCrmUserKey})` : `Web Visitor (${activeCrmUserKey})`,
         username: '',
         videosWatchedCount: 0,
+        dailyWatchedCount: 0,
+        dailyVideoLimit: 0,
+        vipActive: false,
+        vipExpiresAt: 0,
+        activeVipCode: '',
         watchedVideos: [],
         device: isNum ? 'Telegram Mini App / Bot' : 'Web Browser',
+        lastSeen: 0,
         isOnlineNow: false,
         personalNotice: null,
       };
+
+      const lastActiveFormatted = formatUserLastActiveText(userObj.lastSeen, userObj.isOnlineNow);
 
       if (crmTypeBadgeEl) {
         crmTypeBadgeEl.textContent = userObj.isTelegram ? '📱 TELEGRAM USER' : '🌐 WEBSITE VISITOR';
@@ -8769,18 +9169,18 @@ service cloud.firestore {
           : 'px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] font-extrabold';
       }
       if (crmOnlineBadgeEl) {
-        crmOnlineBadgeEl.textContent = userObj.isOnlineNow ? '🟢 Online Now' : '○ Offline / Saved User';
+        crmOnlineBadgeEl.textContent = lastActiveFormatted;
         crmOnlineBadgeEl.className = userObj.isOnlineNow
-          ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/70 text-[10px] font-mono text-emerald-300'
-          : 'px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-zinc-400';
+          ? 'px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/70 text-[10px] font-mono text-emerald-300 font-bold'
+          : 'px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-amber-300';
       }
       if (crmUserNameEl) crmUserNameEl.textContent = userObj.fullName;
       if (crmUserSubEl) {
         crmUserSubEl.innerHTML = userObj.isTelegram
           ? `TG ID: <strong class="text-white select-all">${escSafeHtml(userObj.tgId)}</strong>${
               userObj.username ? ` · @${escSafeHtml(userObj.username)}` : ''
-            }`
-          : `Visitor Key: <strong class="text-amber-300 select-all">${escSafeHtml(userObj.crmKey)}</strong>`;
+            } · <span class="text-emerald-300">${escSafeHtml(lastActiveFormatted)}</span>`
+          : `Visitor Key: <strong class="text-amber-300 select-all">${escSafeHtml(userObj.crmKey)}</strong> · <span class="text-emerald-300">${escSafeHtml(lastActiveFormatted)}</span>`;
       }
       if (crmDeviceInfoEl) {
         crmDeviceInfoEl.textContent = `Device: ${userObj.device || 'Telegram Mini App'}`;
@@ -8788,6 +9188,36 @@ service cloud.firestore {
       if (crmWatchedCountEl) {
         crmWatchedCountEl.textContent = String(userObj.videosWatchedCount || 0);
       }
+
+      // Update VIP Status & Expiry in Modal
+      const isVipNow = Boolean(userObj.vipActive && userObj.vipExpiresAt > now);
+      if (crmToggleVipBtn) {
+        crmToggleVipBtn.textContent = isVipNow
+          ? '🟢 VIP IS ON (Click to Turn OFF)'
+          : '🔴 VIP IS OFF (Click to Turn ON)';
+        crmToggleVipBtn.className = isVipNow
+          ? 'px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-rose-600 text-white text-xs font-extrabold cursor-pointer transition-all shadow-md'
+          : 'px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-emerald-600 border border-zinc-700 text-amber-300 hover:text-white text-xs font-extrabold cursor-pointer transition-all shadow-md';
+      }
+      if (crmVipLiveExpiryText) {
+        if (isVipNow) {
+          crmVipLiveExpiryText.textContent = `🟢 Active (${formatRemainingTime(userObj.vipExpiresAt)}) · Exp: ${new Date(userObj.vipExpiresAt).toLocaleString()}`;
+          crmVipLiveExpiryText.className = 'text-[10px] font-mono font-bold text-emerald-400';
+        } else {
+          crmVipLiveExpiryText.textContent = '🔴 VIP OFF / Expired';
+          crmVipLiveExpiryText.className = 'text-[10px] font-mono text-zinc-400';
+        }
+      }
+      if (crmDailyWatchedBadge) {
+        const lim = userObj.dailyVideoLimit || 0;
+        crmDailyWatchedBadge.textContent = lim > 0
+          ? `আজ দেখেছে: ${userObj.dailyWatchedCount || 0} / ${lim} টি`
+          : `আজ দেখেছে: ${userObj.dailyWatchedCount || 0} টি (∞ Unlimited)`;
+      }
+      if (crmDailyLimitInput && document.activeElement !== crmDailyLimitInput) {
+        crmDailyLimitInput.value = String(userObj.dailyVideoLimit || 0);
+      }
+
       if (crmWatchedListEl) {
         const wList = Array.isArray(userObj.watchedVideos) ? userObj.watchedVideos : [];
         if (wList.length === 0) {
@@ -8835,10 +9265,203 @@ service cloud.firestore {
       }
     };
 
+    // Admin VIP Control Helper: Update user's VIP time (+ / - min, hour, day), VIP ON/OFF, or Daily Video Limit
+    const applyAdminVipUserControl = async ({ deltaMs = 0, toggleVip = false, setDailyLimit = null }) => {
+      if (!activeCrmUserKey) return;
+      buildMergedCrmUsersList();
+      const now = Date.now();
+      const userObj = crmUsersMap.get(activeCrmUserKey) || {};
+      const existingControl = vipUsersControlMap[activeCrmUserKey] || {};
+
+      let currentActive = Boolean(userObj.vipActive && userObj.vipExpiresAt > now);
+      let currentExpiresAt = Number(userObj.vipExpiresAt || existingControl.expiresAt || 0);
+      let currentLimit =
+        typeof existingControl.dailyVideoLimit === 'number'
+          ? existingControl.dailyVideoLimit
+          : Number(userObj.dailyVideoLimit || 0);
+
+      if (toggleVip) {
+        currentActive = !currentActive;
+        if (currentActive && currentExpiresAt <= now) {
+          // Default to 14 days if turning ON with no remaining time
+          currentExpiresAt = now + 14 * 24 * 3600 * 1000;
+        }
+      }
+
+      if (deltaMs !== 0) {
+        const baseTs = currentActive && currentExpiresAt > now ? currentExpiresAt : now;
+        currentExpiresAt = Math.max(now, baseTs + deltaMs);
+        currentActive = currentExpiresAt > now;
+      }
+
+      if (setDailyLimit !== null) {
+        currentLimit = Math.max(0, Math.floor(Number(setDailyLimit) || 0));
+      }
+
+      const activeCode = existingControl.activeCode || userObj.activeVipCode || userObj.personalNotice?.giftCode || '';
+
+      const payload = {
+        userId: activeCrmUserKey,
+        vipActive: currentActive,
+        expiresAt: currentExpiresAt,
+        dailyVideoLimit: currentLimit,
+        activeCode: activeCode || 'ADMIN-VIP',
+        durationLabel: currentActive ? 'Admin Controlled VIP' : 'VIP OFF',
+        updatedAt: now,
+      };
+
+      const promises = [
+        set(ref(db, `vipUsersControl/${activeCrmUserKey}`), payload),
+        update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+          vipActive: currentActive,
+          vipExpiresAt: currentExpiresAt,
+          dailyVideoLimit: currentLimit,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
+      ];
+
+      // Also sync with any linked Redeem Code if present
+      if (activeCode && activeCode !== 'ADMIN-VIP') {
+        promises.push(
+          update(ref(db, `redeemCodes/${activeCode}`), {
+            active: currentActive,
+            expiresAt: currentExpiresAt,
+            dailyVideoLimit: currentLimit,
+          }).catch(() => {}),
+          update(ref(db, `telegramBotSessions/_codes/${activeCode}`), {
+            active: currentActive,
+            expiresAt: currentExpiresAt,
+            dailyVideoLimit: currentLimit,
+            botAuthToken: 'xtube_tg_bot_2026',
+          }).catch(() => {})
+        );
+      }
+
+      await Promise.all(promises);
+      window.refreshActiveCrmModalData();
+      return payload;
+    };
+
+    if (crmToggleVipBtn) {
+      crmToggleVipBtn.addEventListener('click', async () => {
+        try {
+          const res = await applyAdminVipUserControl({ toggleVip: true });
+          const msg = res?.vipActive
+            ? `🟢 ইউজারের VIP ON করা হয়েছে! মেয়াদ: ${new Date(res.expiresAt).toLocaleString()}`
+            : `🔴 ইউজারের VIP OFF করা হয়েছে!`;
+          showCrmVipFeedback(msg);
+          showStatus(msg, res?.vipActive ? 'success' : 'info');
+        } catch (err) {
+          showStatus(`VIP Toggle Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    const handleCustomUnitTimeAdjust = async (sign) => {
+      const amount = Math.max(1, Number(crmVipAdjustAmount?.value || 1));
+      const unit = crmVipAdjustUnit?.value || 'day';
+      const unitMs = unit === 'min' ? 60000 : unit === 'hour' ? 3600000 : 86400000;
+      const unitLabel = unit === 'min' ? 'মিনিট' : unit === 'hour' ? 'ঘণ্টা' : 'দিন';
+      const deltaMs = sign * amount * unitMs;
+      try {
+        const res = await applyAdminVipUserControl({ deltaMs });
+        const msg = `⏱️ ইউজারের VIP সময় ${sign > 0 ? `+${amount}` : `-${amount}`} ${unitLabel} আপডেট হয়েছে! নতুন মেয়াদ: ${
+          res?.vipActive ? new Date(res.expiresAt).toLocaleString() : 'Expired / OFF'
+        }`;
+        showCrmVipFeedback(msg);
+        showStatus(msg, 'success');
+      } catch (err) {
+        showStatus(`VIP Time Adjust Error: ${err.message}`, 'error');
+      }
+    };
+
+    if (crmVipAddTimeBtn) {
+      crmVipAddTimeBtn.addEventListener('click', () => handleCustomUnitTimeAdjust(1));
+    }
+    if (crmVipSubTimeBtn) {
+      crmVipSubTimeBtn.addEventListener('click', () => handleCustomUnitTimeAdjust(-1));
+    }
+
+    document.querySelectorAll('.crm-quick-time-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const delta = Number(btn.getAttribute('data-crm-time-delta')) || 0;
+        const unit = btn.getAttribute('data-crm-time-unit') || 'min';
+        const unitMs = unit === 'min' ? 60000 : unit === 'hour' ? 3600000 : 86400000;
+        try {
+          const res = await applyAdminVipUserControl({ deltaMs: delta * unitMs });
+          const msg = `⏱️ VIP সময় (${btn.textContent}) আপডেট হয়েছে! মেয়াদ: ${
+            res?.vipActive ? new Date(res.expiresAt).toLocaleString() : 'Expired / OFF'
+          }`;
+          showCrmVipFeedback(msg);
+          showStatus(msg, 'success');
+        } catch (err) {
+          showStatus(`Quick Time Error: ${err.message}`, 'error');
+        }
+      });
+    });
+
+    if (crmSaveDailyLimitBtn) {
+      crmSaveDailyLimitBtn.addEventListener('click', async () => {
+        const lim = Math.max(0, Math.floor(Number(crmDailyLimitInput?.value || 0)));
+        try {
+          await applyAdminVipUserControl({ setDailyLimit: lim });
+          const msg =
+            lim > 0
+              ? `🎬 ইউজারের ডেইলি ভিডিও দেখার লিমিট প্রতিদিন সর্বোচ্চ ${lim}টি সেট করা হয়েছে!`
+              : `🎬 ইউজারের ডেইলি ভিডিও লিমিট Unlimited (আনলিমিটেড) করা হয়েছে!`;
+          showCrmVipFeedback(msg);
+          showStatus(msg, 'success');
+        } catch (err) {
+          showStatus(`Daily Limit Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    document.querySelectorAll('.crm-limit-preset-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const lim = Math.max(0, Math.floor(Number(btn.getAttribute('data-crm-limit-preset')) || 0));
+        if (crmDailyLimitInput) crmDailyLimitInput.value = String(lim);
+        try {
+          await applyAdminVipUserControl({ setDailyLimit: lim });
+          const msg =
+            lim > 0
+              ? `🎬 ডেইলি ভিডিও লিমিট প্রতিদিন ${lim}টি ভিডিও সেট করা হয়েছে!`
+              : `🎬 ডেইলি ভিডিও লিমিট Unlimited সেট করা হয়েছে!`;
+          showCrmVipFeedback(msg);
+          showStatus(msg, 'success');
+        } catch (err) {
+          showStatus(`Daily Limit Preset Error: ${err.message}`, 'error');
+        }
+      });
+    });
+
+    if (crmResetDailyWatchedBtn) {
+      crmResetDailyWatchedBtn.addEventListener('click', async () => {
+        if (!activeCrmUserKey) return;
+        const todayKey = new Date().toISOString().slice(0, 10);
+        try {
+          await Promise.all([
+            set(ref(db, `userDailyVideoUsage/${activeCrmUserKey}/${todayKey}`), 0),
+            update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+              dailyWatchedCount: 0,
+              dailyWatchedDate: todayKey,
+              botAuthToken: 'xtube_tg_bot_2026',
+            }).catch(() => {}),
+          ]);
+          showCrmVipFeedback('🔄 এই ইউজারের আজকের দেখা ভিডিও কাউন্ট 0-তে রিসেট করা হয়েছে!');
+          showStatus('🔄 ইউজারের আজকের ভিডিও কাউন্ট 0 রিসেট হয়েছে!', 'success');
+          window.refreshActiveCrmModalData();
+        } catch (err) {
+          showStatus(`Reset Count Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
     window.openUserCrmModal = (rawKey) => {
       const clean = String(rawKey || '').trim();
       if (!clean) return;
       activeCrmUserKey = clean;
+      if (crmVipControlFeedback) crmVipControlFeedback.classList.add('hidden');
       window.refreshActiveCrmModalData();
       const userObj = crmUsersMap.get(activeCrmUserKey);
       if (userObj?.personalNotice && userObj.personalNotice.active !== false) {
@@ -8906,6 +9529,7 @@ service cloud.firestore {
             const durationHours = Number(rawHours) || 336;
             const durationLabel = pkgLabel || `${durationHours} Hours`;
             const packageName = pkgName || '💎 14 Days VIP Ad-Free';
+            const dailyLimit = Math.max(0, Math.floor(Number(crmDailyLimitInput?.value || 0)));
             const now = Date.now();
             const newCode = generateRandomVipCode();
             const expiresAt = now + Math.round(durationHours * 3600 * 1000);
@@ -8915,10 +9539,12 @@ service cloud.firestore {
               packageName,
               durationHours,
               durationLabel,
+              dailyVideoLimit: dailyLimit,
+              userId: activeCrmUserKey,
               createdAt: now,
               expiresAt,
               active: true,
-              note: `Sent in Personal Message to ${userObj?.fullName || targetChatId}`,
+              note: `Sent in Personal Message to ${userObj?.fullName || targetChatId} (${targetChatId})`,
               createdByUid: currentUser?.uid || ADMIN_UID,
               botAuthToken: 'xtube_tg_bot_2026',
             };
@@ -8940,8 +9566,20 @@ service cloud.firestore {
             await Promise.all([
               set(ref(db, `redeemCodes/${newCode}`), codePayload).catch(() => {}),
               set(ref(db, `telegramBotSessions/_codes/${newCode}`), codePayload),
+              set(ref(db, `vipUsersControl/${activeCrmUserKey}`), {
+                userId: activeCrmUserKey,
+                vipActive: true,
+                expiresAt,
+                dailyVideoLimit: dailyLimit,
+                activeCode: newCode,
+                durationLabel,
+                updatedAt: now,
+              }).catch(() => {}),
               update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
                 personalNotice: noticeObj,
+                vipActive: true,
+                vipExpiresAt: expiresAt,
+                dailyVideoLimit: dailyLimit,
                 botAuthToken: 'xtube_tg_bot_2026',
               }).catch(() => {}),
             ]);
@@ -8950,6 +9588,7 @@ service cloud.firestore {
               rawText ? `${rawText}\n` : `🎁 <b>অভিনন্দন! অ্যাডমিন আপনাকে স্পেশাল VIP Package পাঠিয়েছেন!</b>\n`,
               `📦 <b>প্যাকেজ:</b> ${escSafeHtml(packageName)} (${escSafeHtml(durationLabel)})`,
               `🔑 <b>আপনার Redeem Code:</b> <code>${newCode}</code>`,
+              dailyLimit > 0 ? `🎬 <b>ডেইলি ভিডিও লিমিট:</b> প্রতিদিন ${dailyLimit}টি ভিডিও` : '',
               `⏳ <b>মেয়াদ শেষ হবে:</b> ${new Date(expiresAt).toLocaleString()}`,
               ``,
               `👉 নিচের বাটনে ক্লিক করে অ্যাপ ওপেন করলেই আপনার প্রোফাইলে অটো পপ-আপ আসবে, সেখান থেকে ১-ক্লিকে VIP চালু করতে পারবেন!`,
@@ -9019,9 +9658,10 @@ service cloud.firestore {
         const userObj = crmUsersMap.get(activeCrmUserKey);
         const targetChatId = userObj?.tgId || (/^\d{5,20}$/.test(activeCrmUserKey) ? activeCrmUserKey : '');
 
-        const selVal = document.getElementById('crm-vip-duration-select')?.value || '24|🔥 1 Day VIP Ad-Free|1 Day (24h)';
+        const selVal = document.getElementById('crm-vip-duration-select')?.value || '336|💎 14 Days VIP Ad-Free|14 Days VIP';
         const [rawHours, presetPkgName, presetLabel] = selVal.split('|');
         const customMins = Number(document.getElementById('crm-vip-custom-mins')?.value || 0);
+        const pkgDailyLimit = Math.max(0, Math.floor(Number(document.getElementById('crm-vip-pkg-daily-limit')?.value || 0)));
         const customNote = (document.getElementById('crm-vip-custom-note')?.value || '').trim();
 
         const durationHours = customMins > 0 ? Number((customMins / 60).toFixed(4)) : Number(rawHours) || 24;
@@ -9041,10 +9681,12 @@ service cloud.firestore {
             packageName,
             durationHours,
             durationLabel,
+            dailyVideoLimit: pkgDailyLimit,
+            userId: activeCrmUserKey,
             createdAt: now,
             expiresAt,
             active: true,
-            note: `Personal Gift to ${userObj?.fullName || activeCrmUserKey}`,
+            note: `Personal Gift to ${userObj?.fullName || activeCrmUserKey} (${activeCrmUserKey})`,
             createdByUid: currentUser?.uid || ADMIN_UID,
             botAuthToken: 'xtube_tg_bot_2026',
           };
@@ -9054,7 +9696,7 @@ service cloud.firestore {
             title: `🎁 আপনার জন্য স্পেশাল VIP গিফট প্যাস!`,
             message:
               customNote ||
-              `অ্যাডমিন আপনাকে "${packageName}" (${durationLabel}) উপহার পাঠিয়েছেন! নিচের বাটনে ১-ক্লিক করে এখনই অ্যাড-ফ্রি ভিআইপি চালু করুন।`,
+              `অ্যাডমিন আপনাকে "${packageName}" (${durationLabel}${pkgDailyLimit > 0 ? ` · প্রতিদিন ${pkgDailyLimit}টি ভিডিও` : ''}) উপহার পাঠিয়েছেন! নিচের বাটনে ১-ক্লিক করে এখনই অ্যাড-ফ্রি ভিআইপি চালু করুন।`,
             giftCode: newCode,
             packageName,
             durationLabel,
@@ -9066,8 +9708,20 @@ service cloud.firestore {
           await Promise.all([
             set(ref(db, `redeemCodes/${newCode}`), codePayload).catch(() => {}),
             set(ref(db, `telegramBotSessions/_codes/${newCode}`), codePayload),
+            set(ref(db, `vipUsersControl/${activeCrmUserKey}`), {
+              userId: activeCrmUserKey,
+              vipActive: true,
+              expiresAt,
+              dailyVideoLimit: pkgDailyLimit,
+              activeCode: newCode,
+              durationLabel,
+              updatedAt: now,
+            }).catch(() => {}),
             update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
               personalNotice: noticeObj,
+              vipActive: true,
+              vipExpiresAt: expiresAt,
+              dailyVideoLimit: pkgDailyLimit,
               botAuthToken: 'xtube_tg_bot_2026',
             }).catch(() => {}),
           ]);
@@ -9080,6 +9734,7 @@ service cloud.firestore {
               ``,
               `📦 <b>প্যাকেজ:</b> ${escSafeHtml(packageName)} (${escSafeHtml(durationLabel)})`,
               `🔑 <b>আপনার Redeem Code:</b> <code>${newCode}</code>`,
+              pkgDailyLimit > 0 ? `🎬 <b>ডেইলি ভিডিও লিমিট:</b> প্রতিদিন ${pkgDailyLimit}টি ভিডিও` : '',
               `⏳ <b>মেয়াদ শেষ হবে:</b> ${new Date(expiresAt).toLocaleString()}`,
               customNote ? `\n💬 <b>বার্তা:</b> ${escSafeHtml(customNote)}` : '',
               ``,
@@ -9108,7 +9763,7 @@ service cloud.firestore {
           if (crmPopupMsgInput) crmPopupMsgInput.value = noticeObj.message;
           window.refreshActiveCrmModalData();
           showStatus(
-            `🎁 VIP Code "${newCode}" (${durationLabel}) জেনারেট হয়ে ইউজারের Telegram এবং WebApp Profile Popup-এ পাঠানো হয়েছে!`,
+            `🎁 VIP Code "${newCode}" (${durationLabel}${pkgDailyLimit > 0 ? `, Limit: ${pkgDailyLimit}/day` : ''}) জেনারেট হয়ে ইউজারের Telegram এবং WebApp Profile Popup-এ পাঠানো হয়েছে!`,
             'success'
           );
         } catch (err) {
