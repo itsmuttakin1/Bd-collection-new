@@ -28,19 +28,27 @@ let serverTimeOffsetMs = 0;
 let serverOffsetInitialized = false;
 
 interface VipRuntimeState {
+  isVipMember: boolean;
   isAdFree: boolean;
+  isDailyLimitReached: boolean;
   activeCode: string;
   expiresAt: number;
   durationLabel: string;
   dailyVideoLimit: number;
+  dailyWatchedCount: number;
 }
 
+let currentDailyWatchedCount = 0;
+
 let currentVipState: VipRuntimeState = {
+  isVipMember: false,
   isAdFree: false,
+  isDailyLimitReached: false,
   activeCode: '',
   expiresAt: 0,
   durationLabel: '',
   dailyVideoLimit: 0,
+  dailyWatchedCount: 0,
 };
 
 let codeSnapshotState: {
@@ -170,6 +178,14 @@ function cleanupInjectedAdDomElements() {
   } catch {}
 }
 
+export function syncVipDailyWatchedCount(count: number) {
+  const cleanCount = Math.max(0, Math.floor(Number(count) || 0));
+  if (cleanCount !== currentDailyWatchedCount) {
+    currentDailyWatchedCount = cleanCount;
+    recomputeEffectiveVipState();
+  }
+}
+
 function recomputeEffectiveVipState() {
   const now = getAuthoritativeNow();
   const uc = userControlSnapshotState;
@@ -184,37 +200,47 @@ function recomputeEffectiveVipState() {
   }
 
   // Determine if Admin explicitly turned VIP OFF or ON for this user in vipUsersControl
-  let isAdFree = false;
+  let isVipMember = false;
   let activeCode = '';
   let expiresAt = 0;
   let durationLabel = '';
 
   if (uc.exists && uc.vipActive === false) {
     // Admin explicitly forced VIP OFF for this user
-    isAdFree = false;
+    isVipMember = false;
     activeCode = '';
     expiresAt = 0;
     durationLabel = '';
   } else if (uc.exists && uc.vipActive === true && Number(uc.expiresAt) > now) {
     // Admin explicitly enabled/adjusted VIP for this user
-    isAdFree = true;
+    isVipMember = true;
     expiresAt = Number(uc.expiresAt);
     activeCode = uc.activeCode || cs.code || 'ADMIN-VIP';
     durationLabel = uc.durationLabel || cs.durationLabel || 'VIP Ad-Free';
   } else if (cs.valid && cs.active && cs.expiresAt > now) {
-    isAdFree = true;
+    isVipMember = true;
     expiresAt = cs.expiresAt;
     activeCode = cs.code;
     durationLabel = cs.durationLabel || 'VIP Ad-Free';
   }
 
+  // Only VIP users have a daily Ad-Free video rate limit.
+  // Once a VIP user reaches their daily limit, isDailyLimitReached = true and isAdFree = false so Step Ads run like a normal user!
+  const isDailyLimitReached = Boolean(
+    isVipMember && effectiveDailyLimit > 0 && currentDailyWatchedCount >= effectiveDailyLimit
+  );
+  const isAdFree = Boolean(isVipMember && !isDailyLimitReached);
+
   const wasAdFree = currentVipState.isAdFree;
   currentVipState = {
+    isVipMember,
     isAdFree,
+    isDailyLimitReached,
     activeCode,
     expiresAt,
     durationLabel,
     dailyVideoLimit: effectiveDailyLimit,
+    dailyWatchedCount: currentDailyWatchedCount,
   };
 
   if (isAdFree && !wasAdFree) {
@@ -227,16 +253,16 @@ function recomputeEffectiveVipState() {
 
 function ensureExpiryTicker() {
   if (typeof window === 'undefined') return;
-  if (currentVipState.isAdFree && expiryTickerId === null) {
+  if (currentVipState.isVipMember && expiryTickerId === null) {
     expiryTickerId = window.setInterval(() => {
-      if (!currentVipState.isAdFree) return;
+      if (!currentVipState.isVipMember) return;
       if (getAuthoritativeNow() >= currentVipState.expiresAt) {
         recomputeEffectiveVipState();
       } else {
         broadcastVipStateChange();
       }
     }, 1000);
-  } else if (!currentVipState.isAdFree && expiryTickerId !== null) {
+  } else if (!currentVipState.isVipMember && expiryTickerId !== null) {
     window.clearInterval(expiryTickerId);
     expiryTickerId = null;
   }
@@ -585,14 +611,14 @@ export function formatVipCountdown(remainingMs: number): string {
 export function useAdFreeVip() {
   const [vipState, setVipState] = useState<VipRuntimeState>(() => ({ ...currentVipState }));
   const [remainingMs, setRemainingMs] = useState<number>(() =>
-    currentVipState.isAdFree ? Math.max(0, currentVipState.expiresAt - getAuthoritativeNow()) : 0
+    currentVipState.isVipMember ? Math.max(0, currentVipState.expiresAt - getAuthoritativeNow()) : 0
   );
 
   useEffect(() => {
     const handleUpdate = () => {
       setVipState({ ...currentVipState });
       setRemainingMs(
-        currentVipState.isAdFree
+        currentVipState.isVipMember
           ? Math.max(0, currentVipState.expiresAt - getAuthoritativeNow())
           : 0
       );
@@ -602,12 +628,18 @@ export function useAdFreeVip() {
     return () => window.removeEventListener(VIP_STATE_CHANGE_EVENT, handleUpdate);
   }, []);
 
+  const isVipMember = vipState.isVipMember && remainingMs > 0;
+  const isDailyLimitReached = isVipMember && vipState.isDailyLimitReached;
+
   return {
-    isAdFree: vipState.isAdFree && remainingMs > 0,
+    isVipMember,
+    isAdFree: isVipMember && vipState.isAdFree && !isDailyLimitReached,
+    isDailyLimitReached,
     activeCode: vipState.activeCode,
     expiresAt: vipState.expiresAt,
     durationLabel: vipState.durationLabel,
     dailyVideoLimit: vipState.dailyVideoLimit,
+    dailyWatchedCount: vipState.dailyWatchedCount,
     remainingMs,
     activateCode: activateRedeemCodeOnBrowser,
     clearCode: deactivateRedeemCodeOnBrowser,

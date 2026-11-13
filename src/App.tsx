@@ -33,6 +33,7 @@ import {
   AntiAdBlockGuard,
   useAdFreeVip,
   bindVipUserCrmKey,
+  syncVipDailyWatchedCount,
   formatVipCountdown,
   triggerPopunderAd,
   openStepSmartlinkWithPopunder,
@@ -930,7 +931,9 @@ export default function App() {
 
   // Redeem Code & Ad-Free VIP State
   const {
+    isVipMember,
     isAdFree,
+    isDailyLimitReached,
     activeCode,
     expiresAt,
     durationLabel,
@@ -945,7 +948,7 @@ export default function App() {
   const [redeemPackages, setRedeemPackages] = useState<RedeemPackageItem[]>([]);
   const [storeConfig, setStoreConfig] = useState<RedeemStoreConfig>({ serviceEnabled: true });
 
-  // Daily Video Watch Rate Limit State (Admin Controlled per VIP User / Redeem Code)
+  // Daily Ad-Free Video Watch Rate Limit State (ONLY for VIP Users; Normal users have NO rate limit)
   const getTodayDateKey = () => new Date().toISOString().slice(0, 10);
   const [dailyWatchedCount, setDailyWatchedCount] = useState<number>(() => {
     try {
@@ -958,6 +961,10 @@ export default function App() {
   });
   const [dailyLimitModalOpen, setDailyLimitModalOpen] = useState<boolean>(false);
   const countedTodayVideoIdsRef = useRef<Record<string, boolean>>({});
+
+  useEffect(() => {
+    syncVipDailyWatchedCount(dailyWatchedCount);
+  }, [dailyWatchedCount]);
 
   const isRedeemServiceEnabled = storeConfig.serviceEnabled !== false;
 
@@ -977,24 +984,31 @@ export default function App() {
     setSharedVideoId(matched.id);
     setActiveVideo(matched);
     if (isAdFree || unlockedVideos[matched.id]) {
+      if (isVipMember && isAdFree) {
+        recordVipAdFreeVideoWatch(matched.id);
+      }
       stepGatePendingIdRef.current = null;
       setStepGatePendingId(null);
       setStepGateVideo(null);
       setViewMode('watch');
     } else {
+      if (isVipMember && isDailyLimitReached) {
+        setDailyLimitModalOpen(true);
+      }
       if (!stepGateVideo || stepGateVideo.id !== matched.id) {
         setStepGateVideo(matched);
       }
       setViewMode('watch');
     }
-  }, [videos, shorts, stepGatePendingId, isAdFree, unlockedVideos, stepGateVideo]);
+  }, [videos, shorts, stepGatePendingId, isAdFree, isVipMember, isDailyLimitReached, unlockedVideos, stepGateVideo]);
 
-  // Auto-bypass 3-Step Verification if user activates a valid VIP Ad-Free Redeem Code
+  // Auto-bypass 3-Step Verification if user activates a valid VIP Ad-Free Redeem Code with remaining daily quota
   useEffect(() => {
     if (isAdFree && (stepGateVideo || stepGatePendingId)) {
       const target =
         stepGateVideo || findMatchingVideoOrShort(videos, shorts, stepGatePendingId);
       if (target) {
+        recordVipAdFreeVideoWatch(target.id);
         stepGatePendingIdRef.current = null;
         setStepGatePendingId(null);
         setStepGateVideo(null);
@@ -2491,46 +2505,37 @@ export default function App() {
     setProfileRevision((r) => r + 1);
   };
 
-  // Checks and records daily video watch count against Admin's dailyVideoLimit
-  const checkCanWatchAndRecordDailyLimit = (videoId: string, recordNow: boolean): boolean => {
+  // Records 1 Ad-Free video watch for VIP user's daily Ad-Free quota
+  const recordVipAdFreeVideoWatch = (videoId: string) => {
+    if (!isVipMember) return;
     const todayKey = getTodayDateKey();
     const sessionKey = `${todayKey}_${videoId}`;
-    const alreadyCountedThisVideoToday = Boolean(countedTodayVideoIdsRef.current[sessionKey]);
+    if (countedTodayVideoIdsRef.current[sessionKey]) return;
 
-    if (dailyVideoLimit > 0 && !alreadyCountedThisVideoToday && dailyWatchedCount >= dailyVideoLimit) {
-      setDailyLimitModalOpen(true);
-      return false;
+    countedTodayVideoIdsRef.current[sessionKey] = true;
+    const nextCount = dailyWatchedCount + 1;
+    setDailyWatchedCount(nextCount);
+    syncVipDailyWatchedCount(nextCount);
+    try {
+      localStorage.setItem(`xtube_daily_watch_count_${todayKey}`, String(nextCount));
+    } catch {}
+    const crmKey = getUserCrmKey();
+    if (crmKey) {
+      set(ref(db, `userDailyVideoUsage/${crmKey}/${todayKey}`), nextCount).catch(() => {});
+      update(ref(db, `telegramBotSessions/${crmKey}`), {
+        dailyWatchedCount: nextCount,
+        dailyWatchedDate: todayKey,
+        botAuthToken: 'xtube_tg_bot_2026',
+      }).catch(() => {});
     }
-
-    if (recordNow && !alreadyCountedThisVideoToday) {
-      countedTodayVideoIdsRef.current[sessionKey] = true;
-      const nextCount = dailyWatchedCount + 1;
-      setDailyWatchedCount(nextCount);
-      try {
-        localStorage.setItem(`xtube_daily_watch_count_${todayKey}`, String(nextCount));
-      } catch {}
-      const crmKey = getUserCrmKey();
-      if (crmKey) {
-        set(ref(db, `userDailyVideoUsage/${crmKey}/${todayKey}`), nextCount).catch(() => {});
-        update(ref(db, `telegramBotSessions/${crmKey}`), {
-          dailyWatchedCount: nextCount,
-          dailyWatchedDate: todayKey,
-          botAuthToken: 'xtube_tg_bot_2026',
-        }).catch(() => {});
-      }
-    }
-    return true;
   };
 
   // Opens the 3-Step Smartlink Verification Screen (Step 1 -> Step 2 -> Step 3, 20s each in Mini WebView)
-  // No popup/redirect ads trigger on click; once Step 3 completes, the video plays immediately!
+  // Normal users ALWAYS use Step Ads (no rate limit).
+  // VIP users bypass Step Ads UNTIL their daily Ad-Free limit (dailyVideoLimit) is reached;
+  // once a VIP user's daily limit is reached, Step Ads run just like a normal user + a VIP Upgrade Popup appears!
   const startVideoStepVerification = (video: VideoItem) => {
     if ((!isAdFree && adBlockActive) || !video) return;
-
-    // Enforce Admin Daily Video Watch Rate Limit before opening/playing video
-    if (!checkCanWatchAndRecordDailyLimit(video.id, false)) {
-      return;
-    }
 
     userNavigatedRef.current = true;
     initialSharedResolvedRef.current = true;
@@ -2541,9 +2546,16 @@ export default function App() {
     setActiveShortId(null);
     syncUrlWithVideo(video.id);
 
-    if (isAdFree || unlockedVideos[video.id]) {
-      if (!checkCanWatchAndRecordDailyLimit(video.id, true)) {
-        return;
+    const todayKey = getTodayDateKey();
+    const alreadyWatchedAdFreeToday = Boolean(countedTodayVideoIdsRef.current[`${todayKey}_${video.id}`]);
+    const vipHasRemainingQuota =
+      isVipMember &&
+      (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
+
+    // If video was already unlocked in this session OR VIP user still has Ad-Free quota today:
+    if (unlockedVideos[video.id] || vipHasRemainingQuota) {
+      if (isVipMember && vipHasRemainingQuota) {
+        recordVipAdFreeVideoWatch(video.id);
       }
       stepGatePendingIdRef.current = null;
       setStepGatePendingId(null);
@@ -2553,6 +2565,12 @@ export default function App() {
       recordAlgorithmInteraction(video, 'watch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
+    }
+
+    // If this is a VIP user whose daily Ad-Free video limit has run out, show the VIP Package Upgrade Popup
+    // AND start Step 1, 2, 3 Ads just like a normal user!
+    if (isVipMember && dailyVideoLimit > 0 && dailyWatchedCount >= dailyVideoLimit) {
+      setDailyLimitModalOpen(true);
     }
 
     stepGatePendingIdRef.current = video.id;
@@ -2612,9 +2630,6 @@ export default function App() {
     setStepAdClicked(false);
 
     if (target) {
-      if (!checkCanWatchAndRecordDailyLimit(target.id, true)) {
-        return;
-      }
       setUnlockedVideos((prev) => ({ ...prev, [target.id]: true }));
       activeVideoIdRef.current = target.id;
       setActiveVideo(target);
@@ -3759,35 +3774,41 @@ export default function App() {
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isAdFree
+                        isVipMember
                           ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
                           : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
                       }`}
                     >
-                      {isAdFree ? <ShieldCheck className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
+                      {isVipMember ? <ShieldCheck className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
                     </div>
                     <div>
                       <h3 className="text-sm sm:text-base font-extrabold text-white">
-                        {isAdFree ? ui.vipAdFree : ui.redeemModalTitle}
+                        {isVipMember ? ui.vipAdFree : ui.redeemModalTitle}
                       </h3>
                       <p className="text-xs text-slate-400">{ui.redeemModalDesc}</p>
                     </div>
                   </div>
                   <span
                     className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-wide ${
-                      isAdFree
-                        ? 'bg-emerald-500 text-slate-950'
+                      isVipMember
+                        ? isDailyLimitReached
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-emerald-500 text-slate-950'
                         : 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
                     }`}
                   >
-                    {isAdFree ? '● VIP ACTIVE' : '○ NO ACTIVE VIP'}
+                    {isVipMember
+                      ? isDailyLimitReached
+                        ? '⚠️ DAILY AD-FREE LIMIT REACHED'
+                        : '● VIP ACTIVE'
+                      : '○ NO ACTIVE VIP'}
                   </span>
                 </div>
 
                 {/* Live Expire Time & Countdown Box */}
                 <div
                   className={`p-4 rounded-2xl border space-y-2.5 ${
-                    isAdFree
+                    isVipMember
                       ? 'bg-emerald-950/35 border-emerald-600/60'
                       : 'bg-[#1e2430] border-slate-700/60'
                   }`}
@@ -3799,38 +3820,40 @@ export default function App() {
                     </span>
                     <span
                       className={`text-sm sm:text-base font-mono font-extrabold tabular-nums ${
-                        isAdFree ? 'text-emerald-400' : 'text-slate-400'
+                        isVipMember ? 'text-emerald-400' : 'text-slate-400'
                       }`}
                     >
-                      {isAdFree ? formatVipCountdown(remainingMs) : '00:00:00 (Not Active)'}
+                      {isVipMember ? formatVipCountdown(remainingMs) : '00:00:00 (Not Active)'}
                     </span>
                   </div>
 
                   <div className="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-mono text-slate-300">
                     <span>
                       Code:{' '}
-                      <strong className={isAdFree ? 'text-amber-300' : 'text-slate-500'}>
-                        {isAdFree && activeCode ? activeCode : 'NONE'}
+                      <strong className={isVipMember ? 'text-amber-300' : 'text-slate-500'}>
+                        {isVipMember && activeCode ? activeCode : 'NONE'}
                       </strong>
                     </span>
                     <span>
                       Expire Time:{' '}
-                      <strong className={isAdFree ? 'text-emerald-300' : 'text-slate-500'}>
-                        {isAdFree && expiresAt
+                      <strong className={isVipMember ? 'text-emerald-300' : 'text-slate-500'}>
+                        {isVipMember && expiresAt
                           ? new Date(expiresAt).toLocaleString()
                           : 'No Active Expiry'}
                       </strong>
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] font-mono">
-                    <span className="text-slate-300">🎬 Daily Video Watch Limit:</span>
-                    <strong className={dailyVideoLimit > 0 && dailyWatchedCount >= dailyVideoLimit ? 'text-rose-400' : 'text-amber-300'}>
-                      {dailyVideoLimit > 0
-                        ? `${dailyWatchedCount} / ${dailyVideoLimit} Videos Today`
-                        : `${dailyWatchedCount} Watched Today (Unlimited)`}
-                    </strong>
-                  </div>
+                  {isVipMember && (
+                    <div className="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] font-mono">
+                      <span className="text-slate-300">👑 VIP Daily Ad-Free Limit:</span>
+                      <strong className={isDailyLimitReached ? 'text-rose-400' : 'text-amber-300'}>
+                        {dailyVideoLimit > 0
+                          ? `${dailyWatchedCount} / ${dailyVideoLimit} Ad-Free Videos Today`
+                          : `${dailyWatchedCount} Watched Today (Unlimited Ad-Free)`}
+                      </strong>
+                    </div>
+                  )}
                 </div>
 
                 {/* Redeem Code Input Form Inside Profile */}
@@ -4475,36 +4498,43 @@ export default function App() {
         </nav>
       )}
 
-      {/* Daily Video Rate Limit Reached Popup Modal */}
-      {dailyLimitModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl bg-[#141923] border-2 border-rose-500/70 p-6 shadow-2xl space-y-4 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center mx-auto text-2xl">
-              ⛔
+      {/* VIP-Only Daily Ad-Free Rate Limit Reached Popup Modal (Prompts Package Upgrade + Runs Step Ads) */}
+      {dailyLimitModalOpen && isVipMember && (
+        <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#141923] border-2 border-amber-500/80 p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto text-2xl">
+              👑
             </div>
-            <h3 className="text-lg font-extrabold text-white">
-              আজকের ডেইলি ভিডিও লিমিট শেষ!
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              আপনার প্রোফাইলে প্রতিদিন সর্বোচ্চ <strong className="text-amber-300">{dailyVideoLimit}টি ভিডিও</strong> দেখার লিমিট নির্ধারণ করা আছে। আপনি আজ ইতিমধ্যে <strong className="text-rose-400">{dailyWatchedCount}/{dailyVideoLimit}টি ভিডিও</strong> দেখে ফেলেছেন। আগামীকাল আবার নতুন ভিডিও দেখতে পারবেন!
+            <div className="space-y-1">
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold uppercase tracking-wider">
+                VIP DAILY AD-FREE LIMIT REACHED
+              </span>
+              <h3 className="text-base sm:text-lg font-extrabold text-white">
+                আপনার প্যাকেজের আজকের Ad-Free লিমিট শেষ!
+              </h3>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed bg-[#1c2331] border border-slate-700/80 rounded-2xl p-3.5">
+              আপনার বর্তমান VIP প্যাকেজে প্রতিদিন সর্বোচ্চ <strong className="text-amber-300">{dailyVideoLimit}টি ভিডিও</strong> অ্যাড ছাড়া (Ad-Free) দেখার লিমিট রয়েছে ({dailyWatchedCount}/{dailyVideoLimit}টি দেখা শেষ)।
+              <br />
+              <br />
+              💎 <strong className="text-emerald-400">লিমিট বাড়াতে আপনার VIP প্যাকেজ আপগ্রেড করুন!</strong> অথবা আজকের বাকি ভিডিওগুলো সাধারণ ইউজারের মতো <strong className="text-amber-300">Step 1, 2, 3 Ads</strong> দেখে আনলক করে দেখতে পারবেন।
             </p>
-            <div className="flex items-center justify-center gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDailyLimitModalOpen(false);
-                  setViewMode('profile');
-                }}
-                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs cursor-pointer"
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
+              <a
+                href="https://t.me/xtubeofficial_bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setDailyLimitModalOpen(false)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-extrabold text-xs cursor-pointer text-center shadow-lg shadow-amber-500/20"
               >
-                👤 View Profile Status
-              </button>
+                💎 প্যাকেজ আপগ্রেড করুন (লিমিট বাড়ান)
+              </a>
               <button
                 type="button"
                 onClick={() => setDailyLimitModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold text-xs cursor-pointer"
               >
-                ✕ বন্ধ করুন
+                ▶️ অ্যাড দেখে ভিডিও দেখুন (Step Ads)
               </button>
             </div>
           </div>
