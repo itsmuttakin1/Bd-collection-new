@@ -6,6 +6,7 @@ import {
   buildVideoShareLink,
   copyTextToClipboard,
   buildVideoStreamCandidates,
+  sanitizeServerThumbnail,
 } from '../firebase';
 import { TranslationStrings } from '../i18n';
 import {
@@ -14,6 +15,7 @@ import {
   tryCaptureAndCacheVideoFrame,
   requestVideoPreviewSlot,
   releaseVideoPreviewSlot,
+  getBlurUpLqipSync,
 } from '../utils/thumbCache';
 
 interface VideoCardProps {
@@ -23,17 +25,213 @@ interface VideoCardProps {
   t: TranslationStrings;
 }
 
-const CARD_GRADIENTS = [
-  'from-red-950/90 via-zinc-900 to-zinc-950',
-  'from-amber-950/80 via-zinc-900 to-zinc-950',
-  'from-rose-950/85 via-zinc-900 to-zinc-950',
-  'from-purple-950/80 via-zinc-900 to-zinc-950',
-  'from-blue-950/80 via-zinc-900 to-zinc-950',
-  'from-emerald-950/80 via-zinc-900 to-zinc-950',
-];
+/**
+ * Universal Blur-Up LQIP (Low-Quality Image Placeholder) + Left-to-Right Skeleton Shimmer Image Component.
+ * Used across the entire website so every image starts with a blurred LQIP + left-to-right shimmer
+ * and smoothly transitions to sharp HD (`blur(22px) scale(1.08)` -> `blur(0px) scale(1)`).
+ */
+export const BlurUpLqipImage: React.FC<{
+  src: string;
+  alt?: string;
+  seed?: string;
+  className?: string;
+  imgClassName?: string;
+  onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  onError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+}> = ({ src, alt = '', seed = '', className = '', imgClassName = 'object-cover object-center', onLoad, onError }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const lqipUrl = React.useMemo(
+    () => getBlurUpLqipSync(seed || src, seed || alt || src),
+    [seed, src, alt]
+  );
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+  }, [src]);
+
+  return (
+    <div className={`relative overflow-hidden ${!loaded ? 'skeleton-shimmer' : ''} ${className}`}>
+      {/* Always-present 0ms Blurred LQIP Underlay */}
+      <img
+        src={lqipUrl}
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        className={`absolute inset-0 w-full h-full object-cover scale-110 blur-xl pointer-events-none transition-opacity duration-500 ${
+          loaded ? 'opacity-0' : 'opacity-90'
+        }`}
+      />
+      {!failed && src && (
+        <img
+          src={src}
+          alt={alt}
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={(e) => {
+            setLoaded(true);
+            onLoad?.(e);
+          }}
+          onError={(e) => {
+            setFailed(true);
+            onError?.(e);
+          }}
+          className={`relative z-10 w-full h-full lqip-img ${
+            loaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+          } ${imgClassName}`}
+        />
+      )}
+    </div>
+  );
+};
 
 /**
- * Ultra-fast cached & viewport-prioritized preview for Shorts Shelf cards on Home & Watch pages.
+ * Left-to-Right Skeleton Shimmer Charts + Video & Shorts Feed Skeleton
+ * Replaces old pulse/spinner loading animations across the Home & Trending views.
+ */
+export const SkeletonChartsAndFeed: React.FC = () => {
+  const chartHeights = [38, 68, 52, 88, 64, 95, 48, 78, 84, 60, 92, 72];
+  return (
+    <div className="space-y-6 select-none" aria-busy="true" aria-label="Loading content">
+      {/* Top Skeleton Charts Strip (Trending Activity Bar Chart + Live Stream Metrics Skeleton) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+        <div className="md:col-span-7 p-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/90 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-36 rounded-md skeleton-shimmer" />
+              <div className="h-2.5 w-24 rounded-md skeleton-shimmer" />
+            </div>
+            <div className="h-6 w-20 rounded-lg skeleton-shimmer" />
+          </div>
+          {/* Skeleton Bar Chart with Left-to-Right Shimmer */}
+          <div className="h-20 pt-2 flex items-end gap-2 px-1">
+            {chartHeights.map((h, i) => (
+              <div
+                key={i}
+                style={{ height: `${h}%` }}
+                className="flex-1 rounded-t-md skeleton-shimmer"
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="md:col-span-5 p-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/90 flex flex-col justify-between space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="h-3.5 w-32 rounded-md skeleton-shimmer" />
+            <div className="h-5 w-14 rounded-full skeleton-shimmer" />
+          </div>
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-16 h-2.5 rounded skeleton-shimmer shrink-0" />
+              <div className="flex-1 h-3 rounded-full skeleton-shimmer" />
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-16 h-2.5 rounded skeleton-shimmer shrink-0" />
+              <div className="w-4/5 h-3 rounded-full skeleton-shimmer" />
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-16 h-2.5 rounded skeleton-shimmer shrink-0" />
+              <div className="w-3/5 h-3 rounded-full skeleton-shimmer" />
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <div className="h-3 w-20 rounded skeleton-shimmer" />
+            <div className="h-3 w-16 rounded skeleton-shimmer" />
+          </div>
+        </div>
+      </div>
+
+      {/* Video Cards Grid Skeleton (Left-to-Right Shimmer + Blur-Up LQIP Underlay) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+          <div key={n} className="space-y-3">
+            <div className="relative aspect-video rounded-xl overflow-hidden skeleton-shimmer border border-zinc-800/60">
+              <img
+                src={getBlurUpLqipSync(`skel_${n}`, `skel_${n}`)}
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full object-cover blur-xl scale-110 opacity-45"
+              />
+              <div className="absolute bottom-2 right-2 w-10 h-4 rounded skeleton-shimmer" />
+            </div>
+            <div className="flex gap-3 items-start">
+              <div className="w-9 h-9 rounded-full skeleton-shimmer shrink-0" />
+              <div className="flex-1 space-y-2 pt-0.5">
+                <div className="h-4 rounded-md skeleton-shimmer w-11/12" />
+                <div className="h-3.5 rounded-md skeleton-shimmer w-2/3" />
+                <div className="h-2.5 rounded-md skeleton-shimmer w-5/12" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Watch Page Left-to-Right Skeleton Shimmer + Skeleton Chart View
+ */
+export const WatchSkeletonView: React.FC = () => {
+  return (
+    <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 select-none">
+      <div className="lg:col-span-8 space-y-4">
+        <div className="relative aspect-video rounded-xl overflow-hidden skeleton-shimmer border border-zinc-800/70">
+          <img
+            src={getBlurUpLqipSync('watch_hero_lqip', 'watch_hero_lqip')}
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover blur-2xl scale-110 opacity-50"
+          />
+        </div>
+        <div className="h-6 rounded-lg skeleton-shimmer w-3/4" />
+        <div className="flex items-center justify-between gap-4 pt-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full skeleton-shimmer" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-28 rounded skeleton-shimmer" />
+              <div className="h-2.5 w-20 rounded skeleton-shimmer" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-24 rounded-full skeleton-shimmer" />
+            <div className="h-9 w-24 rounded-full skeleton-shimmer" />
+          </div>
+        </div>
+        {/* Skeleton Engagement Chart Box */}
+        <div className="p-3.5 rounded-xl border border-zinc-800/70 bg-zinc-950/80 space-y-2.5">
+          <div className="h-3 w-36 rounded skeleton-shimmer" />
+          <div className="h-12 flex items-end gap-1.5">
+            {[45, 70, 55, 90, 65, 80, 50, 95, 60, 75, 85, 68].map((h, idx) => (
+              <div
+                key={idx}
+                style={{ height: `${h}%` }}
+                className="flex-1 rounded-t skeleton-shimmer"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="lg:col-span-4 space-y-3">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <div key={n} className="flex gap-3 p-1.5 rounded-xl">
+            <div className="w-40 aspect-video rounded-lg skeleton-shimmer shrink-0" />
+            <div className="flex-1 space-y-2 py-1">
+              <div className="h-3.5 rounded skeleton-shimmer w-11/12" />
+              <div className="h-3 rounded skeleton-shimmer w-2/3" />
+              <div className="h-2.5 rounded skeleton-shimmer w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Ultra-fast cached & viewport-prioritized preview for Shorts Shelf cards on Home & Watch pages
+ * with Blur-Up LQIP + Left-to-Right Skeleton Shimmer.
  */
 export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => {
   const cacheKey = `short_${short.id}_${short.url || short.videoUrl || ''}`;
@@ -41,10 +239,19 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
     getCachedVideoFrameSync(cacheKey)
   );
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [mediaLoaded, setMediaLoaded] = useState<boolean>(() =>
+    Boolean(getCachedVideoFrameSync(cacheKey))
+  );
   const [streamStage, setStreamStage] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const slotId = `shelf_${short.id}`;
+
+  const serverThumb = sanitizeServerThumbnail(short.thumbnail || short.thumbnailUrl);
+  const lqipDataUrl = React.useMemo(
+    () => getBlurUpLqipSync(cacheKey, short.id || short.title),
+    [cacheKey, short.id, short.title]
+  );
 
   const streamCandidates = React.useMemo(
     () => buildVideoStreamCandidates(short.url || short.videoUrl, short.r2Key),
@@ -56,7 +263,6 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
       ? streamCandidates[Math.min(streamStage, streamCandidates.length - 1)]
       : '';
 
-  // Single-pass Media Fragment (#t=1.2) avoids double-seeking and loads in 1 Range request
   const streamWithTime = currentStreamUrl
     ? currentStreamUrl.includes('#t=')
       ? currentStreamUrl
@@ -69,6 +275,7 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
       getCachedVideoFrameAsync(cacheKey).then((found) => {
         if (!cancelled && found) {
           setCachedFrame(found);
+          setMediaLoaded(true);
         }
       });
     }
@@ -78,7 +285,7 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
   }, [cacheKey, cachedFrame]);
 
   useEffect(() => {
-    if (cachedFrame || !streamWithTime) return;
+    if (cachedFrame || serverThumb || !streamWithTime) return;
     const el = containerRef.current;
     if (!el) {
       setShouldLoadVideo(true);
@@ -123,9 +330,10 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
       if (safetyTimer) clearTimeout(safetyTimer);
       if (cleanupSlot) cleanupSlot();
     };
-  }, [cachedFrame, streamWithTime, slotId]);
+  }, [cachedFrame, serverThumb, streamWithTime, slotId]);
 
   const handleFrameReady = () => {
+    setMediaLoaded(true);
     releaseVideoPreviewSlot(slotId);
     const captured = tryCaptureAndCacheVideoFrame(videoRef.current, cacheKey);
     if (captured) {
@@ -133,14 +341,34 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
     }
   };
 
+  const displayImgSrc = cachedFrame || serverThumb;
+
   return (
-    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
-      {cachedFrame ? (
+    <div
+      ref={containerRef}
+      className={`w-full h-full relative overflow-hidden ${!mediaLoaded ? 'skeleton-shimmer' : ''}`}
+    >
+      {/* 0ms Blur-Up LQIP Underlay */}
+      <img
+        src={lqipDataUrl}
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        className={`absolute inset-0 w-full h-full object-cover scale-110 blur-xl pointer-events-none transition-opacity duration-500 ${
+          mediaLoaded ? 'opacity-0' : 'opacity-90'
+        }`}
+      />
+
+      {displayImgSrc ? (
         <img
-          src={cachedFrame}
+          src={displayImgSrc}
           alt={short.title}
-           decoding="async"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setMediaLoaded(true)}
+          className={`relative z-10 w-full h-full object-cover group-hover:scale-105 lqip-img ${
+            mediaLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+          }`}
         />
       ) : (
         shouldLoadVideo &&
@@ -161,7 +389,9 @@ export const ShortShelfPreview: React.FC<{ short: ShortItem }> = ({ short }) => 
                 releaseVideoPreviewSlot(slotId);
               }
             }}
-            className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
+            className={`relative z-10 w-full h-full object-cover pointer-events-none group-hover:scale-105 lqip-img ${
+              mediaLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+            }`}
           />
         )
       )}
@@ -180,18 +410,23 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     getCachedVideoFrameSync(cacheKey)
   );
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
+  const [videoReady, setVideoReady] = useState<boolean>(() =>
+    Boolean(getCachedVideoFrameSync(cacheKey))
+  );
+  const [thumbFailed, setThumbFailed] = useState(false);
   const [streamStage, setStreamStage] = useState(0);
   const [copiedCardLink, setCopiedCardLink] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const slotId = `card_${video.id}_${compact ? 'c' : 'f'}`;
 
-  const hashIdx =
-    (video.id || video.title || '0')
-      .split('')
-      .reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % CARD_GRADIENTS.length;
-  const gradientBg = CARD_GRADIENTS[hashIdx];
+  const serverThumb = !thumbFailed
+    ? sanitizeServerThumbnail(video.thumbnail || video.thumbnailUrl)
+    : '';
+  const lqipDataUrl = React.useMemo(
+    () => getBlurUpLqipSync(cacheKey, video.id || video.title),
+    [cacheKey, video.id, video.title]
+  );
 
   const formatViews = (views: number) => {
     if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M ${t.views}`;
@@ -223,20 +458,19 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       ? streamCandidates[Math.min(streamStage, streamCandidates.length - 1)]
       : '';
 
-  // Single-pass #t=1.2 avoids double-seeking and loads the keyframe in 1 fast HTTP Range request
   const streamWithFragment = streamSrc
     ? streamSrc.includes('#t=')
       ? streamSrc
       : `${streamSrc}#t=1.2`
     : '';
 
-  // Check IndexedDB cache on mount
   useEffect(() => {
     let cancelled = false;
     if (!cachedFrame) {
       getCachedVideoFrameAsync(cacheKey).then((found) => {
         if (!cancelled && found) {
           setCachedFrame(found);
+          setVideoReady(true);
         }
       });
     }
@@ -245,9 +479,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     };
   }, [cacheKey, cachedFrame]);
 
-  // Viewport-prioritized concurrency queue so visible cards load immediately without clogging the browser
   useEffect(() => {
-    if (cachedFrame || !streamWithFragment) return;
+    if (cachedFrame || serverThumb || !streamWithFragment) return;
     const el = containerRef.current;
     if (!el) {
       setShouldLoadVideo(true);
@@ -292,7 +525,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       if (safetyTimer) clearTimeout(safetyTimer);
       if (cleanupSlot) cleanupSlot();
     };
-  }, [cachedFrame, streamWithFragment, slotId]);
+  }, [cachedFrame, serverThumb, streamWithFragment, slotId]);
 
   const handleFrameReady = () => {
     setVideoReady(true);
@@ -303,37 +536,52 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
-  const renderThumbnailMedia = () => (
-    <div ref={containerRef} className="absolute inset-0 w-full h-full overflow-hidden">
-      {/* Rich Fallback Card Base (Always visible while frame loads so card is never blank) */}
-      <div
-        className={`absolute inset-0 bg-gradient-to-br ${gradientBg} flex flex-col items-center justify-center p-4 text-center select-none`}
-      >
-        <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform">
-          <Play className="w-5 h-5 fill-white text-white ml-0.5" />
-        </div>
-        <p className="text-xs font-semibold text-zinc-100 line-clamp-2 max-w-[90%] drop-shadow">
-          {video.title}
-        </p>
-      </div>
+  const activeImageSrc = cachedFrame || serverThumb;
 
-      {/* Instant 0ms Cached Video Frame (from IndexedDB / Memory Cache) */}
-      {cachedFrame ? (
+  const renderThumbnailMedia = () => (
+    <div
+      ref={containerRef}
+      className={`absolute inset-0 w-full h-full overflow-hidden ${
+        !videoReady ? 'skeleton-shimmer' : ''
+      }`}
+    >
+      {/* 0ms Blur-Up LQIP (Low-Quality Image Placeholder) Underlay */}
+      <img
+        src={lqipDataUrl}
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        className={`absolute inset-0 w-full h-full object-cover scale-110 blur-xl pointer-events-none select-none transition-opacity duration-500 ${
+          videoReady ? 'opacity-25' : 'opacity-90'
+        }`}
+      />
+
+      {/* Progressive Blur-Up Image (Cached Frame or Server Thumbnail) */}
+      {activeImageSrc ? (
         <img
-          src={cachedFrame}
+          src={activeImageSrc}
           alt={video.title}
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-transform duration-200"
+          referrerPolicy="no-referrer"
+          onLoad={() => setVideoReady(true)}
+          onError={() => {
+            if (serverThumb && !cachedFrame) {
+              setThumbFailed(true);
+              setVideoReady(false);
+            }
+          }}
+          className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 lqip-img ${
+            videoReady ? 'lqip-img-loaded' : 'lqip-img-loading'
+          }`}
         />
       ) : (
-        /* Live Video Frame Preview directly from video stream */
+        /* Live Video Frame Preview with Blur-Up LQIP Transition */
         shouldLoadVideo &&
         streamWithFragment && (
           <video
             key={`${video.id}-preview-${streamStage}`}
             ref={videoRef}
             src={streamWithFragment}
-            poster="https://xtubeofficial.pages.dev/favicon.png"
             preload="metadata"
             muted
             playsInline
@@ -351,8 +599,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               }
             }}
             onContextMenu={(e) => e.preventDefault()}
-            className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 transition-all duration-200 ${
-              videoReady ? 'opacity-100' : 'opacity-95'
+            className={`absolute inset-0 w-full h-full object-cover object-center z-10 pointer-events-none group-hover:scale-105 lqip-img ${
+              videoReady ? 'lqip-img-loaded' : 'lqip-img-loading'
             }`}
           />
         )

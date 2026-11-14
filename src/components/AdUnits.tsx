@@ -925,18 +925,30 @@ export const VipFramedAvatar: React.FC<{
 }) => {
   const frame = getVipFrameById(frameId);
   const initial = (fullName || 'U').charAt(0).toUpperCase();
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  useEffect(() => {
+    setImgLoaded(false);
+  }, [photoUrl]);
 
   if (size === 'sm') {
     if (!frame) {
       return (
-        <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0">
+        <div
+          className={`relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0 ${
+            photoUrl && !avatarLoadFailed && !imgLoaded ? 'skeleton-shimmer' : ''
+          }`}
+        >
           {photoUrl && !avatarLoadFailed ? (
             <img
               src={photoUrl}
               alt={fullName}
               referrerPolicy="no-referrer"
+              onLoad={() => setImgLoaded(true)}
               onError={onImageError}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover lqip-img ${
+                imgLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+              }`}
             />
           ) : (
             <span className="text-[11px] font-bold text-emerald-400">{initial}</span>
@@ -950,14 +962,21 @@ export const VipFramedAvatar: React.FC<{
         <div
           className={`w-full h-full rounded-full p-[2px] bg-gradient-to-tr ${frame.ringGradient} ${frame.outerGlow} flex items-center justify-center`}
         >
-          <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 border border-white/40 flex items-center justify-center">
+          <div
+            className={`w-full h-full rounded-full overflow-hidden bg-slate-900 border border-white/40 flex items-center justify-center ${
+              photoUrl && !avatarLoadFailed && !imgLoaded ? 'skeleton-shimmer' : ''
+            }`}
+          >
             {photoUrl && !avatarLoadFailed ? (
               <img
                 src={photoUrl}
                 alt={fullName}
                 referrerPolicy="no-referrer"
+                onLoad={() => setImgLoaded(true)}
                 onError={onImageError}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover lqip-img ${
+                  imgLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+                }`}
               />
             ) : (
               <span className="text-[11px] font-extrabold text-amber-300">{initial}</span>
@@ -974,14 +993,21 @@ export const VipFramedAvatar: React.FC<{
   // Large ('lg') Hero Profile Avatar
   if (!frame) {
     return (
-      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shrink-0 shadow-lg flex items-center justify-center">
+      <div
+        className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shrink-0 shadow-lg flex items-center justify-center ${
+          photoUrl && !avatarLoadFailed && !imgLoaded ? 'skeleton-shimmer' : ''
+        }`}
+      >
         {photoUrl && !avatarLoadFailed ? (
           <img
             src={photoUrl}
             alt={fullName}
             referrerPolicy="no-referrer"
+            onLoad={() => setImgLoaded(true)}
             onError={onImageError}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover lqip-img ${
+              imgLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+            }`}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-emerald-600/30 via-slate-900 to-slate-950 flex items-center justify-center text-2xl font-extrabold text-emerald-400">
@@ -1013,15 +1039,20 @@ export const VipFramedAvatar: React.FC<{
         className={`relative w-18 h-18 sm:w-22 sm:h-22 rounded-2xl p-[3px] bg-gradient-to-tr ${frame.ringGradient} ${frame.outerGlow} flex items-center justify-center transition-all`}
       >
         <div
-          className={`w-full h-full rounded-[13px] overflow-hidden bg-slate-950 border-2 ${frame.innerBorder} flex items-center justify-center relative`}
+          className={`w-full h-full rounded-[13px] overflow-hidden bg-slate-950 border-2 ${frame.innerBorder} flex items-center justify-center relative ${
+            photoUrl && !avatarLoadFailed && !imgLoaded ? 'skeleton-shimmer' : ''
+          }`}
         >
           {photoUrl && !avatarLoadFailed ? (
             <img
               src={photoUrl}
               alt={fullName}
               referrerPolicy="no-referrer"
+              onLoad={() => setImgLoaded(true)}
               onError={onImageError}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover lqip-img ${
+                imgLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+              }`}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-amber-500/30 via-slate-900 to-slate-950 flex items-center justify-center text-2xl font-extrabold text-white">
@@ -1277,7 +1308,7 @@ export const AntiAdBlockGuard: React.FC<{
           disabled={isRechecking}
           className="w-full py-3 px-5 rounded-xl bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white text-sm font-semibold flex items-center justify-center gap-2.5 shadow-lg transition-all cursor-pointer"
         >
-          <RefreshCw className={`w-4 h-4 ${isRechecking ? 'animate-spin' : ''}`} />
+          <RefreshCw className="w-4 h-4" />
           <span>{isRechecking ? 'Reloading Website...' : 'Refresh Website (রিলোড করুন)'}</span>
         </button>
       </div>

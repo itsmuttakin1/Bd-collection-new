@@ -27,6 +27,8 @@ import {
   triggerSmartlinkAd,
   useAdFreeVip,
 } from './AdUnits';
+import { getBlurUpLqipSync } from '../utils/thumbCache';
+import { BlurUpLqipImage } from './VideoCard';
 
 interface ShortsFeedProps {
   shorts: ShortItem[];
@@ -688,6 +690,18 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                 onClick={(e) => handleShortTapOrUnlock(short, instanceKey, e)}
                 className="relative w-full max-w-[430px] h-full sm:rounded-2xl overflow-hidden bg-zinc-950 border-x sm:border border-zinc-900 shadow-2xl flex flex-col justify-between cursor-pointer touch-pan-y"
               >
+                {/* 0ms Blur-Up LQIP + Left-to-Right Skeleton Shimmer Underlay */}
+                {!isPlaying && (
+                  <div className="absolute inset-0 z-0 overflow-hidden skeleton-shimmer pointer-events-none">
+                    <img
+                      src={getBlurUpLqipSync(`short_${short.id}_${streamUrl}`, short.id || short.title)}
+                      alt=""
+                      aria-hidden="true"
+                      className="w-full h-full object-cover blur-2xl scale-110 opacity-75"
+                    />
+                  </div>
+                )}
+
                 {/* Blurred ambient backdrop for horizontal long videos interleaved in Shorts */}
                 {short.isLongVideo && thumbUrl && (
                   <img
@@ -755,24 +769,23 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                       }
                     }}
                     onError={() => handleVideoStreamError(short)}
-                    className={`absolute inset-0 w-full h-full ${
+                    className={`absolute inset-0 z-10 w-full h-full ${
                       short.isLongVideo ? 'object-contain' : 'object-cover'
                     } pointer-events-none`}
                   />
                 ) : (
                   thumbUrl && (
-                    <img
+                    <BlurUpLqipImage
                       src={thumbUrl}
                       alt={short.title}
-                      referrerPolicy="no-referrer"
-                      className={`absolute inset-0 w-full h-full ${
-                        short.isLongVideo ? 'object-contain' : 'object-cover'
-                      } pointer-events-none`}
+                      seed={`short_${short.id}`}
+                      className="absolute inset-0 z-10 w-full h-full pointer-events-none"
+                      imgClassName={short.isLongVideo ? 'object-contain' : 'object-cover'}
                     />
                   )
                 )}
 
-                {/* Thumbnail Poster Overlay before Unlock (ONLY for interleaved Full/Long videos) */}
+                {/* Thumbnail Poster Overlay with Blur-Up LQIP before Unlock (ONLY for interleaved Full/Long videos) */}
                 {short.isLongVideo && !isUnlocked && thumbUrl && (
                   <div className="absolute inset-0 z-10 overflow-hidden bg-black pointer-events-none">
                     <img
@@ -781,11 +794,12 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
                       referrerPolicy="no-referrer"
                       className="absolute inset-0 w-full h-full object-cover blur-xl scale-125 opacity-60"
                     />
-                    <img
+                    <BlurUpLqipImage
                       src={thumbUrl}
                       alt={short.title}
-                      referrerPolicy="no-referrer"
-                      className="relative z-10 w-full h-full object-contain"
+                      seed={`short_${short.id}`}
+                      className="relative z-10 w-full h-full"
+                      imgClassName="object-contain"
                     />
                   </div>
                 )}

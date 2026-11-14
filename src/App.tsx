@@ -41,7 +41,12 @@ import {
   getVipFrameById,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
-import { VideoCard, ShortShelfPreview } from './components/VideoCard';
+import {
+  VideoCard,
+  ShortShelfPreview,
+  SkeletonChartsAndFeed,
+  WatchSkeletonView,
+} from './components/VideoCard';
 import { ShortsFeed } from './components/ShortsFeed';
 import {
   LANGUAGES,
@@ -4248,20 +4253,7 @@ export default function App() {
 
               {/* Video Grid + Suggested Shorts Shelf */}
               {loadingVideos ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                    <div key={n} className="space-y-3">
-                      <div className="aspect-video rounded-xl bg-zinc-900 animate-pulse" />
-                      <div className="flex gap-3">
-                        <div className="w-9 h-9 rounded-full bg-zinc-900 animate-pulse shrink-0" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-zinc-900 rounded animate-pulse w-5/6" />
-                          <div className="h-3 bg-zinc-900 rounded animate-pulse w-1/2" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <SkeletonChartsAndFeed />
               ) : filteredVideos.length === 0 ? (
                 <div className="py-20 text-center space-y-3">
                   <p className="text-sm text-zinc-400">{t.noVideos}</p>
@@ -4362,20 +4354,7 @@ export default function App() {
           )}
 
           {/* Loading state when opening a shared ?v=<videoId> link while Firebase fetches */}
-          {viewMode === 'watch' && !activeVideo && loadingVideos && (
-            <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-8 space-y-4">
-                <div className="aspect-video rounded-xl bg-zinc-900 animate-pulse" />
-                <div className="h-6 bg-zinc-900 rounded animate-pulse w-2/3" />
-                <div className="h-10 bg-zinc-900 rounded animate-pulse w-1/3" />
-              </div>
-              <div className="lg:col-span-4 space-y-3">
-                {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className="h-24 rounded-xl bg-zinc-900 animate-pulse" />
-                ))}
-              </div>
-            </div>
-          )}
+          {viewMode === 'watch' && !activeVideo && loadingVideos && <WatchSkeletonView />}
 
           {/* Watch View (Plays Video After 3 Steps Complete) */}
           {viewMode === 'watch' && activeVideo && !isStepGateActive && (

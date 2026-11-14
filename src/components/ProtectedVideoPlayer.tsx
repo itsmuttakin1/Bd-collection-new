@@ -11,6 +11,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { sanitizeServerThumbnail } from '../firebase';
+import { getBlurUpLqipSync } from '../utils/thumbCache';
 
 interface ProtectedVideoPlayerProps {
   videoId: string;
@@ -56,7 +57,12 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   }));
 
   const [posterFailed, setPosterFailed] = useState<boolean>(false);
+  const [posterLoaded, setPosterLoaded] = useState<boolean>(false);
   const [isPortraitPoster, setIsPortraitPoster] = useState<boolean>(false);
+  const lqipBackdropUrl = React.useMemo(
+    () => getBlurUpLqipSync(`vid_${videoId}_${videoUrl}`, videoId || title),
+    [videoId, videoUrl, title]
+  );
 
   // Track live viewport dimensions so CSS 90deg rotation automatically adapts if device physically rotates
   useEffect(() => {
@@ -515,11 +521,28 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           className="w-full h-full object-contain pointer-events-none"
         />
 
-        {/* Smart Adjusted R2 Server Thumbnail Overlay before video is unlocked */}
-        {!isUnlocked && hasValidPoster && (
-          <div className="absolute inset-0 z-10 overflow-hidden bg-zinc-950 pointer-events-none">
+        {/* Top Left-to-Right Skeleton Shimmer Bar when Buffering (No Spinning Loader) */}
+        {isBuffering && (
+          <div className="absolute top-0 left-0 right-0 h-1 z-30 skeleton-shimmer bg-red-950/60 pointer-events-none" />
+        )}
+
+        {/* 0ms Blur-Up LQIP + Left-to-Right Shimmer Underlay before video first frame */}
+        {!isPlaying && duration === 0 && (
+          <div className="absolute inset-0 z-0 overflow-hidden skeleton-shimmer pointer-events-none">
             <img
-              src={cleanPoster}
+              src={lqipBackdropUrl}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover blur-2xl scale-110 opacity-60"
+            />
+          </div>
+        )}
+
+        {/* Smart Adjusted R2 Server Thumbnail Overlay with Blur-Up LQIP before video is unlocked */}
+        {!isUnlocked && hasValidPoster && (
+          <div className={`absolute inset-0 z-10 overflow-hidden bg-zinc-950 pointer-events-none ${!posterLoaded ? 'skeleton-shimmer' : ''}`}>
+            <img
+              src={posterLoaded ? cleanPoster : lqipBackdropUrl}
               alt=""
               aria-hidden="true"
               referrerPolicy="no-referrer"
@@ -530,15 +553,16 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
               alt=""
               referrerPolicy="no-referrer"
               onLoad={(e) => {
+                setPosterLoaded(true);
                 const el = e.currentTarget;
                 if (el.naturalWidth && el.naturalHeight) {
                   setIsPortraitPoster(el.naturalHeight > el.naturalWidth * 1.05);
                 }
               }}
               onError={() => setPosterFailed(true)}
-              className={`relative z-10 w-full h-full ${
-                isPortraitPoster ? 'object-contain' : 'object-cover object-center'
-              }`}
+              className={`relative z-10 w-full h-full lqip-img ${
+                posterLoaded ? 'lqip-img-loaded' : 'lqip-img-loading'
+              } ${isPortraitPoster ? 'object-contain' : 'object-cover object-center'}`}
             />
           </div>
         )}

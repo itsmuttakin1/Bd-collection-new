@@ -1,9 +1,63 @@
-// High-Speed Video Frame Cache (In-Memory + IndexedDB) & Viewport Priority Queue
-// Makes video frame thumbnails load 10x faster and caches captured frames permanently in the browser.
+// High-Speed Video Frame Cache (In-Memory + IndexedDB + Synchronous 0ms Micro-LQIP) & Viewport Priority Queue
+// Provides Blur-Up LQIP (Low-Quality Image Placeholder) + instant cached HD frames across the entire website.
 
 const DB_NAME = 'xtube_fast_thumb_cache_v1';
 const STORE_NAME = 'frames';
+const LQIP_STORAGE_PREFIX = 'xtube_lqip_v1_';
 const memoryCache = new Map<string, string>();
+const lqipMemoryCache = new Map<string, string>();
+
+const LQIP_PALETTES: Array<[string, string, string]> = [
+  ['#450a0a', '#991b1b', '#18181b'],
+  ['#3b0764', '#be185d', '#09090b'],
+  ['#431407', '#b45309', '#18181b'],
+  ['#0f172a', '#1d4ed8', '#09090b'],
+  ['#064e3b', '#047857', '#18181b'],
+  ['#4c0519', '#e11d48', '#09090b'],
+  ['#1e1b4b', '#6d28d9', '#18181b'],
+  ['#27272a', '#dc2626', '#09090b'],
+];
+
+/**
+ * Generates an instant 0ms deterministic Blur-Up LQIP SVG DataURL
+ * so every image/video card has a rich blurred color-mesh LQIP before network bytes arrive.
+ */
+export const generateBlurUpLqipSvg = (seed: string): string => {
+  const cleanSeed = seed || 'xtube';
+  const existing = lqipMemoryCache.get(`svg_${cleanSeed}`);
+  if (existing) return existing;
+
+  let hash = 0;
+  for (let i = 0; i < cleanSeed.length; i++) {
+    hash = (hash * 31 + cleanSeed.charCodeAt(i)) >>> 0;
+  }
+  const [c1, c2, c3] = LQIP_PALETTES[hash % LQIP_PALETTES.length];
+  const cx = 25 + (hash % 50);
+  const cy = 25 + ((hash >> 4) % 50);
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 18" preserveAspectRatio="none"><defs><radialGradient id="g" cx="${cx}%" cy="${cy}%" r="75%"><stop offset="0%" stop-color="${c2}" stop-opacity="0.85"/><stop offset="55%" stop-color="${c1}" stop-opacity="0.9"/><stop offset="100%" stop-color="${c3}"/></radialGradient></defs><rect width="32" height="18" fill="${c3}"/><rect width="32" height="18" fill="url(#g)"/></svg>`;
+  const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  lqipMemoryCache.set(`svg_${cleanSeed}`, dataUrl);
+  return dataUrl;
+};
+
+/**
+ * Synchronously returns a micro-LQIP (20x12 JPEG from localStorage/memory) or deterministic SVG LQIP.
+ */
+export const getBlurUpLqipSync = (cacheKey: string, fallbackSeed = ''): string => {
+  if (cacheKey) {
+    const mem = lqipMemoryCache.get(cacheKey);
+    if (mem) return mem;
+    try {
+      const stored = localStorage.getItem(LQIP_STORAGE_PREFIX + cacheKey.slice(0, 64));
+      if (stored && stored.startsWith('data:image/')) {
+        lqipMemoryCache.set(cacheKey, stored);
+        return stored;
+      }
+    } catch {}
+  }
+  return generateBlurUpLqipSvg(fallbackSeed || cacheKey || 'xtube');
+};
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
@@ -81,8 +135,8 @@ export const saveCachedVideoFrame = async (cacheKey: string, dataUrl: string): P
 };
 
 /**
- * Attempts to capture the current video frame into a lightweight 320x180 JPEG DataURL
- * and store it in IndexedDB + memoryCache for instant 0ms rendering on future visits.
+ * Captures both a tiny 20x12 micro-LQIP (for 0ms Blur-Up placeholder) and
+ * a crisp 320x180 JPEG DataURL into IndexedDB + memoryCache.
  */
 export const tryCaptureAndCacheVideoFrame = (
   videoEl: HTMLVideoElement | null,
@@ -97,8 +151,28 @@ export const tryCaptureAndCacheVideoFrame = (
     const vh = videoEl.videoHeight || 0;
     if (vw < 16 || vh < 16) return null;
 
-    const canvas = document.createElement('canvas');
     const isPortrait = vh > vw;
+
+    // 1. Capture 20x12 micro-LQIP for instant Blur-Up placeholder
+    try {
+      const lqipCanvas = document.createElement('canvas');
+      lqipCanvas.width = isPortrait ? 14 : 24;
+      lqipCanvas.height = isPortrait ? 24 : 14;
+      const lqipCtx = lqipCanvas.getContext('2d');
+      if (lqipCtx) {
+        lqipCtx.drawImage(videoEl, 0, 0, lqipCanvas.width, lqipCanvas.height);
+        const lqipDataUrl = lqipCanvas.toDataURL('image/jpeg', 0.35);
+        if (lqipDataUrl && lqipDataUrl.length > 100) {
+          lqipMemoryCache.set(cacheKey, lqipDataUrl);
+          try {
+            localStorage.setItem(LQIP_STORAGE_PREFIX + cacheKey.slice(0, 64), lqipDataUrl);
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 2. Capture full crisp 320x180 frame
+    const canvas = document.createElement('canvas');
     canvas.width = isPortrait ? 200 : 320;
     canvas.height = isPortrait ? 356 : 180;
 
@@ -119,8 +193,6 @@ export const tryCaptureAndCacheVideoFrame = (
 
 // ============================================================================
 // VIEWPORT-PRIORITY VIDEO METADATA LOAD QUEUE
-// Prevents 35+ simultaneous <video> requests from clogging the browser's 6-connection limit.
-// Visible cards load first (max 5 concurrent), making thumbnails appear 5x–10x faster.
 // ============================================================================
 const MAX_CONCURRENT_LOADS = 5;
 let activeLoads = 0;
@@ -136,7 +208,6 @@ const activeTaskIds = new Set<string>();
 
 const pumpQueue = () => {
   while (activeLoads < MAX_CONCURRENT_LOADS && pendingQueue.length > 0) {
-    // Sort so highest priority (top of viewport) runs first
     pendingQueue.sort((a, b) => b.priority - a.priority);
     const next = pendingQueue.shift();
     if (!next) break;

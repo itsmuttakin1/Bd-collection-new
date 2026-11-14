@@ -72,6 +72,36 @@
         margin: 0 !important;
       }
     }
+
+    /* Left-to-Right Skeleton Shimmer & Blur-Up LQIP across Admin Panel */
+    @keyframes xtubeAdminShimmerLeftToRight {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .skeleton-shimmer {
+      position: relative;
+      overflow: hidden;
+      background-color: #141418;
+    }
+    .skeleton-shimmer::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.04) 30%,
+        rgba(255,255,255,0.14) 50%,
+        rgba(255,255,255,0.04) 70%,
+        rgba(255,255,255,0) 100%
+      );
+      animation: xtubeAdminShimmerLeftToRight 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      pointer-events: none;
+    }
+    img {
+      transition: filter 420ms cubic-bezier(0.22, 1, 0.36, 1), transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease;
+    }
   </style>
 </head>
 <body class="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-zinc-950 text-zinc-100 antialiased selection:bg-red-600 selection:text-white">
@@ -567,7 +597,21 @@
           </div>
 
           <div id="live-online-users-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto pr-1">
-            <p class="text-xs text-zinc-500 py-3 col-span-full text-center">Checking live online users...</p>
+            <div class="p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2">
+              <div class="h-4 w-2/3 rounded skeleton-shimmer"></div>
+              <div class="h-3 w-1/2 rounded skeleton-shimmer"></div>
+              <div class="h-2.5 w-3/4 rounded skeleton-shimmer"></div>
+            </div>
+            <div class="p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2">
+              <div class="h-4 w-3/4 rounded skeleton-shimmer"></div>
+              <div class="h-3 w-1/2 rounded skeleton-shimmer"></div>
+              <div class="h-2.5 w-2/3 rounded skeleton-shimmer"></div>
+            </div>
+            <div class="p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2">
+              <div class="h-4 w-2/3 rounded skeleton-shimmer"></div>
+              <div class="h-3 w-3/5 rounded skeleton-shimmer"></div>
+              <div class="h-2.5 w-1/2 rounded skeleton-shimmer"></div>
+            </div>
           </div>
         </div>
 
@@ -607,7 +651,21 @@
           </div>
 
           <div id="all-bot-users-directory" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
-            <p class="text-xs text-zinc-500 py-4 col-span-full text-center">Loading Telegram Bot &amp; WebApp users...</p>
+            <div class="p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2">
+              <div class="h-4 w-3/4 rounded skeleton-shimmer"></div>
+              <div class="h-3 w-1/2 rounded skeleton-shimmer"></div>
+              <div class="h-2.5 w-2/3 rounded skeleton-shimmer"></div>
+            </div>
+            <div class="p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2">
+              <div class="h-4 w-2/3 rounded skeleton-shimmer"></div>
+              <div class="h-3 w-3/5 rounded skeleton-shimmer"></div>
+              <div class="h-2.5 w-1/2 rounded skeleton-shimmer"></div>
+            </div>
+            <div class="p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2">
+              <div class="h-4 w-4/5 rounded skeleton-shimmer"></div>
+              <div class="h-3 w-1/2 rounded skeleton-shimmer"></div>
+              <div class="h-2.5 w-3/4 rounded skeleton-shimmer"></div>
+            </div>
           </div>
         </div>
       </section>

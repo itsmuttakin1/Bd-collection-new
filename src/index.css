@@ -89,3 +89,61 @@ video::-webkit-media-controls-enclosure {
   overflow: hidden !important;
 }
 
+/* ============================================================================
+   LEFT-TO-RIGHT SKELETON SHIMMER & SKELETON CHARTS + BLUR-UP LQIP SYSTEM
+   ============================================================================ */
+@keyframes xtubeShimmerLeftToRight {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #121216;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.04) 30%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.04) 70%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: xtubeShimmerLeftToRight 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Blur-Up LQIP (Low-Quality Image Placeholder) Progressive Unblur Transition */
+.lqip-img {
+  will-change: filter, transform, opacity;
+  transition:
+    filter 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 360ms ease-out;
+}
+
+.lqip-img-loading {
+  filter: blur(22px) saturate(1.25);
+  transform: scale(1.08);
+  opacity: 0.85;
+}
+
+.lqip-img-loaded {
+  filter: blur(0px) saturate(1);
+  transform: scale(1);
+  opacity: 1;
+}
+
+
