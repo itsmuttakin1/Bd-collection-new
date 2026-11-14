@@ -493,7 +493,7 @@
             <div>
               <p class="text-[11px] font-medium text-zinc-400">Online Users (লাইভ)</p>
               <div class="flex items-baseline gap-2 mt-1">
-                <span id="stat-online-users" class="text-xl sm:text-2xl font-bold font-mono text-emerald-400">0</span>
+                <span id="kpi-live-visitors-val" style="display:inline-block !important" class="text-xl sm:text-2xl font-bold font-mono text-emerald-400">0</span>
                 <span class="text-[10px] font-mono text-emerald-300/90">● Live</span>
               </div>
             </div>
@@ -2573,6 +2573,10 @@ export default {
                 }
               }
             },
+            categories: {
+              ".read": true,
+              ".write": adminOnly
+            },
             vipUsersControl: {
               ".read": true,
               ".write": adminOnly,
@@ -2621,6 +2625,7 @@ export default {
             },
             stats: {
               ".read": true,
+              ".write": adminOnly,
               totalUsers: {
                 ".write": `(newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))) || (${adminOnly})`
               },
@@ -2630,6 +2635,7 @@ export default {
             },
             presence: {
               ".read": true,
+              ".write": adminOnly,
               "$visitorId": {
                 ".read": true,
                 ".write": `!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber()) || (${adminOnly})`
@@ -2654,7 +2660,7 @@ export default {
                 },
                 "$subKey": {
                   ".read": true,
-                  ".write": botOrAdmin
+                  ".write": `!newData.exists() || ${botOrAdmin}`
                 }
               }
             },
@@ -2663,7 +2669,7 @@ export default {
               ".write": adminOnly
             },
             settings: {
-              ".read": adminOnly,
+              ".read": true,
               ".write": adminOnly
             }
           }
@@ -5632,17 +5638,27 @@ service cloud.firestore {
       return knownSet.size;
     };
 
+    const LIVE_ONLINE_WINDOW_MS = 90000; // 90 seconds (heartbeat runs every 15s)
+
+    const cleanRealUsername = (rawUname, tgId) => {
+      const u = String(rawUname || '').replace(/^@+/, '').trim();
+      if (!u) return '';
+      if (tgId && u === `user_${tgId}`) return '';
+      if (/^user_\d{5,20}$/i.test(u)) return '';
+      return u;
+    };
+
     const renderTrafficCounters = () => {
       const now = Date.now();
       const onlineMap = new Map();
 
-      const ingestPresenceSource = (srcObj) => {
+      const ingestPresenceSource = (srcObj, sourcePathPrefix) => {
         Object.entries(srcObj || {}).forEach(([vid, info]) => {
           if (vid === 'botAuthToken' || !info || typeof info !== 'object') return;
           const lastSeen = Number(info.lastSeen) || 0;
-          // Entries in `presence` and `telegramBotSessions/_online` are cleaned up by Firebase `onDisconnect().remove()`.
-          // Include all active `online !== false` entries (with a 12-hour guard against orphaned records).
-          if (info.online !== false && (lastSeen === 0 || Math.abs(now - lastSeen) < 12 * 3600 * 1000)) {
+          const ageMs = now - lastSeen;
+          // Only users with an active heartbeat within the last 90 seconds are truly Live Online
+          if (info.online !== false && lastSeen > 0 && ageMs >= -30000 && ageMs <= LIVE_ONLINE_WINDOW_MS) {
             const rawTgId = String(info.tgId || info.chatId || '').trim();
             const isTg =
               Boolean(info.isTelegram) ||
@@ -5651,37 +5667,43 @@ service cloud.firestore {
               String(info.webId || '').trim() ||
               (!isTg && rawTgId ? rawTgId : `Web-v${String(vid).replace(/[^a-zA-Z0-9]/g, '').slice(-6)}`);
             const key = isTg ? `tg_${rawTgId}` : `web_${webId}`;
-
-            onlineMap.set(key, {
-              key,
-              crmKey: isTg ? rawTgId : String(info.crmKey || `web_${webId}`),
-              isTelegram: isTg,
-              tgId: isTg ? rawTgId : '',
-              webId: !isTg ? webId : '',
-              fullName: isTg
-                ? String(info.fullName || 'Telegram User').trim()
-                : `Web Visitor (${webId})`,
-              username: String(info.username || '').replace(/^@+/, '').trim(),
-              page: String(info.page || 'home').trim(),
-              vipActive: Boolean(info.vipActive),
-              videosWatchedCount: Number(info.videosWatchedCount) || 0,
-              watchedVideos: Array.isArray(info.watchedVideos) ? info.watchedVideos : [],
-              device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
-              lastSeen: lastSeen || now,
-            });
+            const prev = onlineMap.get(key);
+            if (!prev || lastSeen >= prev.lastSeen) {
+              onlineMap.set(key, {
+                key,
+                crmKey: isTg ? rawTgId : String(info.crmKey || `web_${webId}`),
+                isTelegram: isTg,
+                tgId: isTg ? rawTgId : '',
+                webId: !isTg ? webId : '',
+                fullName: isTg
+                  ? String(info.fullName || 'Telegram User').trim()
+                  : `Web Visitor (${webId})`,
+                username: cleanRealUsername(info.username, rawTgId),
+                page: String(info.page || 'home').trim(),
+                vipActive: Boolean(info.vipActive),
+                videosWatchedCount: Number(info.videosWatchedCount) || 0,
+                watchedVideos: Array.isArray(info.watchedVideos) ? info.watchedVideos : [],
+                device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
+                lastSeen,
+              });
+            }
+          } else if (sourcePathPrefix && currentUser?.uid === ADMIN_UID && (info.online === false || ageMs > 180000)) {
+            // Auto-clean stale disconnected presence entry from Firebase when Admin is logged in
+            remove(ref(db, `${sourcePathPrefix}/${vid}`)).catch(() => {});
           }
         });
       };
 
-      ingestPresenceSource(fbFallbackOnlineMap);
-      ingestPresenceSource(fbPresenceMap);
+      ingestPresenceSource(fbFallbackOnlineMap, 'telegramBotSessions/_online');
+      ingestPresenceSource(fbPresenceMap, 'presence');
 
-      // Also check recently active sessions in telegramBotSessions (within last 5 minutes)
+      // Also check recently active sessions in telegramBotSessions (within last 90 seconds)
       if (sessionsMapForBroadcast && typeof sessionsMapForBroadcast === 'object') {
         for (const [k, info] of Object.entries(sessionsMapForBroadcast)) {
           if (k === 'botAuthToken' || k.startsWith('_') || !info || typeof info !== 'object') continue;
           const lastSeen = Number(info.lastSeen || info.updatedAt || 0);
-          if (lastSeen > 0 && now - lastSeen >= 0 && now - lastSeen < 300000) {
+          const ageMs = now - lastSeen;
+          if (lastSeen > 0 && ageMs >= -30000 && ageMs <= LIVE_ONLINE_WINDOW_MS) {
             const isNumericTg = /^\d{5,20}$/.test(k) && k !== '84920145';
             const rawTgId = String(info.tgId || info.chatId || (isNumericTg ? k : '')).trim();
             const isTg = Boolean(info.isTelegram) || (/^\d{5,20}$/.test(rawTgId) && rawTgId !== '84920145');
@@ -5697,7 +5719,7 @@ service cloud.firestore {
                 fullName: isTg
                   ? String(info.fullName || 'Telegram User').trim()
                   : `Web Visitor (${webId})`,
-                username: String(info.username || '').replace(/^@+/, '').trim(),
+                username: cleanRealUsername(info.username, rawTgId),
                 page: String(info.page || 'home').trim(),
                 vipActive: Boolean(info.vipActive),
                 videosWatchedCount: Number(info.videosWatchedCount) || 0,
@@ -5713,7 +5735,8 @@ service cloud.firestore {
       (serverOnlineDetails || []).forEach((info) => {
         if (!info || typeof info !== 'object') return;
         const lastSeen = Number(info.lastSeen) || 0;
-        if (Math.abs(now - lastSeen) < 300000) {
+        const ageMs = now - lastSeen;
+        if (lastSeen > 0 && ageMs >= -30000 && ageMs <= LIVE_ONLINE_WINDOW_MS) {
           const rawTgId = String(info.tgId || '').trim();
           const isTg =
             Boolean(info.isTelegram) ||
@@ -5732,7 +5755,7 @@ service cloud.firestore {
               fullName: isTg
                 ? String(info.fullName || 'Telegram User').trim()
                 : `Web Visitor (${webId})`,
-              username: String(info.username || '').replace(/^@+/, '').trim(),
+              username: cleanRealUsername(info.username, rawTgId),
               page: String(info.page || 'home').trim(),
               vipActive: Boolean(info.vipActive),
               videosWatchedCount: Number(info.videosWatchedCount) || 0,
@@ -5750,7 +5773,7 @@ service cloud.firestore {
       });
       window.__latestOnlineUsersMap = onlineMap;
 
-      const onlineCount = Math.max(onlineUsersArray.length, (serverOnlineIds || []).length);
+      const onlineCount = onlineUsersArray.length;
       const tgOnlineCount = onlineUsersArray.filter((u) => u.isTelegram).length;
       const webOnlineCount = onlineUsersArray.filter((u) => !u.isTelegram).length;
 
@@ -5770,7 +5793,9 @@ service cloud.firestore {
         totalUsersCount
       );
 
-      const onlineEl = document.getElementById('stat-online-users');
+      const onlineEl =
+        document.getElementById('kpi-live-visitors-val') ||
+        document.getElementById('stat-online-users');
       const totalUsersEl = document.getElementById('stat-total-users');
       const totalVisitsEl = document.getElementById('stat-total-visits');
       const tgBadgeEl = document.getElementById('stat-online-tg-badge');
@@ -5786,11 +5811,17 @@ service cloud.firestore {
       if (listWrapEl) {
         if (onlineUsersArray.length === 0) {
           listWrapEl.innerHTML =
-            '<p class="text-xs text-zinc-500 py-3 col-span-full text-center">বর্তমানে কোনো ইউজার অনলাইনে নেই। নিচে All Telegram Bot &amp; App Users লিস্ট থেকে যেকোনো ইউজারে ক্লিক করে মেসেজ/প্যাকেজ/নোটিশ পাঠাতে পারবেন!</p>';
+            '<p class="text-xs text-zinc-400 py-3 col-span-full text-center">বর্তমানে কোনো ইউজার লাইভ অনলাইনে নেই। নিচে <strong>All Telegram Bot &amp; App Users</strong> লিস্ট থেকে যেকোনো ইউজার কখন অ্যাক্টিভ ছিল তা দেখুন এবং ক্লিক করে মেসেজ/প্যাকেজ/নোটিশ পাঠান!</p>';
         } else {
           listWrapEl.innerHTML = onlineUsersArray
             .map((u) => {
               const secAgo = Math.max(1, Math.floor((now - u.lastSeen) / 1000));
+              const activeLabel =
+                secAgo < 20
+                  ? '🟢 Active Now (Just now)'
+                  : secAgo < 60
+                  ? `🟢 Active (${secAgo}s ago)`
+                  : `🟢 Active (1m ${secAgo % 60}s ago)`;
               const vipPill = u.vipActive
                 ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-bold text-amber-300">👑 VIP</span>`
                 : '';
@@ -5812,8 +5843,8 @@ service cloud.firestore {
                         TG ID: <strong class="text-white select-all">${escSafeHtml(u.tgId)}</strong>
                         ${u.username ? ` · @${escSafeHtml(u.username)}` : ''}
                       </p>
-                      <p class="text-[10px] text-zinc-400 font-mono">
-                        📍 ${escSafeHtml(u.page.toUpperCase())} · 🟢 Active (${secAgo}s ago)
+                      <p class="text-[10px] text-emerald-300 font-mono font-semibold">
+                        📍 ${escSafeHtml(u.page.toUpperCase())} · ${activeLabel}
                       </p>
                     </div>
                     <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${targetKey}')"
@@ -5836,8 +5867,8 @@ service cloud.firestore {
                     <p class="text-[11px] font-mono text-amber-300 truncate">
                       Visitor: <strong class="text-zinc-200 select-all">${escSafeHtml(u.webId)}</strong> · ${escSafeHtml(u.device)}
                     </p>
-                    <p class="text-[10px] text-zinc-400 font-mono">
-                      📍 ${escSafeHtml(u.page.toUpperCase())} · 🟢 Active (${secAgo}s ago)
+                    <p class="text-[10px] text-emerald-300 font-mono font-semibold">
+                      📍 ${escSafeHtml(u.page.toUpperCase())} · ${activeLabel}
                     </p>
                   </div>
                   <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${targetKey}')"
@@ -5943,6 +5974,7 @@ service cloud.firestore {
 
       pollServerStats();
       setInterval(pollServerStats, 20000);
+      setInterval(renderTrafficCounters, 5000);
     };
 
     let activeAdminTabName = 'upload';
@@ -9161,7 +9193,8 @@ service cloud.firestore {
             existing.fullName = String(rawObj.fullName).trim();
           }
           if (rawObj.username && String(rawObj.username).trim()) {
-            existing.username = String(rawObj.username).replace(/^@+/, '').trim();
+            const cleanedU = cleanRealUsername(rawObj.username, existing.tgId);
+            if (cleanedU) existing.username = cleanedU;
           }
           const wArr = Array.isArray(rawObj.watchedVideos) ? rawObj.watchedVideos : [];
           if (wArr.length > existing.watchedVideos.length) {

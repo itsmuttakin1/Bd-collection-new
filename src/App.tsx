@@ -2038,7 +2038,11 @@ export default function App() {
           .remove()
           .catch(() => {});
         onDisconnect(fallbackOnlineRef)
-          .remove()
+          .update({
+            online: false,
+            lastSeen: Date.now(),
+            botAuthToken: 'xtube_tg_bot_2026',
+          })
           .catch(() => {});
         writePresence();
       }
@@ -2049,9 +2053,14 @@ export default function App() {
       (snap) => {
         const val = snap.val();
         if (!val || typeof val !== 'object') return;
+        const now = Date.now();
         let activeCount = 0;
         for (const item of Object.values(val) as any[]) {
-          if (item && item.online !== false) {
+          if (
+            item &&
+            item.online !== false &&
+            now - (Number(item.lastSeen) || 0) <= 90000
+          ) {
             activeCount++;
           }
         }
@@ -2067,16 +2076,20 @@ export default function App() {
       (snap) => {
         const val = snap.val();
         if (!val || typeof val !== 'object') return;
+        const now = Date.now();
         let activeCount = 0;
         for (const [k, item] of Object.entries(val) as [string, any][]) {
           if (k === 'botAuthToken') continue;
-          if (item && typeof item === 'object' && item.online !== false) {
+          if (
+            item &&
+            typeof item === 'object' &&
+            item.online !== false &&
+            now - (Number(item.lastSeen) || 0) <= 90000
+          ) {
             activeCount++;
           }
         }
-        if (activeCount > 0) {
-          setLiveOnlineCount(Math.max(1, activeCount));
-        }
+        setLiveOnlineCount(Math.max(1, activeCount));
       },
       () => {}
     );
@@ -2097,7 +2110,11 @@ export default function App() {
 
     const handleBeforeUnload = () => {
       remove(userPresenceRef).catch(() => {});
-      remove(fallbackOnlineRef).catch(() => {});
+      update(fallbackOnlineRef, {
+        online: false,
+        lastSeen: Date.now(),
+        botAuthToken: 'xtube_tg_bot_2026',
+      }).catch(() => {});
       try {
         navigator.sendBeacon?.(
           '/api/visitor-ping',

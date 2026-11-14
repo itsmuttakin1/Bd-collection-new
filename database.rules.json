@@ -93,12 +93,13 @@
         },
         "$subKey": {
           ".read": true,
-          ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
+          ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || !newData.exists() || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
         }
       }
     },
     "stats": {
       ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       "totalUsers": {
         ".write": "newData.isNumber() && (!data.exists() || newData.val() === data.val() + 1)"
       },
@@ -108,8 +109,10 @@
     },
     "presence": {
       ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       "$visitorId": {
-        ".write": "!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean())"
+        ".read": true,
+        ".write": "!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean()) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
       }
     }
   }
