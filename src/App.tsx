@@ -1108,27 +1108,36 @@ export default function App() {
       if (!hasVerifiedBotWebhook && rawToken && rawToken.includes(':')) {
         hasVerifiedBotWebhook = true;
         fetch('/api/bot-keepalive').catch(() => {});
-        fetch(`https://api.telegram.org/bot${rawToken}/getWebhookInfo`)
+        fetch('https://xtubeofficial.pages.dev/api/telegram-bot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ping: true }),
+        })
           .then((r) => r.json())
-          .then((whInfo) => {
-            const currentUrl = String(whInfo?.result?.url || '').trim();
-            if (!currentUrl || !currentUrl.startsWith('https://xtubeofficial.pages.dev/api/telegram-bot')) {
-              const whObj = new URL('https://xtubeofficial.pages.dev/api/telegram-bot');
-              whObj.searchParams.set('token', rawToken);
-              whObj.searchParams.set('pass', String((merged as any).botPass || 'Muttakin').trim() || 'Muttakin');
-              if ((merged as any).adminChatId) {
-                whObj.searchParams.set('adminId', String((merged as any).adminChatId).trim());
-              }
-              fetch(`https://api.telegram.org/bot${rawToken}/setWebhook`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  url: whObj.toString(),
-                  allowed_updates: ['message', 'edited_message', 'callback_query'],
-                  drop_pending_updates: false,
-                }),
-              }).catch(() => {});
-            }
+          .then((pingData) => {
+            if (!pingData || pingData.riyaVersion !== 4) return;
+            return fetch(`https://api.telegram.org/bot${rawToken}/getWebhookInfo`)
+              .then((r) => r.json())
+              .then((whInfo) => {
+                const currentUrl = String(whInfo?.result?.url || '').trim();
+                if (!currentUrl || !currentUrl.startsWith('https://xtubeofficial.pages.dev/api/telegram-bot')) {
+                  const whObj = new URL('https://xtubeofficial.pages.dev/api/telegram-bot');
+                  whObj.searchParams.set('token', rawToken);
+                  whObj.searchParams.set('pass', String((merged as any).botPass || 'Muttakin').trim() || 'Muttakin');
+                  if ((merged as any).adminChatId) {
+                    whObj.searchParams.set('adminId', String((merged as any).adminChatId).trim());
+                  }
+                  fetch(`https://api.telegram.org/bot${rawToken}/setWebhook`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      url: whObj.toString(),
+                      allowed_updates: ['message', 'edited_message', 'callback_query'],
+                      drop_pending_updates: false,
+                    }),
+                  }).catch(() => {});
+                }
+              });
           })
           .catch(() => {});
       }
@@ -1156,11 +1165,30 @@ export default function App() {
       () => {}
     );
 
+    const unsubBcastJob = onValue(
+      ref(db, 'telegramBotSessions/_broadcastJob'),
+      (snap) => {
+        const job = snap.val();
+        if (
+          job &&
+          job.status === 'pending' &&
+          Array.isArray(job.remainingChatIds) &&
+          job.remainingChatIds.length > 0
+        ) {
+          setTimeout(() => {
+            fetch('/api/bot-keepalive').catch(() => {});
+          }, 800);
+        }
+      },
+      () => {}
+    );
+
     return () => {
       unsubPkg1();
       unsubPkg2();
       unsubCfg1();
       unsubCfg2();
+      unsubBcastJob();
     };
   }, []);
 

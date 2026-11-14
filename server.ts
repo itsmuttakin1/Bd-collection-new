@@ -466,6 +466,165 @@ async function startServer() {
   const firebaseRtdbBase =
     'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+  const isPermanentTgUserError = (res: any): boolean => {
+    const code = Number(res?.error_code || 0);
+    const desc = String(res?.description || '').toLowerCase();
+    if (code === 403) return true;
+    if (
+      desc.includes('blocked') ||
+      desc.includes('deactivated') ||
+      desc.includes('chat not found') ||
+      desc.includes('user not found') ||
+      desc.includes('have no rights') ||
+      desc.includes('need administrator rights')
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const deliverSingleBroadcastMessageNode = async (
+    botToken: string,
+    targetId: string,
+    bcastPayload: any,
+    defaultMiniAppUrl?: string
+  ): Promise<boolean> => {
+    const callTg = async (method: string, payload: Record<string, any>): Promise<any> => {
+      const r = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return r.json().catch(() => ({ ok: false }));
+    };
+
+    const userAppUrl =
+      defaultMiniAppUrl || `${CANONICAL_SITE_URL}/?tg_id=${encodeURIComponent(String(targetId))}`;
+    const webAppMarkup = bcastPayload?.replyMarkup || {
+      inline_keyboard: [
+        [
+          {
+            text: '📱 Open X Tube Mini App (Watch Videos) 🔥',
+            web_app: { url: userAppUrl },
+          },
+        ],
+      ],
+    };
+
+    const fallbackUrlMarkup = {
+      inline_keyboard: [
+        [
+          {
+            text: '📱 Open X Tube Mini App (Watch Videos) 🔥',
+            url: 'https://t.me/xtubeofficial_bot',
+          },
+        ],
+      ],
+    };
+
+    const mode = String(bcastPayload?.mode || 'text');
+    const captionOrText = String(bcastPayload?.text || '').trim();
+    const mediaFileId = String(bcastPayload?.mediaFileId || '').trim();
+
+    try {
+      let res: any = { ok: false };
+      if (mode === 'photo' && mediaFileId) {
+        res = await callTg('sendPhoto', {
+          chat_id: targetId,
+          photo: mediaFileId,
+          ...(captionOrText ? { caption: captionOrText, parse_mode: 'HTML' } : {}),
+          reply_markup: webAppMarkup,
+        });
+        if (!res?.ok && !isPermanentTgUserError(res)) {
+          res = await callTg('sendPhoto', {
+            chat_id: targetId,
+            photo: mediaFileId,
+            ...(captionOrText ? { caption: captionOrText } : {}),
+            reply_markup: fallbackUrlMarkup,
+          });
+        }
+      } else if (mode === 'video' && mediaFileId) {
+        res = await callTg('sendVideo', {
+          chat_id: targetId,
+          video: mediaFileId,
+          ...(captionOrText ? { caption: captionOrText, parse_mode: 'HTML' } : {}),
+          reply_markup: webAppMarkup,
+        });
+        if (!res?.ok && !isPermanentTgUserError(res)) {
+          res = await callTg('sendVideo', {
+            chat_id: targetId,
+            video: mediaFileId,
+            ...(captionOrText ? { caption: captionOrText } : {}),
+            reply_markup: fallbackUrlMarkup,
+          });
+        }
+      } else if (mode === 'animation' && mediaFileId) {
+        res = await callTg('sendAnimation', {
+          chat_id: targetId,
+          animation: mediaFileId,
+          ...(captionOrText ? { caption: captionOrText, parse_mode: 'HTML' } : {}),
+          reply_markup: webAppMarkup,
+        });
+        if (!res?.ok && !isPermanentTgUserError(res)) {
+          res = await callTg('sendAnimation', {
+            chat_id: targetId,
+            animation: mediaFileId,
+            ...(captionOrText ? { caption: captionOrText } : {}),
+            reply_markup: fallbackUrlMarkup,
+          });
+        }
+      } else if (mode === 'document' && mediaFileId) {
+        res = await callTg('sendDocument', {
+          chat_id: targetId,
+          document: mediaFileId,
+          ...(captionOrText ? { caption: captionOrText, parse_mode: 'HTML' } : {}),
+          reply_markup: webAppMarkup,
+        });
+        if (!res?.ok && !isPermanentTgUserError(res)) {
+          res = await callTg('sendDocument', {
+            chat_id: targetId,
+            document: mediaFileId,
+            ...(captionOrText ? { caption: captionOrText } : {}),
+            reply_markup: fallbackUrlMarkup,
+          });
+        }
+      } else if (mode === 'copy' && bcastPayload?.fromChatId && bcastPayload?.messageId) {
+        res = await callTg('copyMessage', {
+          chat_id: targetId,
+          from_chat_id: bcastPayload.fromChatId,
+          message_id: Number(bcastPayload.messageId),
+          ...(captionOrText ? { caption: captionOrText, parse_mode: 'HTML' } : {}),
+          reply_markup: webAppMarkup,
+        });
+        if (!res?.ok && !isPermanentTgUserError(res)) {
+          res = await callTg('copyMessage', {
+            chat_id: targetId,
+            from_chat_id: bcastPayload.fromChatId,
+            message_id: Number(bcastPayload.messageId),
+            ...(captionOrText ? { caption: captionOrText } : {}),
+          });
+        }
+      } else {
+        res = await callTg('sendMessage', {
+          chat_id: targetId,
+          text: captionOrText || '🎬 Watch New Exclusive Viral Videos on X Tube Mini App! 🔥',
+          parse_mode: 'HTML',
+          reply_markup: webAppMarkup,
+        });
+        if (!res?.ok && !isPermanentTgUserError(res)) {
+          res = await callTg('sendMessage', {
+            chat_id: targetId,
+            text: captionOrText || '🎬 Watch New Exclusive Viral Videos on X Tube Mini App! 🔥',
+            reply_markup: fallbackUrlMarkup,
+          });
+        }
+      }
+      return Boolean(res && res.ok);
+    } catch {
+      return false;
+    }
+  };
+
   // Cached trending videos for Riya Aktar's video recommendations (refreshes every 60s)
   let cachedRiyaVideos: Array<{ id: string; title: string }> = [];
   let cachedRiyaVideosAt = 0;
@@ -904,25 +1063,11 @@ async function startServer() {
         updatedAt: Date.now(),
       };
       tgBotMemorySessions.set(key, mergedSession);
-      await Promise.all([
-        fetch(`${firebaseRtdbBase}/telegramBotSessions/${key}.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mergedSession),
-        }).catch(() => {}),
-        fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${key}.json`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chatId: key,
-            fullName: fullName || 'Telegram User',
-            username,
-            lang: mergedSession.lang || 'bn',
-            lastActiveAt: Date.now(),
-            botAuthToken: 'xtube_tg_bot_2026',
-          }),
-        }).catch(() => {}),
-      ]);
+      await fetch(`${firebaseRtdbBase}/telegramBotSessions/${key}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mergedSession),
+      }).catch(() => {});
     };
 
     const resolveUserLang = (session: any, fromUser?: any): 'bn' | 'en' => {
@@ -1055,38 +1200,69 @@ async function startServer() {
     };
 
     const collectAllSubscriberChatIds = async (): Promise<string[]> => {
-      const [sessRes, subRes, ordRes] = await Promise.all([
+      const [sessRes, ordRes, vipRes] = await Promise.all([
         fetch(`${firebaseRtdbBase}/telegramBotSessions.json`).catch(() => null),
-        fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers.json`).catch(() => null),
         fetch(`${firebaseRtdbBase}/redeemOrders.json`).catch(() => null),
+        fetch(`${firebaseRtdbBase}/vipUsersControl.json`).catch(() => null),
       ]);
       const sessData: any = sessRes && sessRes.ok ? await sessRes.json().catch(() => null) : null;
-      const subData: any = subRes && subRes.ok ? await subRes.json().catch(() => null) : null;
       const ordData: any = ordRes && ordRes.ok ? await ordRes.json().catch(() => null) : null;
+      const vipData: any = vipRes && vipRes.ok ? await vipRes.json().catch(() => null) : null;
 
       const idSet = new Set<string>();
       const addValidChatId = (raw: any) => {
-        const s = String(raw || '').trim();
-        if (/^-?\d{5,20}$/.test(s)) idSet.add(s);
+        const s = String(raw || '').trim().replace(/^tg_/, '');
+        if (/^\d{6,15}$/.test(s) && s !== '84920145' && s !== '123456789') {
+          idSet.add(s);
+        }
       };
 
       if (sessData && typeof sessData === 'object') {
         for (const [k, val] of Object.entries(sessData)) {
-          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          if (k === 'botAuthToken') continue;
+          if (k === '_subscribers' && val && typeof val === 'object') {
+            for (const [sk, sval] of Object.entries(val as Record<string, any>)) {
+              addValidChatId(sk);
+              if (sval && typeof sval === 'object') {
+                addValidChatId(sval.chatId);
+                addValidChatId(sval.tgId);
+              }
+            }
+            continue;
+          }
+          if (k === '_online' && val && typeof val === 'object') {
+            for (const [ok, oval] of Object.entries(val as Record<string, any>)) {
+              addValidChatId(ok);
+              if (oval && typeof oval === 'object') {
+                addValidChatId(oval.tgId);
+                addValidChatId(oval.chatId);
+              }
+            }
+            continue;
+          }
+          if (k === '_orders' && val && typeof val === 'object') {
+            for (const oval of Object.values(val as Record<string, any>)) {
+              if (oval && typeof oval === 'object') addValidChatId(oval.chatId);
+            }
+            continue;
+          }
+          if (k.startsWith('_')) continue;
           addValidChatId(k);
-          if (val && typeof val === 'object') addValidChatId((val as any).chatId);
-        }
-      }
-      if (subData && typeof subData === 'object') {
-        for (const [k, val] of Object.entries(subData)) {
-          if (k.startsWith('_') || k === 'botAuthToken') continue;
-          addValidChatId(k);
-          if (val && typeof val === 'object') addValidChatId((val as any).chatId);
+          if (val && typeof val === 'object') {
+            addValidChatId((val as any).chatId);
+            addValidChatId((val as any).tgId);
+          }
         }
       }
       if (ordData && typeof ordData === 'object') {
         for (const val of Object.values(ordData)) {
           if (val && typeof val === 'object') addValidChatId((val as any).chatId);
+        }
+      }
+      if (vipData && typeof vipData === 'object') {
+        for (const [k, val] of Object.entries(vipData)) {
+          addValidChatId(k);
+          if (val && typeof val === 'object') addValidChatId((val as any).userId);
         }
       }
       return Array.from(idSet);
@@ -1102,6 +1278,30 @@ async function startServer() {
         await Promise.all([loadStoreData(), getChatSession(chatId)]);
       const userLang = resolveUserLang(session, cb.from);
       const isEn = userLang === 'en';
+
+      if (data === 'cancel_broadcast_mode') {
+        await Promise.all([
+          saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, cb.from),
+          tgApi('answerCallbackQuery', {
+            callback_query_id: cb.id,
+            text: '❌ Broadcast Mode বাতিল করা হয়েছে',
+          }),
+          tgApi('sendMessage', {
+            chat_id: chatId,
+            text: '❌ <b>Broadcast Mode বাতিল করা হয়েছে।</b>',
+            parse_mode: 'HTML',
+          }),
+        ]);
+        return;
+      }
+
+      if (data === 'continue_bcast_job') {
+        await tgApi('answerCallbackQuery', {
+          callback_query_id: cb.id,
+          text: '⚡ Broadcast প্রসেস হচ্ছে...',
+        });
+        return;
+      }
 
       if (data === 'toggle_bot_lang') {
         const nextLang: 'bn' | 'en' = userLang === 'bn' ? 'en' : 'bn';
@@ -1472,78 +1672,187 @@ async function startServer() {
       return;
     }
 
-    // Admin Broadcast command directly inside Telegram Bot: `/broadcast <message>`
-    if (text.startsWith('/broadcast')) {
+    // Admin Broadcast command directly inside Telegram Bot: `/ad` or `/broadcast` (plus interactive `awaiting_broadcast` step)
+    const isAdOrBroadcastCmd = /^\/(ad|broadcast)(@[a-zA-Z0-9_]+)?(\s|$)/i.test(text);
+    const isAwaitingBroadcast =
+      session?.step === 'awaiting_broadcast' && !text.startsWith('/');
+
+    if (isAdOrBroadcastCmd || isAwaitingBroadcast) {
       const targetAdmin = String(adminChatId || queryAdminId || '').trim();
-      if (targetAdmin && String(chatId) !== targetAdmin) {
+      const senderUsername = String(msg.from?.username || '').replace(/^@/, '').toLowerCase();
+      const isAuthorizedAdmin =
+        !targetAdmin ||
+        String(chatId) === targetAdmin ||
+        (senderUsername && senderUsername === targetAdmin.replace(/^@/, '').toLowerCase());
+
+      if (!isAuthorizedAdmin) {
         await tgApi('sendMessage', {
           chat_id: chatId,
           text: '⛔ শুধুমাত্র Admin এই কমান্ড ব্যবহার করতে পারবেন!',
         });
         return;
       }
-      const bcastText = text.replace(/^\/broadcast\s*/i, '').trim();
+
+      const bcastText = isAdOrBroadcastCmd
+        ? text.replace(/^\/(ad|broadcast)(@[a-zA-Z0-9_]+)?\s*/i, '').trim()
+        : text;
       const replyMsg = msg.reply_to_message;
-      if (!bcastText && !replyMsg) {
+      const hasDirectMedia = Boolean(
+        (Array.isArray(msg.photo) && msg.photo.length > 0) ||
+          msg.video ||
+          msg.animation ||
+          msg.document
+      );
+
+      if (isAdOrBroadcastCmd && !bcastText && !replyMsg && !hasDirectMedia) {
+        const allChatIds = await collectAllSubscriberChatIds();
+        await Promise.all([
+          saveChatSession(
+            chatId,
+            { ...session, lang: userLang, step: 'awaiting_broadcast' },
+            msg.from
+          ),
+          tgApi('sendMessage', {
+            chat_id: chatId,
+            text:
+              `📢 <b>Broadcast Mode চালু হয়েছে! (মোট ইউজার: ${allChatIds.length} জন)</b>\n\n` +
+              `👇 <b>এখন আপনি যেকোনো মেসেজ, ছবি (Photo), ভিডিও (Video), বা পোস্ট এই চ্যাটে পাঠান</b> — সেটি সাথে সাথে সব ইউজারের (${allChatIds.length} জন) কাছে চলে যাবে!\n\n` +
+              `💡 <b>অন্যান্য শর্টকাট নিয়ম:</b>\n` +
+              `• সরাসরি লিখুন: <code>/ad আপনার মেসেজ এখানে লিখুন</code>\n` +
+              `• ছবি বা ভিডিওর ক্যাপশনে লিখুন: <code>/ad আপনার ক্যাপশন</code>\n` +
+              `• যেকোনো ছবি/ভিডিও/মেসেজে <b>Reply</b> দিয়ে লিখুন: <code>/ad</code>`,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: '❌ Broadcast বাতিল করুন (Cancel)',
+                    callback_data: 'cancel_broadcast_mode',
+                  },
+                ],
+              ],
+            },
+          }),
+        ]);
+        return;
+      }
+
+      await saveChatSession(
+        chatId,
+        { ...session, lang: userLang, step: 'idle' },
+        msg.from
+      );
+
+      const sourceMsg = replyMsg || msg;
+      const captionOrText =
+        bcastText ||
+        (replyMsg ? String(replyMsg.caption || replyMsg.text || '').trim() : '');
+      const miniAppUrl = buildUserWebAppUrl('/', undefined, 'bn');
+      const defaultMarkup =
+        sourceMsg.reply_markup && Array.isArray(sourceMsg.reply_markup.inline_keyboard)
+          ? sourceMsg.reply_markup
+          : {
+              inline_keyboard: [
+                [
+                  {
+                    text: '📱 Open X Tube Mini App (Watch Videos) 🔥',
+                    web_app: { url: miniAppUrl },
+                  },
+                ],
+              ],
+            };
+
+      const bcastPayload: any = {
+        mode: 'text',
+        text: captionOrText,
+        mediaFileId: '',
+        fromChatId: String(chatId),
+        messageId: sourceMsg.message_id,
+        replyMarkup: defaultMarkup,
+      };
+
+      if (Array.isArray(sourceMsg.photo) && sourceMsg.photo.length > 0) {
+        bcastPayload.mode = 'photo';
+        bcastPayload.mediaFileId = sourceMsg.photo[sourceMsg.photo.length - 1].file_id;
+      } else if (sourceMsg.video && sourceMsg.video.file_id) {
+        bcastPayload.mode = 'video';
+        bcastPayload.mediaFileId = sourceMsg.video.file_id;
+      } else if (sourceMsg.animation && sourceMsg.animation.file_id) {
+        bcastPayload.mode = 'animation';
+        bcastPayload.mediaFileId = sourceMsg.animation.file_id;
+      } else if (sourceMsg.document && sourceMsg.document.file_id) {
+        bcastPayload.mode = 'document';
+        bcastPayload.mediaFileId = sourceMsg.document.file_id;
+      } else if (replyMsg && !bcastText && !replyMsg.text) {
+        bcastPayload.mode = 'copy';
+      }
+
+      const allChatIds = await collectAllSubscriberChatIds();
+      if (allChatIds.length === 0) {
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text:
-            `📢 <b>Broadcast পাঠানোর নিয়ম:</b>\n\n` +
-            `১. যেকোনো মেসেজ লিখুন:\n<code>/broadcast আপনার মেসেজ এখানে লিখুন</code>\n\n` +
-            `২. অথবা যেকোনো ছবি/ভিডিও/মেসেজে <b>Reply</b> দিয়ে লিখুন <code>/broadcast</code> — তাহলে সেটি সব ইউজারের কাছে চলে যাবে!`,
-          parse_mode: 'HTML',
+          text: '⚠️ এখনো কোনো সাবস্ক্রাইবার ইউজার পাওয়া যায়নি!',
         });
         return;
       }
 
-      const allChatIds = await collectAllSubscriberChatIds();
+      const progRes: any = await tgApi('sendMessage', {
+        chat_id: chatId,
+        text:
+          `⏳ <b>Broadcast শুরু হয়েছে... (0 / ${allChatIds.length})</b>\n\n` +
+          `👥 মোট ইউজার: <b>${allChatIds.length}</b> জন\n` +
+          `🚀 সব ইউজারের কাছে পাঠানো হচ্ছে...`,
+        parse_mode: 'HTML',
+      });
+      const progressMsgId = progRes?.result?.message_id || null;
+
       let sentCount = 0;
       let failCount = 0;
-      const miniAppUrl = buildUserWebAppUrl('/', undefined, 'bn');
+      const batchSize = 25;
 
-      for (const targetId of allChatIds) {
-        try {
-          if (replyMsg && replyMsg.message_id) {
-            const copyRes: any = await tgApi('copyMessage', {
-              chat_id: targetId,
-              from_chat_id: chatId,
-              message_id: replyMsg.message_id,
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '📱 Open X Tube Mini App', web_app: { url: miniAppUrl } }],
-                ],
-              },
-            });
-            if (copyRes && copyRes.ok) sentCount++;
-            else failCount++;
-          } else {
-            const sendRes: any = await tgApi('sendMessage', {
-              chat_id: targetId,
-              text: bcastText,
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '📱 Open X Tube Mini App', web_app: { url: miniAppUrl } }],
-                ],
-              },
-            });
-            if (sendRes && sendRes.ok) sentCount++;
-            else failCount++;
-          }
-        } catch {
-          failCount++;
+      for (let i = 0; i < allChatIds.length; i += batchSize) {
+        const chunk = allChatIds.slice(i, i + batchSize);
+        const results = await Promise.all(
+          chunk.map((uid) =>
+            deliverSingleBroadcastMessageNode(botToken, uid, bcastPayload, miniAppUrl)
+          )
+        );
+        for (const ok of results) {
+          if (ok) sentCount++;
+          else failCount++;
+        }
+        if (progressMsgId && i > 0 && i % 150 === 0) {
+          await tgApi('editMessageText', {
+            chat_id: chatId,
+            message_id: progressMsgId,
+            text:
+              `⏳ <b>Broadcast চলছে... (${sentCount + failCount} / ${allChatIds.length})</b>\n\n` +
+              `✉️ সফলভাবে গেছে: <b>${sentCount}</b>\n` +
+              `⚠️ ব্যর্থ/ব্লকড: <b>${failCount}</b>`,
+            parse_mode: 'HTML',
+          }).catch(() => {});
         }
       }
 
+      const doneText =
+        `✅ <b>Broadcast সফলভাবে সম্পন্ন হয়েছে!</b>\n\n` +
+        `👥 মোট ইউজার: <b>${allChatIds.length}</b>\n` +
+        `✉️ সফলভাবে গেছে: <b>${sentCount}</b>\n` +
+        `⚠️ ব্যর্থ/ব্লকড: <b>${failCount}</b>`;
+
+      if (progressMsgId) {
+        await tgApi('editMessageText', {
+          chat_id: chatId,
+          message_id: progressMsgId,
+          text: doneText,
+          parse_mode: 'HTML',
+        }).catch(() => {});
+      }
       await tgApi('sendMessage', {
         chat_id: chatId,
-        text:
-          `✅ <b>Broadcast সফলভাবে সম্পন্ন হয়েছে!</b>\n\n` +
-          `👥 মোট ইউজার: <b>${allChatIds.length}</b>\n` +
-          `✉️ সফলভাবে গেছে: <b>${sentCount}</b>\n` +
-          `⚠️ ব্যর্থ/ব্লকড: <b>${failCount}</b>`,
+        text: doneText,
         parse_mode: 'HTML',
-      });
+      }).catch(() => {});
       return;
     }
 
@@ -2082,7 +2391,7 @@ async function startServer() {
     try {
       const update = req.body || {};
       if (update && update.ping === true) {
-        res.status(200).json({ ok: true, pong: true, riyaVersion: 3 });
+        res.status(200).json({ ok: true, pong: true, riyaVersion: 4 });
         return;
       }
 
@@ -2258,7 +2567,7 @@ async function startServer() {
         body: JSON.stringify({ ping: true }),
       });
       const pingData: any = await pingRes.json().catch(() => null);
-      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 3) {
+      if (pingRes.ok && pingData && pingData.pong === true && pingData.riyaVersion === 4) {
         edgeEndpointHealthy = true;
       }
     } catch {}
@@ -2507,12 +2816,176 @@ async function startServer() {
     }
   });
 
+  // ==========================================================================
+  // 24/7 FAST BACKGROUND BROADCAST JOB QUEUE PROCESSOR (FOR CLOUDFLARE WEBHOOK)
+  // Whenever Admin sends `/ad` or `/broadcast` in Telegram Bot via Edge Webhook,
+  // this Node.js worker immediately picks up `telegramBotSessions/_broadcastJob`
+  // and delivers to all 565+ users in parallel with ZERO subrequest limits!
+  // ==========================================================================
+  let isProcessingBroadcastQueue = false;
+  let hasRegisteredCommandsForToken = '';
+
+  const processPendingFirebaseBroadcastJob = async () => {
+    if (isProcessingBroadcastQueue) return;
+    isProcessingBroadcastQueue = true;
+    try {
+      const jobRes = await fetch(`${firebaseRtdbBase}/telegramBotSessions/_broadcastJob.json`).catch(
+        () => null
+      );
+      if (!jobRes || !jobRes.ok) return;
+      const job: any = await jobRes.json().catch(() => null);
+      if (!job || typeof job !== 'object') return;
+
+      const now = Date.now();
+      const isStaleLock =
+        job.status === 'processing_node' && now - Number(job.updatedAt || 0) > 15000;
+      if (job.status !== 'pending' && !isStaleLock) return;
+
+      const remaining: string[] = Array.isArray(job.remainingChatIds) ? job.remainingChatIds : [];
+      const botToken = String(job.botToken || '').trim();
+      if (!botToken || remaining.length === 0) {
+        await fetch(`${firebaseRtdbBase}/telegramBotSessions/_broadcastJob.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'completed',
+            remainingChatIds: [],
+            updatedAt: now,
+            botAuthToken: 'xtube_tg_bot_2026',
+          }),
+        }).catch(() => {});
+        return;
+      }
+
+      // Claim the job in Firebase so Edge keepalive pings know Node.js is handling all remaining users
+      await fetch(`${firebaseRtdbBase}/telegramBotSessions/_broadcastJob.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'processing_node',
+          updatedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }),
+      }).catch(() => {});
+
+      let sentCount = Number(job.sentCount) || 0;
+      let failCount = Number(job.failCount) || 0;
+      const totalUsers = Number(job.totalUsers) || sentCount + failCount + remaining.length;
+      const bcastPayload = job.bcastPayload || {};
+      const batchSize = 25;
+
+      for (let i = 0; i < remaining.length; i += batchSize) {
+        const chunk = remaining.slice(i, i + batchSize);
+        const results = await Promise.all(
+          chunk.map((uid) =>
+            deliverSingleBroadcastMessageNode(
+              botToken,
+              uid,
+              bcastPayload,
+              `${CANONICAL_SITE_URL}/`
+            )
+          )
+        );
+        for (const ok of results) {
+          if (ok) sentCount++;
+          else failCount++;
+        }
+
+        const stillLeft = remaining.slice(i + batchSize);
+        await fetch(`${firebaseRtdbBase}/telegramBotSessions/_broadcastJob.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: stillLeft.length === 0 ? 'completed' : 'processing_node',
+            sentCount,
+            failCount,
+            remainingChatIds: stillLeft,
+            updatedAt: Date.now(),
+            botAuthToken: 'xtube_tg_bot_2026',
+          }),
+        }).catch(() => {});
+
+        if (job.adminChatId && job.progressMsgId && stillLeft.length > 0 && i % 100 === 0) {
+          await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: job.adminChatId,
+              message_id: Number(job.progressMsgId),
+              text:
+                `⏳ <b>Broadcast চলছে... (${sentCount + failCount} / ${totalUsers})</b>\n\n` +
+                `✉️ সফলভাবে গেছে: <b>${sentCount}</b>\n` +
+                `⚠️ ব্যর্থ/ব্লকড: <b>${failCount}</b>\n` +
+                `🚀 বাকি ইউজার: <b>${stillLeft.length}</b> জন...`,
+              parse_mode: 'HTML',
+            }),
+          }).catch(() => {});
+        }
+      }
+
+      if (job.adminChatId) {
+        const doneText =
+          `✅ <b>Broadcast সফলভাবে সম্পন্ন হয়েছে!</b>\n\n` +
+          `👥 মোট ইউজার: <b>${totalUsers}</b>\n` +
+          `✉️ সফলভাবে গেছে: <b>${sentCount}</b>\n` +
+          `⚠️ ব্যর্থ/ব্লকড: <b>${failCount}</b>`;
+
+        if (job.progressMsgId) {
+          await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: job.adminChatId,
+              message_id: Number(job.progressMsgId),
+              text: doneText,
+              parse_mode: 'HTML',
+            }),
+          }).catch(() => {});
+        }
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: job.adminChatId,
+            text: doneText,
+            parse_mode: 'HTML',
+          }),
+        }).catch(() => {});
+      }
+    } catch {
+      // ignore transient network errors
+    } finally {
+      isProcessingBroadcastQueue = false;
+    }
+  };
+
+  setInterval(() => {
+    processPendingFirebaseBroadcastJob().catch(() => {});
+  }, 1500);
+
   const runTelegramBotAutoPollingTick = async () => {
     try {
       const status = await ensureTelegramBotAwakeAndSynced();
       if (!status.ok || !status.botToken) {
         setTimeout(runTelegramBotAutoPollingTick, 5000);
         return;
+      }
+
+      if (status.botToken && hasRegisteredCommandsForToken !== status.botToken) {
+        hasRegisteredCommandsForToken = status.botToken;
+        fetch(`https://api.telegram.org/bot${status.botToken}/setMyCommands`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            commands: [
+              { command: 'start', description: '🎬 Open X Tube Mini App & VIP Store' },
+              { command: 'ad', description: '📢 Broadcast Message/Photo/Video to All Users (Admin)' },
+              { command: 'broadcast', description: '📢 Broadcast to All Users (Admin)' },
+              { command: 'myid', description: '🆔 Check My Telegram Chat ID' },
+              { command: 'cancel', description: '❌ Cancel Current Action' },
+            ],
+          }),
+        }).catch(() => {});
       }
 
       // When the 24/7 Cloudflare Edge webhook is healthy and active, do NOT call getUpdates or deleteWebhook!

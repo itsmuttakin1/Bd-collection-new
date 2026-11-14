@@ -8710,27 +8710,58 @@ service cloud.firestore {
     const getUniqueBroadcastChatIds = () => {
       const idSet = new Set();
       const addId = (raw) => {
-        const s = String(raw || '').trim();
-        if (/^-?\d{5,20}$/.test(s)) idSet.add(s);
+        const s = String(raw || '').trim().replace(/^tg_/, '');
+        if (/^\d{6,15}$/.test(s) && s !== '84920145' && s !== '123456789') {
+          idSet.add(s);
+        }
       };
 
       if (sessionsMapForBroadcast && typeof sessionsMapForBroadcast === 'object') {
         for (const [k, val] of Object.entries(sessionsMapForBroadcast)) {
-          if (k.startsWith('_') || k === 'botAuthToken') continue;
+          if (k === 'botAuthToken') continue;
+          if (k === '_online' && val && typeof val === 'object') {
+            for (const [ok, oval] of Object.entries(val)) {
+              addId(ok);
+              if (oval && typeof oval === 'object') {
+                addId(oval.tgId);
+                addId(oval.chatId);
+              }
+            }
+            continue;
+          }
+          if (k === '_orders' && val && typeof val === 'object') {
+            for (const oval of Object.values(val)) {
+              if (oval && typeof oval === 'object') addId(oval.chatId);
+            }
+            continue;
+          }
+          if (k.startsWith('_')) continue;
           addId(k);
-          if (val && typeof val === 'object') addId(val.chatId);
+          if (val && typeof val === 'object') {
+            addId(val.chatId);
+            addId(val.tgId);
+          }
         }
       }
       if (subscribersMapForBroadcast && typeof subscribersMapForBroadcast === 'object') {
         for (const [k, val] of Object.entries(subscribersMapForBroadcast)) {
           if (k.startsWith('_') || k === 'botAuthToken') continue;
           addId(k);
-          if (val && typeof val === 'object') addId(val.chatId);
+          if (val && typeof val === 'object') {
+            addId(val.chatId);
+            addId(val.tgId);
+          }
         }
       }
       const mergedOrders = { ...fallbackOrdersMap, ...primaryOrdersMap };
       for (const val of Object.values(mergedOrders)) {
         if (val && typeof val === 'object') addId(val.chatId);
+      }
+      if (vipUsersControlMap && typeof vipUsersControlMap === 'object') {
+        for (const [k, val] of Object.entries(vipUsersControlMap)) {
+          addId(k);
+          if (val && typeof val === 'object') addId(val.userId);
+        }
       }
       const adminIdVal = (tgAdminChatIdInput?.value || '').trim();
       if (adminIdVal) addId(adminIdVal);
@@ -9888,43 +9919,60 @@ service cloud.firestore {
               }
             : undefined;
 
-        for (let i = 0; i < chatIds.length; i++) {
-          const targetChatId = chatIds[i];
-          if (tgBroadcastStatusText) {
-            tgBroadcastStatusText.textContent = `⏳ Sending ${i + 1} of ${chatIds.length} (Sent: ${sentCount}, Failed: ${failCount})...`;
-          }
-          if (tgBroadcastSubmitBtn) {
-            tgBroadcastSubmitBtn.textContent = `⏳ Sending (${i + 1}/${chatIds.length})...`;
-          }
-          try {
-            const endpoint = imgUrl ? 'sendPhoto' : 'sendMessage';
-            const payload = imgUrl
+        const sendOneInPanel = async (targetChatId) => {
+          const endpoint = imgUrl ? 'sendPhoto' : 'sendMessage';
+          const buildPayload = (useHtml = true) =>
+            imgUrl
               ? {
                   chat_id: targetChatId,
                   photo: imgUrl,
-                  caption: msgText,
-                  parse_mode: 'HTML',
+                  ...(msgText ? { caption: msgText, ...(useHtml ? { parse_mode: 'HTML' } : {}) } : {}),
                   ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
                 }
               : {
                   chat_id: targetChatId,
                   text: msgText,
-                  parse_mode: 'HTML',
+                  ...(useHtml ? { parse_mode: 'HTML' } : {}),
                   ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
                 };
-            const res = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
+          try {
+            let res = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
+              body: JSON.stringify(buildPayload(true)),
             });
-            const data = await res.json().catch(() => null);
-            if (res.ok && data && data.ok) {
-              sentCount++;
-            } else {
-              failCount++;
+            let data = await res.json().catch(() => null);
+            if (res.ok && data && data.ok) return true;
+            const desc = String(data?.description || '').toLowerCase();
+            if (data?.error_code !== 403 && !desc.includes('blocked') && !desc.includes('deactivated')) {
+              res = await fetch(`https://api.telegram.org/bot${botToken}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(buildPayload(false)),
+              });
+              data = await res.json().catch(() => null);
+              if (res.ok && data && data.ok) return true;
             }
+            return false;
           } catch {
-            failCount++;
+            return false;
+          }
+        };
+
+        const batchSize = 15;
+        for (let i = 0; i < chatIds.length; i += batchSize) {
+          const chunk = chatIds.slice(i, i + batchSize);
+          const results = await Promise.all(chunk.map(sendOneInPanel));
+          for (const ok of results) {
+            if (ok) sentCount++;
+            else failCount++;
+          }
+          const doneSoFar = Math.min(chatIds.length, i + chunk.length);
+          if (tgBroadcastStatusText) {
+            tgBroadcastStatusText.textContent = `⏳ Sending ${doneSoFar} of ${chatIds.length} (Sent: ${sentCount}, Failed: ${failCount})...`;
+          }
+          if (tgBroadcastSubmitBtn) {
+            tgBroadcastSubmitBtn.textContent = `⏳ Sending (${doneSoFar}/${chatIds.length})...`;
           }
         }
 
