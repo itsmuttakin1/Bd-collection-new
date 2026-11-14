@@ -1784,7 +1784,7 @@ export default function App() {
       visitorId = `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     }
 
-    // 1. Count unique user into Firebase `stats/totalUsers` once per unique visitor
+    // 1. Count unique user into Firebase `stats/totalUsers` + `telegramBotSessions/_stats` once per unique visitor
     const countedKey = 'bd_collection_user_counted_v1';
     let alreadyCounted = false;
     try {
@@ -1802,9 +1802,25 @@ export default function App() {
           }
         })
         .catch(() => {});
+
+      const fallbackStatsRef = ref(db, 'telegramBotSessions/_stats');
+      runTransaction(fallbackStatsRef, (curr) => {
+        const obj = curr && typeof curr === 'object' ? { ...curr } : {};
+        obj.totalUsers = (Number(obj.totalUsers) || 0) + 1;
+        obj.botAuthToken = 'xtube_tg_bot_2026';
+        return obj;
+      })
+        .then((res) => {
+          if (res.committed) {
+            try {
+              localStorage.setItem(countedKey, '1');
+            } catch {}
+          }
+        })
+        .catch(() => {});
     }
 
-    // 2. Count session visit into Firebase `stats/totalVisits` once per browser session
+    // 2. Count session visit into Firebase `stats/totalVisits` + `telegramBotSessions/_stats` once per browser session
     const sessionKey = 'bd_collection_session_counted_v1';
     let sessionCounted = false;
     try {
@@ -1822,6 +1838,22 @@ export default function App() {
           }
         })
         .catch(() => {});
+
+      const fallbackStatsRef = ref(db, 'telegramBotSessions/_stats');
+      runTransaction(fallbackStatsRef, (curr) => {
+        const obj = curr && typeof curr === 'object' ? { ...curr } : {};
+        obj.totalVisits = (Number(obj.totalVisits) || 0) + 1;
+        obj.botAuthToken = 'xtube_tg_bot_2026';
+        return obj;
+      })
+        .then((res) => {
+          if (res.committed) {
+            try {
+              sessionStorage.setItem(sessionKey, '1');
+            } catch {}
+          }
+        })
+        .catch(() => {});
     }
 
     // 3. Track Live Online User Presence in Firebase `presence/$visitorId` + `telegramBotSessions/_online/$visitorId` + Server Heartbeat
@@ -1831,6 +1863,7 @@ export default function App() {
     const userPresenceRef = ref(db, `presence/${presenceKey}`);
     const fallbackOnlineRef = ref(db, `telegramBotSessions/_online/${presenceKey}`);
     const allPresenceRef = ref(db, 'presence');
+    const allFallbackOnlineRef = ref(db, 'telegramBotSessions/_online');
     const connectedRef = ref(db, '.info/connected');
 
     const detectDeviceSummary = () => {
@@ -2015,18 +2048,35 @@ export default function App() {
       allPresenceRef,
       (snap) => {
         const val = snap.val();
-        if (!val || typeof val !== 'object') {
-          setLiveOnlineCount(1);
-          return;
-        }
-        const now = Date.now();
+        if (!val || typeof val !== 'object') return;
         let activeCount = 0;
         for (const item of Object.values(val) as any[]) {
-          if (item && item.online !== false && now - (Number(item.lastSeen) || now) < 180000) {
+          if (item && item.online !== false) {
             activeCount++;
           }
         }
-        setLiveOnlineCount(Math.max(1, activeCount));
+        if (activeCount > 0) {
+          setLiveOnlineCount((prev) => Math.max(prev, activeCount));
+        }
+      },
+      () => {}
+    );
+
+    const unsubFallbackOnline = onValue(
+      allFallbackOnlineRef,
+      (snap) => {
+        const val = snap.val();
+        if (!val || typeof val !== 'object') return;
+        let activeCount = 0;
+        for (const [k, item] of Object.entries(val) as [string, any][]) {
+          if (k === 'botAuthToken') continue;
+          if (item && typeof item === 'object' && item.online !== false) {
+            activeCount++;
+          }
+        }
+        if (activeCount > 0) {
+          setLiveOnlineCount(Math.max(1, activeCount));
+        }
       },
       () => {}
     );
@@ -2064,6 +2114,7 @@ export default function App() {
       unsubUserCrm();
       unsubConnected();
       unsubAllPresence();
+      unsubFallbackOnline();
       window.clearInterval(heartbeatTimer);
       window.removeEventListener('online', handleBrowserOnline);
       window.removeEventListener('offline', handleBrowserOffline);

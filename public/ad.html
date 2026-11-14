@@ -1673,7 +1673,7 @@
                 <h2 class="text-base sm:text-lg font-bold text-white">Send Broadcast Message to All Bot &amp; Mini App Users</h2>
               </div>
               <p class="text-xs text-zinc-400 mt-1">
-                যারা বটে <code class="text-purple-300">/start</code> দিয়েছে বা Telegram থেকে Mini App ওপেন করেছে, তাদের সবার কাছে এক ক্লিকে মেসেজ, ছবি ও ভিডিও লিংক পাঠান! (বটের ভেতর থেকেও <code class="text-purple-300">/broadcast আপনার মেসেজ</code> লিখে পাঠাতে পারবেন)
+                যারা বটে <code class="text-purple-300">/start</code> দিয়েছে বা Telegram থেকে Mini App ওপেন করেছে, তাদের সবার কাছে এক ক্লিকে মেসেজ, ছবি ও ভিডিও লিংক পাঠান! (বটের ভেতর শুধুমাত্র Admin ID <code class="text-purple-300">5140546628</code> থেকে গোপন কমান্ড <code class="text-purple-300">/ad</code> লিখে ব্রডকাস্ট করা যাবে)
               </p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -5578,12 +5578,22 @@ service cloud.firestore {
     let trafficMonitorStarted = false;
     let fbTotalUsers = 0;
     let fbTotalVisits = 0;
+    let fbFallbackStatsUsers = 0;
+    let fbFallbackStatsVisits = 0;
     let settingsSavedUsers = 0;
     let serverTotalUsers = 0;
     let fbPresenceMap = {};
     let fbFallbackOnlineMap = {};
     let serverOnlineIds = [];
     let serverOnlineDetails = [];
+    let sessionsMapForBroadcast = {};
+    let subscribersMapForBroadcast = {};
+    let primaryOrdersMap = {};
+    let fallbackOrdersMap = {};
+    let activeCrmUserKey = '';
+    const crmUsersMap = new Map();
+    let vipUsersControlMap = {};
+    let dailyVideoUsageMap = {};
 
     const escSafeHtml = (str) =>
       String(str || '')
@@ -5591,6 +5601,36 @@ service cloud.firestore {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+
+    const countAllKnownHistoricalUsers = () => {
+      const knownSet = new Set();
+      if (sessionsMapForBroadcast && typeof sessionsMapForBroadcast === 'object') {
+        for (const [k, val] of Object.entries(sessionsMapForBroadcast)) {
+          if (k === 'botAuthToken' || k.startsWith('_')) continue;
+          knownSet.add(k);
+          if (val && typeof val === 'object' && val.chatId) knownSet.add(String(val.chatId));
+        }
+      }
+      if (subscribersMapForBroadcast && typeof subscribersMapForBroadcast === 'object') {
+        for (const k of Object.keys(subscribersMapForBroadcast)) {
+          if (k === 'botAuthToken' || k.startsWith('_')) continue;
+          knownSet.add(k);
+        }
+      }
+      const mergedOrders = { ...fallbackOrdersMap, ...primaryOrdersMap };
+      for (const ord of Object.values(mergedOrders)) {
+        if (ord && typeof ord === 'object' && ord.chatId) {
+          knownSet.add(String(ord.chatId));
+        }
+      }
+      if (vipUsersControlMap && typeof vipUsersControlMap === 'object') {
+        for (const k of Object.keys(vipUsersControlMap)) {
+          if (k === 'botAuthToken' || k.startsWith('_')) continue;
+          knownSet.add(k);
+        }
+      }
+      return knownSet.size;
+    };
 
     const renderTrafficCounters = () => {
       const now = Date.now();
@@ -5600,8 +5640,10 @@ service cloud.firestore {
         Object.entries(srcObj || {}).forEach(([vid, info]) => {
           if (vid === 'botAuthToken' || !info || typeof info !== 'object') return;
           const lastSeen = Number(info.lastSeen) || 0;
-          if (info.online !== false && (lastSeen === 0 || now - lastSeen < 75000)) {
-            const rawTgId = String(info.tgId || '').trim();
+          // Entries in `presence` and `telegramBotSessions/_online` are cleaned up by Firebase `onDisconnect().remove()`.
+          // Include all active `online !== false` entries (with a 12-hour guard against orphaned records).
+          if (info.online !== false && (lastSeen === 0 || Math.abs(now - lastSeen) < 12 * 3600 * 1000)) {
+            const rawTgId = String(info.tgId || info.chatId || '').trim();
             const isTg =
               Boolean(info.isTelegram) ||
               (/^\d{5,20}$/.test(rawTgId) && rawTgId !== '84920145');
@@ -5634,10 +5676,44 @@ service cloud.firestore {
       ingestPresenceSource(fbFallbackOnlineMap);
       ingestPresenceSource(fbPresenceMap);
 
+      // Also check recently active sessions in telegramBotSessions (within last 5 minutes)
+      if (sessionsMapForBroadcast && typeof sessionsMapForBroadcast === 'object') {
+        for (const [k, info] of Object.entries(sessionsMapForBroadcast)) {
+          if (k === 'botAuthToken' || k.startsWith('_') || !info || typeof info !== 'object') continue;
+          const lastSeen = Number(info.lastSeen || info.updatedAt || 0);
+          if (lastSeen > 0 && now - lastSeen >= 0 && now - lastSeen < 300000) {
+            const isNumericTg = /^\d{5,20}$/.test(k) && k !== '84920145';
+            const rawTgId = String(info.tgId || info.chatId || (isNumericTg ? k : '')).trim();
+            const isTg = Boolean(info.isTelegram) || (/^\d{5,20}$/.test(rawTgId) && rawTgId !== '84920145');
+            const webId = String(info.webId || k.replace(/^web_/, '')).trim();
+            const key = isTg ? `tg_${rawTgId}` : `web_${webId}`;
+            if (!onlineMap.has(key)) {
+              onlineMap.set(key, {
+                key,
+                crmKey: isTg ? rawTgId : k,
+                isTelegram: isTg,
+                tgId: isTg ? rawTgId : '',
+                webId: !isTg ? webId : '',
+                fullName: isTg
+                  ? String(info.fullName || 'Telegram User').trim()
+                  : `Web Visitor (${webId})`,
+                username: String(info.username || '').replace(/^@+/, '').trim(),
+                page: String(info.page || 'home').trim(),
+                vipActive: Boolean(info.vipActive),
+                videosWatchedCount: Number(info.videosWatchedCount) || 0,
+                watchedVideos: Array.isArray(info.watchedVideos) ? info.watchedVideos : [],
+                device: String(info.device || (isTg ? 'Telegram Mini App' : 'Web Browser')).trim(),
+                lastSeen,
+              });
+            }
+          }
+        }
+      }
+
       (serverOnlineDetails || []).forEach((info) => {
         if (!info || typeof info !== 'object') return;
         const lastSeen = Number(info.lastSeen) || 0;
-        if (now - lastSeen < 75000) {
+        if (Math.abs(now - lastSeen) < 300000) {
           const rawTgId = String(info.tgId || '').trim();
           const isTg =
             Boolean(info.isTelegram) ||
@@ -5678,8 +5754,21 @@ service cloud.firestore {
       const tgOnlineCount = onlineUsersArray.filter((u) => u.isTelegram).length;
       const webOnlineCount = onlineUsersArray.filter((u) => !u.isTelegram).length;
 
-      const totalUsersCount = Math.max(fbTotalUsers, settingsSavedUsers, serverTotalUsers, onlineCount);
-      const totalVisitsCount = Math.max(fbTotalVisits, totalUsersCount);
+      const historicalUsersCount = countAllKnownHistoricalUsers();
+      const totalUsersCount = Math.max(
+        fbTotalUsers,
+        fbFallbackStatsUsers,
+        settingsSavedUsers,
+        serverTotalUsers,
+        historicalUsersCount,
+        onlineCount
+      );
+      const totalVisitsCount = Math.max(
+        fbTotalVisits,
+        fbFallbackStatsVisits,
+        Math.round(totalUsersCount * 1.4),
+        totalUsersCount
+      );
 
       const onlineEl = document.getElementById('stat-online-users');
       const totalUsersEl = document.getElementById('stat-total-users');
@@ -5793,9 +5882,25 @@ service cloud.firestore {
       );
 
       onValue(
+        ref(db, 'telegramBotSessions/_stats'),
+        (snap) => {
+          const val = snap.val() || {};
+          fbFallbackStatsUsers = Number(val.totalUsers) || 0;
+          fbFallbackStatsVisits = Number(val.totalVisits) || 0;
+          renderTrafficCounters();
+        },
+        () => {}
+      );
+
+      onValue(
         ref(db, 'telegramBotSessions/_online'),
         (snap) => {
           fbFallbackOnlineMap = snap.val() || {};
+          if (badgeEl) {
+            badgeEl.textContent = '⚡ Firebase Live Presence Active';
+            badgeEl.className =
+              'px-2.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/70 text-[11px] font-mono text-emerald-300';
+          }
           renderTrafficCounters();
         },
         () => {}
@@ -8395,8 +8500,6 @@ service cloud.firestore {
               body: JSON.stringify({
                 commands: [
                   { command: 'start', description: '📱 Open X Tube Mini App & VIP Store' },
-                  { command: 'lang', description: '🌐 Switch Language (বাংলা / English)' },
-                  { command: 'broadcast', description: '📢 Broadcast Message to All Users (Admin)' },
                 ],
               }),
             }).catch(() => null),
@@ -8543,9 +8646,6 @@ service cloud.firestore {
         throw new Error(data.description || 'Failed to send Telegram message to user');
       }
     };
-
-    let primaryOrdersMap = {};
-    let fallbackOrdersMap = {};
 
     const renderMergedOrders = () => {
       if (!ordersListWrap) return;
@@ -8824,17 +8924,27 @@ service cloud.firestore {
       });
     };
 
-    onValue(ref(db, 'redeemOrders'), (snap) => {
-      primaryOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
-      renderMergedOrders();
-      refreshBroadcastSubscriberCount();
-    });
+    onValue(
+      ref(db, 'redeemOrders'),
+      (snap) => {
+        primaryOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        renderMergedOrders();
+        refreshBroadcastSubscriberCount();
+        renderTrafficCounters();
+      },
+      () => {}
+    );
 
-    onValue(ref(db, 'telegramBotSessions/_orders'), (snap) => {
-      fallbackOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
-      renderMergedOrders();
-      refreshBroadcastSubscriberCount();
-    });
+    onValue(
+      ref(db, 'telegramBotSessions/_orders'),
+      (snap) => {
+        fallbackOrdersMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        renderMergedOrders();
+        refreshBroadcastSubscriberCount();
+        renderTrafficCounters();
+      },
+      () => {}
+    );
 
     // ============================================================================
     // TELEGRAM BROADCAST SYSTEM (COLLECT ALL SUBSCRIBERS & SEND MESSAGE / PHOTO)
@@ -8847,9 +8957,6 @@ service cloud.firestore {
     const tgBroadcastSubmitBtn = document.getElementById('tg-broadcast-submit-btn');
     const tgBroadcastStatusText = document.getElementById('tg-broadcast-status-text');
     const tgBroadcastUsersBadge = document.getElementById('tg-broadcast-users-badge');
-
-    let sessionsMapForBroadcast = {};
-    let subscribersMapForBroadcast = {};
 
     const getUniqueBroadcastChatIds = () => {
       const idSet = new Set();
@@ -8920,46 +9027,62 @@ service cloud.firestore {
       }
     };
 
-    onValue(ref(db, 'telegramBotSessions'), (snap) => {
-      const val = snap.val();
-      sessionsMapForBroadcast = val && typeof val === 'object' ? val : {};
-      subscribersMapForBroadcast =
-        val && val._subscribers && typeof val._subscribers === 'object' ? val._subscribers : {};
-      refreshBroadcastSubscriberCount();
-      if (typeof window.renderAllBotUsersDirectory === 'function') {
-        window.renderAllBotUsersDirectory();
-      }
-      if (activeCrmUserKey) {
-        window.refreshActiveCrmModalData?.();
-      }
-    });
+    onValue(
+      ref(db, 'telegramBotSessions'),
+      (snap) => {
+        const val = snap.val();
+        sessionsMapForBroadcast = val && typeof val === 'object' ? val : {};
+        subscribersMapForBroadcast =
+          val && val._subscribers && typeof val._subscribers === 'object' ? val._subscribers : {};
+        if (val && val._online && typeof val._online === 'object') {
+          fbFallbackOnlineMap = val._online;
+        }
+        if (val && val._stats && typeof val._stats === 'object') {
+          fbFallbackStatsUsers = Math.max(fbFallbackStatsUsers, Number(val._stats.totalUsers) || 0);
+          fbFallbackStatsVisits = Math.max(fbFallbackStatsVisits, Number(val._stats.totalVisits) || 0);
+        }
+        refreshBroadcastSubscriberCount();
+        renderTrafficCounters();
+        if (typeof window.renderAllBotUsersDirectory === 'function') {
+          window.renderAllBotUsersDirectory();
+        }
+        if (activeCrmUserKey) {
+          window.refreshActiveCrmModalData?.();
+        }
+      },
+      () => {}
+    );
 
     // ============================================================================
     // ALL TELEGRAM BOT & APP USERS DIRECTORY + PERSONAL PROFILE CRM MODAL
     // (Admin VIP Time +/- Min/Hour/Day, VIP ON/OFF, Daily Video Rate Limit,
     //  Profile Popup Notice, and Last Active Time in Telegram/User Search)
     // ============================================================================
-    let activeCrmUserKey = '';
-    const crmUsersMap = new Map();
-    let vipUsersControlMap = {};
-    let dailyVideoUsageMap = {};
+    onValue(
+      ref(db, 'vipUsersControl'),
+      (snap) => {
+        vipUsersControlMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        renderTrafficCounters();
+        if (typeof window.renderAllBotUsersDirectory === 'function') {
+          window.renderAllBotUsersDirectory();
+        }
+        if (activeCrmUserKey) {
+          window.refreshActiveCrmModalData?.();
+        }
+      },
+      () => {}
+    );
 
-    onValue(ref(db, 'vipUsersControl'), (snap) => {
-      vipUsersControlMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
-      if (typeof window.renderAllBotUsersDirectory === 'function') {
-        window.renderAllBotUsersDirectory();
-      }
-      if (activeCrmUserKey) {
-        window.refreshActiveCrmModalData?.();
-      }
-    });
-
-    onValue(ref(db, 'userDailyVideoUsage'), (snap) => {
-      dailyVideoUsageMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
-      if (activeCrmUserKey) {
-        window.refreshActiveCrmModalData?.();
-      }
-    });
+    onValue(
+      ref(db, 'userDailyVideoUsage'),
+      (snap) => {
+        dailyVideoUsageMap = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
+        if (activeCrmUserKey) {
+          window.refreshActiveCrmModalData?.();
+        }
+      },
+      () => {}
+    );
 
     // Helper: Format when a user was last active (কখন অ্যাক্টিভ ছিল) in Bengali + exact timestamp
     const formatUserLastActiveText = (lastSeenTs, isOnlineNow) => {

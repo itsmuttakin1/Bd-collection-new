@@ -1018,7 +1018,7 @@ async function startServer() {
           mergedCfg.paymentNote ||
             'Send Money করার পর নিচের বাটনে ক্লিক করে আপনার নাম্বার ও TrxID পাঠান।'
         ),
-        adminChatId: String(mergedCfg.adminChatId || queryAdminId || '').trim(),
+        adminChatId: String(mergedCfg.adminChatId || queryAdminId || '5140546628').trim(),
         botPass: String(mergedCfg.botPass || requiredPass || 'Muttakin').trim(),
       };
       return memoStoreData;
@@ -1279,7 +1279,11 @@ async function startServer() {
       const userLang = resolveUserLang(session, cb.from);
       const isEn = userLang === 'en';
 
+      const isAllowedAdminId =
+        String(chatId) === '5140546628' || String(cb.from?.id || '') === '5140546628';
+
       if (data === 'cancel_broadcast_mode') {
+        if (!isAllowedAdminId) return;
         await Promise.all([
           saveChatSession(chatId, { ...session, lang: userLang, step: 'idle' }, cb.from),
           tgApi('answerCallbackQuery', {
@@ -1296,6 +1300,7 @@ async function startServer() {
       }
 
       if (data === 'continue_bcast_job') {
+        if (!isAllowedAdminId) return;
         await tgApi('answerCallbackQuery', {
           callback_query_id: cb.id,
           text: '⚡ Broadcast প্রসেস হচ্ছে...',
@@ -1672,29 +1677,28 @@ async function startServer() {
       return;
     }
 
-    // Admin Broadcast command directly inside Telegram Bot: `/ad` or `/broadcast` (plus interactive `awaiting_broadcast` step)
-    const isAdOrBroadcastCmd = /^\/(ad|broadcast)(@[a-zA-Z0-9_]+)?(\s|$)/i.test(text);
+    // Secret Admin Broadcast command inside Telegram Bot: ONLY `/ad` and strictly locked to Telegram ID `5140546628`
+    const isAdCmd = /^\/ad(@[a-zA-Z0-9_]+)?(\s|$)/i.test(text);
     const isAwaitingBroadcast =
       session?.step === 'awaiting_broadcast' && !text.startsWith('/');
 
-    if (isAdOrBroadcastCmd || isAwaitingBroadcast) {
-      const targetAdmin = String(adminChatId || queryAdminId || '').trim();
-      const senderUsername = String(msg.from?.username || '').replace(/^@/, '').toLowerCase();
+    if (isAdCmd || isAwaitingBroadcast) {
       const isAuthorizedAdmin =
-        !targetAdmin ||
-        String(chatId) === targetAdmin ||
-        (senderUsername && senderUsername === targetAdmin.replace(/^@/, '').toLowerCase());
+        String(chatId) === '5140546628' || String(msg.from?.id || '') === '5140546628';
 
       if (!isAuthorizedAdmin) {
+        if (session?.step === 'awaiting_broadcast') {
+          await saveChatSession(chatId, { ...session, step: 'idle' }, msg.from);
+        }
         await tgApi('sendMessage', {
           chat_id: chatId,
-          text: '⛔ শুধুমাত্র Admin এই কমান্ড ব্যবহার করতে পারবেন!',
+          text: '⛔ অ্যাক্সেস নেই! এই কমান্ড শুধুমাত্র অনুমোদিত Admin ব্যবহার করতে পারবেন।',
         });
         return;
       }
 
-      const bcastText = isAdOrBroadcastCmd
-        ? text.replace(/^\/(ad|broadcast)(@[a-zA-Z0-9_]+)?\s*/i, '').trim()
+      const bcastText = isAdCmd
+        ? text.replace(/^\/ad(@[a-zA-Z0-9_]+)?\s*/i, '').trim()
         : text;
       const replyMsg = msg.reply_to_message;
       const hasDirectMedia = Boolean(
@@ -1704,7 +1708,7 @@ async function startServer() {
           msg.document
       );
 
-      if (isAdOrBroadcastCmd && !bcastText && !replyMsg && !hasDirectMedia) {
+      if (isAdCmd && !bcastText && !replyMsg && !hasDirectMedia) {
         const allChatIds = await collectAllSubscriberChatIds();
         await Promise.all([
           saveChatSession(
@@ -1715,9 +1719,9 @@ async function startServer() {
           tgApi('sendMessage', {
             chat_id: chatId,
             text:
-              `📢 <b>Broadcast Mode চালু হয়েছে! (মোট ইউজার: ${allChatIds.length} জন)</b>\n\n` +
+              `📢 <b>Admin Broadcast Mode চালু হয়েছে! (মোট ইউজার: ${allChatIds.length} জন)</b>\n\n` +
               `👇 <b>এখন আপনি যেকোনো মেসেজ, ছবি (Photo), ভিডিও (Video), বা পোস্ট এই চ্যাটে পাঠান</b> — সেটি সাথে সাথে সব ইউজারের (${allChatIds.length} জন) কাছে চলে যাবে!\n\n` +
-              `💡 <b>অন্যান্য শর্টকাট নিয়ম:</b>\n` +
+              `💡 <b>শর্টকাট নিয়ম:</b>\n` +
               `• সরাসরি লিখুন: <code>/ad আপনার মেসেজ এখানে লিখুন</code>\n` +
               `• ছবি বা ভিডিওর ক্যাপশনে লিখুন: <code>/ad আপনার ক্যাপশন</code>\n` +
               `• যেকোনো ছবি/ভিডিও/মেসেজে <b>Reply</b> দিয়ে লিখুন: <code>/ad</code>`,
@@ -2978,11 +2982,7 @@ async function startServer() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             commands: [
-              { command: 'start', description: '🎬 Open X Tube Mini App & VIP Store' },
-              { command: 'ad', description: '📢 Broadcast Message/Photo/Video to All Users (Admin)' },
-              { command: 'broadcast', description: '📢 Broadcast to All Users (Admin)' },
-              { command: 'myid', description: '🆔 Check My Telegram Chat ID' },
-              { command: 'cancel', description: '❌ Cancel Current Action' },
+              { command: 'start', description: '📱 Open X Tube Mini App & VIP Store' },
             ],
           }),
         }).catch(() => {});
