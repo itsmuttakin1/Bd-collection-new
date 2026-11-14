@@ -745,6 +745,138 @@
               </div>
             </div>
 
+            <!-- VIP Profile Frame Selector Grid (16+ Frames + Remove) -->
+            <div class="p-3.5 rounded-xl bg-zinc-950/90 border border-amber-500/40 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-gradient-to-r from-amber-500 to-fuchsia-500 text-zinc-950 text-[10px] font-extrabold">🖼️ VIP PROFILE FRAMES (১৬টি ফ্রেম)</span>
+                  <span class="text-xs font-extrabold text-amber-300">ইউজারের প্রোফাইলে প্রিমিয়াম ফ্রেম সেট করুন (১-ক্লিকে লাইভ হবে):</span>
+                </div>
+                <span id="crm-active-frame-badge" class="px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-[10px] font-mono font-bold text-zinc-300">ফ্রেম নেই (No Frame)</span>
+              </div>
+              <div id="crm-profile-frame-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5">
+                <button type="button" data-crm-frame-id="none" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-600 flex items-center justify-center text-sm shrink-0">🚫</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-zinc-200 truncate">No Frame</div>
+                    <div class="text-[9px] text-zinc-400 truncate">ফ্রেম রিমুভ</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="royal_gold" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-amber-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-yellow-300 via-amber-500 to-yellow-600 flex items-center justify-center text-sm shrink-0 shadow">👑</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-amber-300 truncate">Royal Gold</div>
+                    <div class="text-[9px] text-zinc-400 truncate">সোনালী মুকুট</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="diamond_crystal" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-cyan-400/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-200 via-sky-400 to-indigo-500 flex items-center justify-center text-sm shrink-0 shadow">💎</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-cyan-300 truncate">Diamond Ice</div>
+                    <div class="text-[9px] text-zinc-400 truncate">ডায়মন্ড ক্রিস্টাল</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="dragon_fire" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-orange-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-red-600 via-orange-500 to-yellow-400 flex items-center justify-center text-sm shrink-0 shadow">🔥</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-orange-300 truncate">Dragon Fire</div>
+                    <div class="text-[9px] text-zinc-400 truncate">ড্রাগন ফায়ার</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="cyber_neon" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-fuchsia-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-fuchsia-500 via-purple-500 to-cyan-400 flex items-center justify-center text-sm shrink-0 shadow">⚡</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-fuchsia-300 truncate">Cyber Neon</div>
+                    <div class="text-[9px] text-zinc-400 truncate">সাইবার নিয়ন</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="emerald_king" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-emerald-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-emerald-300 via-green-500 to-teal-700 flex items-center justify-center text-sm shrink-0 shadow">🐉</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-emerald-300 truncate">Emerald King</div>
+                    <div class="text-[9px] text-zinc-400 truncate">এমেরাল্ড সম্রাট</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="ruby_empress" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-rose-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-rose-400 via-red-600 to-pink-600 flex items-center justify-center text-sm shrink-0 shadow">❤️‍🔥</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-rose-300 truncate">Ruby Empress</div>
+                    <div class="text-[9px] text-zinc-400 truncate">ক্রিমসন রুবি</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="galaxy_cosmic" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-purple-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center text-sm shrink-0 shadow">🌌</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-purple-300 truncate">Galaxy Cosmic</div>
+                    <div class="text-[9px] text-zinc-400 truncate">গ্যালাক্সি ওরা</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="sakura_bloom" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-pink-400/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-pink-300 via-rose-400 to-fuchsia-500 flex items-center justify-center text-sm shrink-0 shadow">🌸</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-pink-300 truncate">Sakura Bloom</div>
+                    <div class="text-[9px] text-zinc-400 truncate">সাকুরা ব্লসম</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="thunder_storm" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-blue-400/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-400 via-cyan-300 to-indigo-600 flex items-center justify-center text-sm shrink-0 shadow">🌩️</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-sky-300 truncate">Thunder God</div>
+                    <div class="text-[9px] text-zinc-400 truncate">থান্ডার লাইটনিং</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="inferno_lava" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-red-600/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 via-red-600 to-rose-900 flex items-center justify-center text-sm shrink-0 shadow">🌋</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-red-300 truncate">Inferno Lava</div>
+                    <div class="text-[9px] text-zinc-400 truncate">ম্যাগমা লাভা</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="mystic_violet" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-violet-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-400 via-purple-600 to-fuchsia-700 flex items-center justify-center text-sm shrink-0 shadow">🔮</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-violet-300 truncate">Mystic Violet</div>
+                    <div class="text-[9px] text-zinc-400 truncate">মিস্টিক ভায়োলেট</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="rainbow_prism" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-pink-400/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-rose-500 via-amber-400 to-cyan-400 flex items-center justify-center text-sm shrink-0 shadow">🌈</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-amber-200 truncate">RGB Legend</div>
+                    <div class="text-[9px] text-zinc-400 truncate">প্রিজম রেইনবো</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="phantom_shadow" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-500/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-slate-300 via-zinc-600 to-red-600 flex items-center justify-center text-sm shrink-0 shadow">💀</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-zinc-200 truncate">Phantom Dark</div>
+                    <div class="text-[9px] text-zinc-400 truncate">ডার্ক অপস স্কাল</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="angelic_wings" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-amber-200/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-200 via-white to-sky-300 flex items-center justify-center text-sm shrink-0 shadow">🪽</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-amber-100 truncate">Angelic Halo</div>
+                    <div class="text-[9px] text-zinc-400 truncate">অ্যাঞ্জেলিক উইংস</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="toxic_venom" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-lime-400/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-lime-300 via-green-500 to-emerald-600 flex items-center justify-center text-sm shrink-0 shadow">☣️</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-lime-300 truncate">Acid Venom</div>
+                    <div class="text-[9px] text-zinc-400 truncate">নিয়ন ভেনম গ্লো</div>
+                  </div>
+                </button>
+                <button type="button" data-crm-frame-id="platinum_supreme" class="crm-frame-select-btn p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-slate-300/50 flex items-center gap-2 text-left cursor-pointer transition-all">
+                  <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-slate-100 via-cyan-200 to-slate-400 flex items-center justify-center text-sm shrink-0 shadow">🛡️</span>
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-extrabold text-slate-200 truncate">Platinum VIP</div>
+                    <div class="text-[9px] text-zinc-400 truncate">সুপ্রিম শিল্ড</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <p id="crm-vip-control-feedback" class="hidden text-[11px] font-mono text-emerald-300 bg-zinc-950/90 border border-emerald-700/50 rounded-lg px-3 py-1.5"></p>
           </div>
 
@@ -2443,7 +2575,11 @@ export default {
             },
             vipUsersControl: {
               ".read": true,
-              ".write": adminOnly
+              ".write": adminOnly,
+              "$userId": {
+                ".read": true,
+                ".write": adminOnly
+              }
             },
             userDailyVideoUsage: {
               ".read": true,
@@ -2509,9 +2645,17 @@ export default {
             },
             telegramBotSessions: {
               ".read": true,
+              ".write": adminOnly,
               "$chatId": {
                 ".read": true,
-                ".write": botOrAdmin
+                ".write": botOrAdmin,
+                "adminVipOverride": {
+                  ".write": adminOnly
+                },
+                "$subKey": {
+                  ".read": true,
+                  ".write": botOrAdmin
+                }
               }
             },
             seoConfig: {
@@ -8882,6 +9026,7 @@ service cloud.firestore {
           vipActive: false,
           vipExpiresAt: 0,
           activeVipCode: '',
+          profileFrame: '',
           device: isTg ? 'Telegram Mini App / Bot' : 'Web Browser',
           lastSeen: 0,
           isOnlineNow: false,
@@ -8914,6 +9059,9 @@ service cloud.firestore {
           if (Number(rawObj.vipExpiresAt) > existing.vipExpiresAt) {
             existing.vipExpiresAt = Number(rawObj.vipExpiresAt);
           }
+          if (typeof rawObj.profileFrame === 'string' && rawObj.profileFrame.trim()) {
+            existing.profileFrame = rawObj.profileFrame.trim() === 'none' ? '' : rawObj.profileFrame.trim();
+          }
           if (rawObj.device) {
             existing.device = String(rawObj.device);
           }
@@ -8940,6 +9088,9 @@ service cloud.firestore {
           }
           if (uc.activeCode) {
             existing.activeVipCode = String(uc.activeCode);
+          }
+          if (typeof uc.profileFrame === 'string') {
+            existing.profileFrame = uc.profileFrame === 'none' ? '' : uc.profileFrame;
           }
         }
 
@@ -9052,6 +9203,25 @@ service cloud.firestore {
         return;
       }
 
+      const CRM_FRAME_LABELS = {
+        royal_gold: '👑 Royal Gold',
+        diamond_crystal: '💎 Diamond Ice',
+        dragon_fire: '🔥 Dragon Fire',
+        cyber_neon: '⚡ Cyber Neon',
+        emerald_king: '🐉 Emerald King',
+        ruby_empress: '❤️‍🔥 Ruby Empress',
+        galaxy_cosmic: '🌌 Galaxy Cosmic',
+        sakura_bloom: '🌸 Sakura Bloom',
+        thunder_storm: '🌩️ Thunder God',
+        inferno_lava: '🌋 Inferno Lava',
+        mystic_violet: '🔮 Mystic Violet',
+        rainbow_prism: '🌈 RGB Legend',
+        phantom_shadow: '💀 Phantom Dark',
+        angelic_wings: '🪽 Angelic Halo',
+        toxic_venom: '☣️ Acid Venom',
+        platinum_supreme: '🛡️ Platinum VIP',
+      };
+
       const now = Date.now();
       crmDirectoryEl.innerHTML = filtered
         .map((u) => {
@@ -9062,6 +9232,10 @@ service cloud.firestore {
             : `<span class="px-1.5 py-0.5 rounded bg-zinc-800 text-[9px] font-mono text-zinc-400">Offline</span>`;
           const vipBadge = isVipNow
             ? `<span class="px-1.5 py-0.5 rounded bg-amber-500 text-zinc-950 text-[9px] font-mono font-extrabold">👑 VIP ON</span>`
+            : '';
+          const frameLabel = u.profileFrame && CRM_FRAME_LABELS[u.profileFrame] ? CRM_FRAME_LABELS[u.profileFrame] : '';
+          const frameBadge = frameLabel
+            ? `<span class="px-1.5 py-0.5 rounded bg-fuchsia-950 border border-fuchsia-500/60 text-[9px] font-mono font-bold text-fuchsia-200">${frameLabel}</span>`
             : '';
           const limitBadge = u.dailyVideoLimit > 0
             ? `<span class="px-1.5 py-0.5 rounded bg-rose-950 border border-rose-700/60 text-[9px] font-mono font-bold text-rose-300">🎬 ${u.dailyWatchedCount || 0}/${u.dailyVideoLimit}/day</span>`
@@ -9092,6 +9266,7 @@ service cloud.firestore {
                   <span class="font-extrabold text-white truncate">${escSafeHtml(u.fullName)}</span>
                   ${onlineBadge}
                   ${vipBadge}
+                  ${frameBadge}
                   ${watchedBadge}
                   ${limitBadge}
                   ${noticeBadge}
@@ -9249,6 +9424,44 @@ service cloud.firestore {
         crmDailyLimitInput.value = String(userObj.dailyVideoLimit || 0);
       }
 
+      // Highlight active VIP Profile Frame in Modal
+      const activeFrameId = userObj.profileFrame || 'none';
+      const crmActiveFrameBadgeEl = document.getElementById('crm-active-frame-badge');
+      const FRAME_NAMES_MAP = {
+        none: '🚫 ফ্রেম নেই (No Frame)',
+        royal_gold: '👑 Royal Gold Crown (সোনালী মুকুট)',
+        diamond_crystal: '💎 Diamond Ice Crystal (ডায়মন্ড ক্রিস্টাল)',
+        dragon_fire: '🔥 Dragon Fire Blaze (ড্রাগন ফায়ার)',
+        cyber_neon: '⚡ Cyber Neon Pulse (সাইবার নিয়ন)',
+        emerald_king: '🐉 Emerald Jade Emperor (এমেরাল্ড সম্রাট)',
+        ruby_empress: '❤️‍🔥 Crimson Ruby Empress (ক্রিমসন রুবি)',
+        galaxy_cosmic: '🌌 Galaxy Cosmic Aura (গ্যালাক্সি ওরা)',
+        sakura_bloom: '🌸 Sakura Blossom Pink (সাকুরা পিংক)',
+        thunder_storm: '🌩️ Thunder God Lightning (থান্ডার গড)',
+        inferno_lava: '🌋 Magma Inferno Lord (ম্যাগমা লাভা)',
+        mystic_violet: '🔮 Mystic Arcane Violet (মিস্টিক ভায়োলেট)',
+        rainbow_prism: '🌈 Prismatic RGB Legend (প্রিজম রেইনবো)',
+        phantom_shadow: '💀 Phantom Dark Ops (ডার্ক অপস)',
+        angelic_wings: '🪽 Celestial Angelic Halo (অ্যাঞ্জেলিক হ্যালো)',
+        toxic_venom: '☣️ Bio-Hazard Acid Neon (অ্যাসিড ভেনম)',
+        platinum_supreme: '🛡️ Supreme Platinum Shield (প্ল্যাটিনাম শিল্ড)',
+      };
+      if (crmActiveFrameBadgeEl) {
+        crmActiveFrameBadgeEl.textContent = FRAME_NAMES_MAP[activeFrameId] || activeFrameId;
+        crmActiveFrameBadgeEl.className =
+          activeFrameId !== 'none'
+            ? 'px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400 text-[10px] font-mono font-extrabold text-amber-300'
+            : 'px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-[10px] font-mono font-bold text-zinc-400';
+      }
+      document.querySelectorAll('.crm-frame-select-btn').forEach((btn) => {
+        const fid = btn.getAttribute('data-crm-frame-id') || 'none';
+        if (fid === activeFrameId) {
+          btn.classList.add('ring-2', 'ring-amber-400', 'bg-amber-500/15');
+        } else {
+          btn.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-500/15');
+        }
+      });
+
       if (crmWatchedListEl) {
         const wList = Array.isArray(userObj.watchedVideos) ? userObj.watchedVideos : [];
         if (wList.length === 0) {
@@ -9296,8 +9509,8 @@ service cloud.firestore {
       }
     };
 
-    // Admin VIP Control Helper: Update user's VIP time (+ / - min, hour, day), VIP ON/OFF, or Daily Video Limit
-    const applyAdminVipUserControl = async ({ deltaMs = 0, toggleVip = false, setDailyLimit = null }) => {
+    // Admin VIP Control Helper: Update user's VIP time (+ / - min, hour, day), VIP ON/OFF, Daily Video Limit, or Profile Frame
+    const applyAdminVipUserControl = async ({ deltaMs = 0, toggleVip = false, setDailyLimit = null, setProfileFrame = null }) => {
       if (!activeCrmUserKey) return;
       buildMergedCrmUsersList();
       const now = Date.now();
@@ -9310,6 +9523,10 @@ service cloud.firestore {
         typeof existingControl.dailyVideoLimit === 'number'
           ? existingControl.dailyVideoLimit
           : Number(userObj.dailyVideoLimit || 0);
+      let currentFrame =
+        typeof existingControl.profileFrame === 'string'
+          ? existingControl.profileFrame
+          : String(userObj.profileFrame || '');
 
       if (toggleVip) {
         currentActive = !currentActive;
@@ -9329,6 +9546,10 @@ service cloud.firestore {
         currentLimit = Math.max(0, Math.floor(Number(setDailyLimit) || 0));
       }
 
+      if (setProfileFrame !== null) {
+        currentFrame = String(setProfileFrame).trim();
+      }
+
       const activeCode = existingControl.activeCode || userObj.activeVipCode || userObj.personalNotice?.giftCode || '';
 
       const payload = {
@@ -9336,17 +9557,19 @@ service cloud.firestore {
         vipActive: currentActive,
         expiresAt: currentExpiresAt,
         dailyVideoLimit: currentLimit,
+        profileFrame: currentFrame || 'none',
         activeCode: activeCode || 'ADMIN-VIP',
         durationLabel: currentActive ? 'Admin Controlled VIP' : 'VIP OFF',
         updatedAt: now,
       };
 
       const promises = [
-        set(ref(db, `vipUsersControl/${activeCrmUserKey}`), payload),
+        set(ref(db, `vipUsersControl/${activeCrmUserKey}`), payload).catch(() => {}),
         update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
           vipActive: currentActive,
           vipExpiresAt: currentExpiresAt,
           dailyVideoLimit: currentLimit,
+          profileFrame: currentFrame || 'none',
           botAuthToken: 'xtube_tg_bot_2026',
         }).catch(() => {}),
       ];
@@ -9372,6 +9595,23 @@ service cloud.firestore {
       window.refreshActiveCrmModalData();
       return payload;
     };
+
+    document.querySelectorAll('.crm-frame-select-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const frameId = btn.getAttribute('data-crm-frame-id') || 'none';
+        try {
+          await applyAdminVipUserControl({ setProfileFrame: frameId });
+          const msg =
+            frameId === 'none'
+              ? '🚫 ইউজারের প্রোফাইল ফ্রেম রিমুভ করা হয়েছে!'
+              : `🖼️ ইউজারের প্রোফাইলে "${btn.textContent.trim().replace(/\s+/g, ' ')}" VIP ফ্রেম সেট করা হয়েছে!`;
+          showCrmVipFeedback(msg);
+          showStatus(msg, 'success');
+        } catch (err) {
+          showStatus(`Profile Frame Error: ${err.message}`, 'error');
+        }
+      });
+    });
 
     if (crmToggleVipBtn) {
       crmToggleVipBtn.addEventListener('click', async () => {

@@ -27,6 +27,236 @@ const VIP_STATE_CHANGE_EVENT = 'xtube_vip_state_changed';
 let serverTimeOffsetMs = 0;
 let serverOffsetInitialized = false;
 
+export interface VipProfileFrameDef {
+  id: string;
+  name: string;
+  bnName: string;
+  icon: string;
+  ringGradient: string;
+  outerGlow: string;
+  innerBorder: string;
+  badgeBg: string;
+  badgeText: string;
+  animationClass: string;
+  cornerSparkle?: string;
+}
+
+export const VIP_PROFILE_FRAMES: VipProfileFrameDef[] = [
+  {
+    id: 'royal_gold',
+    name: 'Royal Gold Crown',
+    bnName: 'সোনালী রাজকীয় মুকুট',
+    icon: '👑',
+    ringGradient: 'from-yellow-300 via-amber-500 to-yellow-600',
+    outerGlow: 'shadow-[0_0_22px_rgba(245,158,11,0.85)]',
+    innerBorder: 'border-yellow-200/90',
+    badgeBg: 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-zinc-950 border-yellow-200',
+    badgeText: 'ROYAL GOLD VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '✨',
+  },
+  {
+    id: 'diamond_crystal',
+    name: 'Diamond Ice Crystal',
+    bnName: 'ডায়মন্ড আইস ক্রিস্টাল',
+    icon: '💎',
+    ringGradient: 'from-cyan-200 via-sky-400 to-indigo-500',
+    outerGlow: 'shadow-[0_0_24px_rgba(56,189,248,0.9)]',
+    innerBorder: 'border-cyan-100',
+    badgeBg: 'bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500 text-slate-950 border-cyan-100',
+    badgeText: 'DIAMOND VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '❄️',
+  },
+  {
+    id: 'dragon_fire',
+    name: 'Dragon Fire Blaze',
+    bnName: 'ড্রাগন ফায়ার ব্লেজ',
+    icon: '🔥',
+    ringGradient: 'from-red-600 via-orange-500 to-yellow-400',
+    outerGlow: 'shadow-[0_0_25px_rgba(239,68,68,0.9)]',
+    innerBorder: 'border-orange-300',
+    badgeBg: 'bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white border-yellow-300',
+    badgeText: 'DRAGON BLAZE',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🐉',
+  },
+  {
+    id: 'cyber_neon',
+    name: 'Cyber Neon Pulse',
+    bnName: 'সাইবার নিয়ন পালস',
+    icon: '⚡',
+    ringGradient: 'from-fuchsia-500 via-purple-500 to-cyan-400',
+    outerGlow: 'shadow-[0_0_24px_rgba(217,70,239,0.9)]',
+    innerBorder: 'border-cyan-300',
+    badgeBg: 'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 text-white border-cyan-300',
+    badgeText: 'CYBER NEON',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '💠',
+  },
+  {
+    id: 'emerald_king',
+    name: 'Emerald Jade Emperor',
+    bnName: 'এমেরাল্ড জেড সম্রাট',
+    icon: '🐉',
+    ringGradient: 'from-emerald-300 via-green-500 to-teal-700',
+    outerGlow: 'shadow-[0_0_22px_rgba(16,185,129,0.85)]',
+    innerBorder: 'border-emerald-200',
+    badgeBg: 'bg-gradient-to-r from-emerald-500 via-green-400 to-teal-500 text-zinc-950 border-emerald-200',
+    badgeText: 'EMERALD KING',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🍀',
+  },
+  {
+    id: 'ruby_empress',
+    name: 'Crimson Ruby Empress',
+    bnName: 'ক্রিমসন রুবি সম্রাজ্ঞী',
+    icon: '❤️‍🔥',
+    ringGradient: 'from-rose-400 via-red-600 to-pink-600',
+    outerGlow: 'shadow-[0_0_24px_rgba(244,63,94,0.9)]',
+    innerBorder: 'border-rose-200',
+    badgeBg: 'bg-gradient-to-r from-rose-600 via-red-500 to-pink-600 text-white border-rose-200',
+    badgeText: 'RUBY EMPRESS',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🌹',
+  },
+  {
+    id: 'galaxy_cosmic',
+    name: 'Galaxy Cosmic Aura',
+    bnName: 'গ্যালাক্সি কসমিক ওরা',
+    icon: '🌌',
+    ringGradient: 'from-indigo-500 via-purple-600 to-pink-500',
+    outerGlow: 'shadow-[0_0_25px_rgba(139,92,246,0.9)]',
+    innerBorder: 'border-purple-200',
+    badgeBg: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white border-purple-300',
+    badgeText: 'COSMIC VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🪐',
+  },
+  {
+    id: 'sakura_bloom',
+    name: 'Sakura Blossom Pink',
+    bnName: 'সাকুরা ব্লসম পিংক',
+    icon: '🌸',
+    ringGradient: 'from-pink-300 via-rose-400 to-fuchsia-500',
+    outerGlow: 'shadow-[0_0_22px_rgba(244,114,182,0.9)]',
+    innerBorder: 'border-pink-100',
+    badgeBg: 'bg-gradient-to-r from-pink-400 via-rose-400 to-fuchsia-500 text-white border-pink-100',
+    badgeText: 'SAKURA VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🦋',
+  },
+  {
+    id: 'thunder_storm',
+    name: 'Thunder God Lightning',
+    bnName: 'থান্ডার গড লাইটনিং',
+    icon: '🌩️',
+    ringGradient: 'from-blue-400 via-cyan-300 to-indigo-600',
+    outerGlow: 'shadow-[0_0_25px_rgba(59,130,246,0.95)]',
+    innerBorder: 'border-sky-200',
+    badgeBg: 'bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 text-white border-cyan-200',
+    badgeText: 'THUNDER GOD',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '⚡',
+  },
+  {
+    id: 'inferno_lava',
+    name: 'Magma Inferno Lord',
+    bnName: 'ম্যাগমা ইনফার্নো লর্ড',
+    icon: '🌋',
+    ringGradient: 'from-amber-500 via-red-600 to-rose-900',
+    outerGlow: 'shadow-[0_0_24px_rgba(220,38,38,0.9)]',
+    innerBorder: 'border-amber-300',
+    badgeBg: 'bg-gradient-to-r from-red-700 via-orange-600 to-amber-500 text-white border-amber-300',
+    badgeText: 'INFERNO LORD',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '☄️',
+  },
+  {
+    id: 'mystic_violet',
+    name: 'Mystic Arcane Violet',
+    bnName: 'মিস্টিক আর্কেইন ভায়োলেট',
+    icon: '🔮',
+    ringGradient: 'from-violet-400 via-purple-600 to-fuchsia-700',
+    outerGlow: 'shadow-[0_0_24px_rgba(168,85,247,0.9)]',
+    innerBorder: 'border-violet-200',
+    badgeBg: 'bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white border-violet-200',
+    badgeText: 'ARCANE VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '✨',
+  },
+  {
+    id: 'rainbow_prism',
+    name: 'Prismatic RGB Legend',
+    bnName: 'প্রিজম্যাটিক রেইনবো লিজেন্ড',
+    icon: '🌈',
+    ringGradient: 'from-rose-500 via-amber-400 to-cyan-400',
+    outerGlow: 'shadow-[0_0_26px_rgba(236,72,153,0.9)]',
+    innerBorder: 'border-white',
+    badgeBg: 'bg-gradient-to-r from-rose-500 via-emerald-500 to-cyan-500 text-white border-white',
+    badgeText: 'RGB LEGEND',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🌟',
+  },
+  {
+    id: 'phantom_shadow',
+    name: 'Phantom Dark Ops',
+    bnName: 'ফ্যান্টম ডার্ক অপস',
+    icon: '💀',
+    ringGradient: 'from-slate-300 via-zinc-600 to-red-600',
+    outerGlow: 'shadow-[0_0_22px_rgba(220,38,38,0.75)]',
+    innerBorder: 'border-zinc-300',
+    badgeBg: 'bg-gradient-to-r from-zinc-900 via-red-900 to-zinc-900 text-red-200 border-red-500',
+    badgeText: 'PHANTOM VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🗡️',
+  },
+  {
+    id: 'angelic_wings',
+    name: 'Celestial Angelic Halo',
+    bnName: 'সেলোস্টিয়াল অ্যাঞ্জেলিক হ্যালো',
+    icon: '🪽',
+    ringGradient: 'from-amber-200 via-white to-sky-300',
+    outerGlow: 'shadow-[0_0_26px_rgba(254,243,199,0.95)]',
+    innerBorder: 'border-white',
+    badgeBg: 'bg-gradient-to-r from-amber-300 via-white to-sky-200 text-slate-950 border-white',
+    badgeText: 'ANGELIC VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🕊️',
+  },
+  {
+    id: 'toxic_venom',
+    name: 'Bio-Hazard Acid Neon',
+    bnName: 'বায়ো-হ্যাজার্ড অ্যাসিড নিয়ন',
+    icon: '☣️',
+    ringGradient: 'from-lime-300 via-green-500 to-emerald-600',
+    outerGlow: 'shadow-[0_0_24px_rgba(132,204,22,0.95)]',
+    innerBorder: 'border-lime-200',
+    badgeBg: 'bg-gradient-to-r from-lime-400 via-green-500 to-emerald-500 text-zinc-950 border-lime-200',
+    badgeText: 'VENOM VIP',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '🧪',
+  },
+  {
+    id: 'platinum_supreme',
+    name: 'Supreme Platinum Shield',
+    bnName: 'সুপ্রিম প্ল্যাটিনাম শিল্ড',
+    icon: '🛡️',
+    ringGradient: 'from-slate-100 via-cyan-200 to-slate-400',
+    outerGlow: 'shadow-[0_0_24px_rgba(226,232,240,0.9)]',
+    innerBorder: 'border-white',
+    badgeBg: 'bg-gradient-to-r from-slate-200 via-white to-cyan-200 text-slate-950 border-white',
+    badgeText: 'PLATINUM SUPREME',
+    animationClass: 'animate-pulse',
+    cornerSparkle: '⚜️',
+  },
+];
+
+export function getVipFrameById(frameId?: string | null): VipProfileFrameDef | null {
+  if (!frameId || frameId === 'none') return null;
+  return VIP_PROFILE_FRAMES.find((f) => f.id === frameId) || null;
+}
+
 interface VipRuntimeState {
   isVipMember: boolean;
   isAdFree: boolean;
@@ -36,6 +266,7 @@ interface VipRuntimeState {
   durationLabel: string;
   dailyVideoLimit: number;
   dailyWatchedCount: number;
+  profileFrame: string;
 }
 
 let currentDailyWatchedCount = 0;
@@ -49,6 +280,7 @@ let currentVipState: VipRuntimeState = {
   durationLabel: '',
   dailyVideoLimit: 0,
   dailyWatchedCount: 0,
+  profileFrame: '',
 };
 
 let codeSnapshotState: {
@@ -74,12 +306,15 @@ let userControlSnapshotState: {
   dailyVideoLimit?: number;
   activeCode?: string;
   durationLabel?: string;
+  profileFrame?: string;
 } = {
   exists: false,
 };
 
+let sessionFallbackFrameState = '';
 let activeFirebaseUnsub: (() => void) | null = null;
 let activeUserControlUnsub: (() => void) | null = null;
+let activeSessionFrameUnsub: (() => void) | null = null;
 let boundCrmUserKey = '';
 let expiryTickerId: number | null = null;
 
@@ -224,6 +459,14 @@ function recomputeEffectiveVipState() {
     durationLabel = cs.durationLabel || 'VIP Ad-Free';
   }
 
+  // Determine Admin-assigned VIP Profile Frame
+  const rawFrame =
+    uc.exists && uc.profileFrame !== undefined
+      ? uc.profileFrame
+      : sessionFallbackFrameState || '';
+  const effectiveProfileFrame =
+    rawFrame && rawFrame !== 'none' && getVipFrameById(rawFrame) ? rawFrame : '';
+
   // Only VIP users have a daily Ad-Free video rate limit.
   // Once a VIP user reaches their daily limit, isDailyLimitReached = true and isAdFree = false so Step Ads run like a normal user!
   const isDailyLimitReached = Boolean(
@@ -241,6 +484,7 @@ function recomputeEffectiveVipState() {
     durationLabel,
     dailyVideoLimit: effectiveDailyLimit,
     dailyWatchedCount: currentDailyWatchedCount,
+    profileFrame: effectiveProfileFrame,
   };
 
   if (isAdFree && !wasAdFree) {
@@ -280,6 +524,22 @@ export function bindVipUserCrmKey(crmKey: string) {
     } catch {}
     activeUserControlUnsub = null;
   }
+  if (activeSessionFrameUnsub) {
+    try {
+      activeSessionFrameUnsub();
+    } catch {}
+    activeSessionFrameUnsub = null;
+  }
+
+  const sessionFrameRef = ref(db, `telegramBotSessions/${cleanKey}/profileFrame`);
+  activeSessionFrameUnsub = onValue(
+    sessionFrameRef,
+    (snap) => {
+      sessionFallbackFrameState = snap.exists() ? String(snap.val() || '').trim() : '';
+      recomputeEffectiveVipState();
+    },
+    () => {}
+  );
 
   const ucRef = ref(db, `vipUsersControl/${cleanKey}`);
   activeUserControlUnsub = onValue(
@@ -299,6 +559,7 @@ export function bindVipUserCrmKey(crmKey: string) {
               : undefined,
           activeCode: val.activeCode || '',
           durationLabel: val.durationLabel || '',
+          profileFrame: typeof val.profileFrame === 'string' ? val.profileFrame : undefined,
         };
         // If Admin assigned a specific redeem code to this user and browser has none or different, watch it too
         if (val.activeCode && val.activeCode !== 'ADMIN-VIP' && val.vipActive !== false) {
@@ -640,11 +901,145 @@ export function useAdFreeVip() {
     durationLabel: vipState.durationLabel,
     dailyVideoLimit: vipState.dailyVideoLimit,
     dailyWatchedCount: vipState.dailyWatchedCount,
+    profileFrame: vipState.profileFrame || '',
     remainingMs,
     activateCode: activateRedeemCodeOnBrowser,
     clearCode: deactivateRedeemCodeOnBrowser,
   };
 }
+
+export const VipFramedAvatar: React.FC<{
+  photoUrl?: string;
+  fullName: string;
+  frameId?: string | null;
+  size?: 'sm' | 'lg';
+  avatarLoadFailed?: boolean;
+  onImageError?: () => void;
+}> = ({
+  photoUrl,
+  fullName,
+  frameId,
+  size = 'lg',
+  avatarLoadFailed = false,
+  onImageError,
+}) => {
+  const frame = getVipFrameById(frameId);
+  const initial = (fullName || 'U').charAt(0).toUpperCase();
+
+  if (size === 'sm') {
+    if (!frame) {
+      return (
+        <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0">
+          {photoUrl && !avatarLoadFailed ? (
+            <img
+              src={photoUrl}
+              alt={fullName}
+              referrerPolicy="no-referrer"
+              onError={onImageError}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-[11px] font-bold text-emerald-400">{initial}</span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative w-7 h-7 flex items-center justify-center shrink-0">
+        <div
+          className={`w-full h-full rounded-full p-[2px] bg-gradient-to-tr ${frame.ringGradient} ${frame.outerGlow} flex items-center justify-center`}
+        >
+          <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 border border-white/40 flex items-center justify-center">
+            {photoUrl && !avatarLoadFailed ? (
+              <img
+                src={photoUrl}
+                alt={fullName}
+                referrerPolicy="no-referrer"
+                onError={onImageError}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-[11px] font-extrabold text-amber-300">{initial}</span>
+            )}
+          </div>
+        </div>
+        <span className="absolute -top-1.5 -right-1 text-[10px] leading-none drop-shadow">
+          {frame.icon}
+        </span>
+      </div>
+    );
+  }
+
+  // Large ('lg') Hero Profile Avatar
+  if (!frame) {
+    return (
+      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shrink-0 shadow-lg flex items-center justify-center">
+        {photoUrl && !avatarLoadFailed ? (
+          <img
+            src={photoUrl}
+            alt={fullName}
+            referrerPolicy="no-referrer"
+            onError={onImageError}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-600/30 via-slate-900 to-slate-950 flex items-center justify-center text-2xl font-extrabold text-emerald-400">
+            {initial}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative shrink-0 flex flex-col items-center">
+      {/* Top Floating Crown / Emblem */}
+      <div className="absolute -top-3.5 z-20 flex items-center justify-center pointer-events-none">
+        <span className="text-lg sm:text-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] animate-bounce">
+          {frame.icon}
+        </span>
+      </div>
+
+      {/* Corner Sparkle */}
+      {frame.cornerSparkle && (
+        <span className="absolute -top-1 -right-1.5 z-20 text-xs sm:text-sm pointer-events-none drop-shadow">
+          {frame.cornerSparkle}
+        </span>
+      )}
+
+      {/* Multi-layered Animated Gradient Frame */}
+      <div
+        className={`relative w-18 h-18 sm:w-22 sm:h-22 rounded-2xl p-[3px] bg-gradient-to-tr ${frame.ringGradient} ${frame.outerGlow} flex items-center justify-center transition-all`}
+      >
+        <div
+          className={`w-full h-full rounded-[13px] overflow-hidden bg-slate-950 border-2 ${frame.innerBorder} flex items-center justify-center relative`}
+        >
+          {photoUrl && !avatarLoadFailed ? (
+            <img
+              src={photoUrl}
+              alt={fullName}
+              referrerPolicy="no-referrer"
+              onError={onImageError}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-amber-500/30 via-slate-900 to-slate-950 flex items-center justify-center text-2xl font-extrabold text-white">
+              {initial}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom VIP Frame Title Ribbon */}
+      <span
+        className={`-mt-2 z-20 px-2 py-0.5 rounded-full border text-[8px] sm:text-[9px] font-extrabold tracking-wider uppercase shadow-md whitespace-nowrap ${frame.badgeBg}`}
+      >
+        {frame.icon} {frame.badgeText}
+      </span>
+    </div>
+  );
+};
 
 // Global event bus so any blocked ad script immediately triggers the Anti-AdBlock lock screen
 const AD_BLOCK_EVENT = 'bd_collection_adblock_detected';

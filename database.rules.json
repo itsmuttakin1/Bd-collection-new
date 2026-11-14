@@ -36,7 +36,11 @@
     },
     "vipUsersControl": {
       ".read": true,
-      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$userId": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+      }
     },
     "userDailyVideoUsage": {
       ".read": true,
@@ -74,11 +78,13 @@
       ".read": true,
       ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       "$chatId": {
+        ".read": true,
         ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'",
         "adminVipOverride": {
           ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
         },
         "$subKey": {
+          ".read": true,
           ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
         }
       }

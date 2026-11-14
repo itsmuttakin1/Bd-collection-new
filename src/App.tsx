@@ -37,6 +37,8 @@ import {
   formatVipCountdown,
   triggerPopunderAd,
   openStepSmartlinkWithPopunder,
+  VipFramedAvatar,
+  getVipFrameById,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 import { VideoCard, ShortShelfPreview } from './components/VideoCard';
@@ -938,9 +940,11 @@ export default function App() {
     expiresAt,
     durationLabel,
     dailyVideoLimit,
+    profileFrame,
     remainingMs,
     activateCode,
   } = useAdFreeVip();
+  const activeFrameDef = useMemo(() => getVipFrameById(profileFrame), [profileFrame]);
   const [redeemModalOpen, setRedeemModalOpen] = useState<boolean>(false);
   const [redeemInput, setRedeemInput] = useState<string>('');
   const [redeemLoading, setRedeemLoading] = useState<boolean>(false);
@@ -3303,28 +3307,23 @@ export default function App() {
             className={`pl-1.5 pr-2.5 py-1 rounded-full border flex items-center gap-2 transition-all cursor-pointer ${
               viewMode === 'profile'
                 ? 'bg-emerald-500/20 border-emerald-500/60 text-white'
+                : activeFrameDef
+                ? 'bg-[#181e2c] hover:bg-[#1e2638] border-amber-500/50 text-zinc-100'
                 : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-100'
             }`}
             title={ui.profile}
           >
-            <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 flex items-center justify-center shrink-0">
-              {tgProfile.photoUrl && !avatarLoadFailed ? (
-                <img
-                  src={tgProfile.photoUrl}
-                  alt={tgProfile.fullName}
-                  referrerPolicy="no-referrer"
-                  onError={() => setAvatarLoadFailed(true)}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-[11px] font-bold text-emerald-400">
-                  {(tgProfile.fullName || 'U').charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
+            <VipFramedAvatar
+              photoUrl={tgProfile.photoUrl}
+              fullName={tgProfile.fullName}
+              frameId={profileFrame}
+              size="sm"
+              avatarLoadFailed={avatarLoadFailed}
+              onImageError={() => setAvatarLoadFailed(true)}
+            />
             <div className="text-left hidden xs:block max-w-[92px] sm:max-w-[130px]">
-              <p className="text-[11px] font-bold text-white leading-tight truncate">
-                {tgProfile.fullName}
+              <p className="text-[11px] font-bold text-white leading-tight truncate flex items-center gap-1">
+                <span className="truncate">{tgProfile.fullName}</span>
               </p>
               <p className="text-[9px] font-medium text-emerald-400 leading-tight truncate">
                 {isUserOnline ? `● ${ui.online} (${liveOnlineCount})` : `○ ${ui.offline}`}
@@ -3658,31 +3657,40 @@ export default function App() {
               </div>
 
               {/* Main User Card matching uploaded screenshot */}
-              <div className="rounded-3xl bg-[#161b24] border border-slate-800/90 p-5 sm:p-6 shadow-2xl space-y-5">
+              <div
+                className={`rounded-3xl bg-[#161b24] border p-5 sm:p-6 shadow-2xl space-y-5 transition-all ${
+                  activeFrameDef
+                    ? 'border-amber-500/60 shadow-[0_0_30px_rgba(245,158,11,0.12)]'
+                    : 'border-slate-800/90'
+                }`}
+              >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0">
-                    {/* User Avatar */}
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shrink-0 shadow-lg flex items-center justify-center">
-                      {tgProfile.photoUrl && !avatarLoadFailed ? (
-                        <img
-                          src={tgProfile.photoUrl}
-                          alt={tgProfile.fullName}
-                          referrerPolicy="no-referrer"
-                          onError={() => setAvatarLoadFailed(true)}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-emerald-600/30 via-slate-900 to-slate-950 flex items-center justify-center text-2xl font-extrabold text-emerald-400">
-                          {(tgProfile.fullName || 'U').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    {/* User Avatar with VIP Frame */}
+                    <VipFramedAvatar
+                      photoUrl={tgProfile.photoUrl}
+                      fullName={tgProfile.fullName}
+                      frameId={profileFrame}
+                      size="lg"
+                      avatarLoadFailed={avatarLoadFailed}
+                      onImageError={() => setAvatarLoadFailed(true)}
+                    />
 
                     {/* Real Name, @username, TG ID & Online Status */}
                     <div className="min-w-0 space-y-1">
-                      <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-wide uppercase truncate">
-                        {tgProfile.fullName}
-                      </h2>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-wide uppercase truncate">
+                          {tgProfile.fullName}
+                        </h2>
+                        {activeFrameDef && (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-extrabold tracking-wide shadow ${activeFrameDef.badgeBg}`}
+                          >
+                            <span>{activeFrameDef.icon}</span>
+                            <span>{activeFrameDef.name}</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-slate-400 truncate">
                         @{tgProfile.username}
                       </p>
@@ -3699,6 +3707,11 @@ export default function App() {
                         >
                           {isUserOnline ? `● ${ui.online}` : `○ ${ui.offline}`}
                         </span>
+                        {isVipMember && (
+                          <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-extrabold">
+                            👑 VIP ACTIVE
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
