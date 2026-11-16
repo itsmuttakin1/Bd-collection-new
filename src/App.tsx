@@ -46,6 +46,7 @@ import {
   FloatingStickyBottomBanner,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
+import { ThreeButtonGateScreen } from './components/ThreeButtonGateScreen';
 import {
   VideoCard,
   ShortShelfPreview,
@@ -793,6 +794,7 @@ export default function App() {
   const [stepAdClicked, setStepAdClicked] = useState<boolean>(false);
   const [webviewReloadKey, setWebviewReloadKey] = useState<number>(0);
   const [unlockedVideos, setUnlockedVideos] = useState<Record<string, boolean>>({});
+  const [gateVideo, setGateVideo] = useState<VideoItem | null>(null);
 
   // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
   useEffect(() => {
@@ -891,6 +893,7 @@ export default function App() {
       setActiveShortId(null);
       setViewMode('home');
       setActiveVideo(null);
+    setGateVideo(null);
       try {
         window.history.pushState({}, '', '/');
       } catch {}
@@ -979,7 +982,7 @@ export default function App() {
   const isRedeemServiceEnabled = storeConfig.serviceEnabled !== false;
 
   // Reactive resolver: whenever `videos` or `shorts` load OR `stepGatePendingId` is set from URL/Telegram,
-  // immediately match the target across both Videos and Shorts and set `activeVideo` + `stepGateVideo`!
+  // immediately match the target across both Videos and Shorts and set `activeVideo` + `gateVideo`!
   useEffect(() => {
     const pendingId = stepGatePendingId || pendingSharedIdRef.current;
     if (!pendingId || userNavigatedRef.current) return;
@@ -997,18 +1000,25 @@ export default function App() {
     setStepGatePendingId(null);
     setStepGateVideo(null);
     setViewMode('watch');
+
+    // VIP with active ad-free bypasses 3-button gate directly
     if (isVipMember && isAdFree) {
+      setGateVideo(null);
       recordVipAdFreeVideoWatch(matched.id);
+    } else {
+      // Normal visitors / non-VIP / expired VIP must solve 3-button gate first!
+      setGateVideo(matched);
     }
   }, [videos, shorts, stepGatePendingId, isAdFree, isVipMember, isDailyLimitReached, unlockedVideos, stepGateVideo]);
 
-  // Auto-bypass 3-Step Verification if user activates a valid VIP Ad-Free Redeem Code with remaining daily quota
+  // Auto-bypass 3-Button Verification if user activates a valid VIP Ad-Free Redeem Code with remaining daily quota
   useEffect(() => {
-    if (isAdFree && (stepGateVideo || stepGatePendingId)) {
+    if (isAdFree && (gateVideo || stepGateVideo || stepGatePendingId)) {
       const target =
-        stepGateVideo || findMatchingVideoOrShort(videos, shorts, stepGatePendingId);
+        gateVideo || stepGateVideo || findMatchingVideoOrShort(videos, shorts, stepGatePendingId);
       if (target) {
         recordVipAdFreeVideoWatch(target.id);
+        setGateVideo(null);
         stepGatePendingIdRef.current = null;
         setStepGatePendingId(null);
         setStepGateVideo(null);
@@ -1016,7 +1026,7 @@ export default function App() {
         setViewMode('watch');
       }
     }
-  }, [isAdFree, stepGateVideo, stepGatePendingId, videos, shorts]);
+  }, [isAdFree, gateVideo, stepGateVideo, stepGatePendingId, videos, shorts]);
 
   // 20-Second Countdown Timer for Step 1, Step 2, Step 3 + Auto-detect when user clicks inside the Mini WebView Ad Iframe
   useEffect(() => {
@@ -1625,6 +1635,7 @@ export default function App() {
     setSharedVideoId(null);
     setActiveShortId(null);
     setActiveVideo(null);
+    setGateVideo(null);
     setHomeRefreshSeed((s) => s + 1);
     setViewMode('home');
     syncUrlWithVideo(null);
@@ -1678,6 +1689,7 @@ export default function App() {
         setSharedVideoId(null);
         setActiveShortId(null);
         setActiveVideo(null);
+    setGateVideo(null);
         setViewMode('home');
       }
     };
@@ -2414,9 +2426,15 @@ export default function App() {
           }
           setViewMode('watch');
           syncUrlWithVideo(targetVideo.id, true);
-          if (!initialSharedViewCounted) {
-            initialSharedViewCounted = true;
-            incrementVideoViews(targetVideo.id);
+          if (isVipMember && isAdFree) {
+            setGateVideo(null);
+            recordVipAdFreeVideoWatch(targetVideo.id);
+            if (!initialSharedViewCounted) {
+              initialSharedViewCounted = true;
+              incrementVideoViews(targetVideo.id);
+            }
+          } else {
+            setGateVideo(targetVideo);
           }
           setLoadingVideos(false);
         } else {
@@ -2488,9 +2506,15 @@ export default function App() {
                 }
                 setViewMode('watch');
                 syncUrlWithVideo(resolvedVid.id, true);
-                if (!initialSharedViewCounted) {
-                  initialSharedViewCounted = true;
-                  incrementVideoViews(resolvedVid.id);
+                if (isVipMember && isAdFree) {
+                  setGateVideo(null);
+                  recordVipAdFreeVideoWatch(resolvedVid.id);
+                  if (!initialSharedViewCounted) {
+                    initialSharedViewCounted = true;
+                    incrementVideoViews(resolvedVid.id);
+                  }
+                } else {
+                  setGateVideo(resolvedVid);
                 }
               } else if (finalVideos.length > 0) {
                 stepGatePendingIdRef.current = null;
@@ -2648,13 +2672,40 @@ export default function App() {
       isVipMember &&
       (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
 
-    // Direct Play Video without Step 1, 2, 3 Ads on the website!
+    // Active VIP with remaining daily quota -> direct play, no gate screen!
+    if (isAdFree && vipHasRemainingQuota) {
+      setGateVideo(null);
+      stepGatePendingIdRef.current = null;
+      setStepGatePendingId(null);
+      setStepGateVideo(null);
+      activeVideoIdRef.current = video.id;
+      setActiveVideo(video);
+      setViewMode('watch');
+      recordVipAdFreeVideoWatch(video.id);
+      incrementVideoViews(video.id);
+      recordAlgorithmInteraction(video, 'watch');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // Normal user or VIP whose daily limit is reached -> SHOW 3-BUTTON RANDOM GATE!
     stepGatePendingIdRef.current = null;
     setStepGatePendingId(null);
     setStepGateVideo(null);
+    setGateVideo(video);
     activeVideoIdRef.current = video.id;
     setActiveVideo(video);
     setViewMode('watch');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Called when the user clicks the winning button on the 3-Button Random Gate Screen
+  const handleUnlockVideoFromGate = (video: VideoItem) => {
+    setGateVideo(null);
+    activeVideoIdRef.current = video.id;
+    setActiveVideo(video);
+    setViewMode('watch');
+    syncUrlWithVideo(video.id);
     incrementVideoViews(video.id);
     recordAlgorithmInteraction(video, 'watch');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4344,8 +4395,17 @@ export default function App() {
           {/* Loading state when opening a shared ?v=<videoId> link while Firebase fetches */}
           {viewMode === 'watch' && !activeVideo && loadingVideos && <WatchSkeletonView />}
 
-          {/* Watch View (Plays Video After 3 Steps Complete) */}
-          {viewMode === 'watch' && activeVideo && !isStepGateActive && (
+          {/* 3-Button Random Verification Gate Screen (Shown before playing video for non-VIP) */}
+          {viewMode === 'watch' && gateVideo && (
+            <ThreeButtonGateScreen
+              video={gateVideo}
+              onUnlock={handleUnlockVideoFromGate}
+              onBack={goHome}
+            />
+          )}
+
+          {/* Watch View (Plays Video After 3-Button Gate Unlocks or directly for VIP) */}
+          {viewMode === 'watch' && activeVideo && !gateVideo && !isStepGateActive && (
             <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
               <div className="lg:col-span-8 space-y-4 min-w-0">
                 {/* 1. Top Sponsored Banner directly above the video player */}
