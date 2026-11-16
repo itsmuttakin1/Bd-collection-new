@@ -4244,7 +4244,8 @@ service cloud.firestore {
 
     window.copyVideoShareLink = async (videoId, title = '') => {
       if (!videoId) return '';
-      const webTargetUrl = window.buildWebVideoShareLink(videoId);
+      // Destination URL is the Telegram Bot Mini App link so Step ads happen first, then Telegram opens!
+      const tgTargetUrl = window.buildVideoShareLink(videoId);
       let finalLink = '';
 
       // Check if video already has a valid Redrectorlink monetized step-link
@@ -4254,8 +4255,8 @@ service cloud.firestore {
         if (vData && vData.monetizedShareUrl && vData.monetizedShareUrl.includes('redrectorlink')) {
           finalLink = vData.monetizedShareUrl;
         } else {
-          showStatus('Generating Redrectorlink 4-Step Monetized Link...', 'info');
-          const linkGen = await window.generateLinkGenStepLink(webTargetUrl, title || vData?.title || 'Video');
+          showStatus('Generating Redrectorlink 4-Step Monetized Link (Steps -> Telegram App)...', 'info');
+          const linkGen = await window.generateLinkGenStepLink(tgTargetUrl, title || vData?.title || 'Video');
           if (linkGen && linkGen.shareUrl) {
             finalLink = linkGen.shareUrl;
             database.ref(`videos/${videoId}`).update({
@@ -4265,13 +4266,13 @@ service cloud.firestore {
           }
         }
       } catch (e) {
-        finalLink = webTargetUrl;
+        finalLink = tgTargetUrl;
       }
 
-      if (!finalLink) finalLink = webTargetUrl;
+      if (!finalLink) finalLink = tgTargetUrl;
       await copyRawTextHelper(finalLink);
       showStatus(
-        `✓ Copied Redrectorlink Step Link${title ? ` for "${title}"` : ''}: ${finalLink}`,
+        `✓ Copied Step Link (Steps -> Telegram App)${title ? ` for "${title}"` : ''}: ${finalLink}`,
         'success'
       );
       return finalLink;
@@ -4484,20 +4485,20 @@ service cloud.firestore {
       serverName = '',
       uploadedKey = '',
     }) => {
-      // Main site web links (destination of the monetized step-link)
-      const webVideoLink = longId ? window.buildWebVideoShareLink(longId) : '';
-      const webShortLink = shortId ? window.buildWebShortShareLink(shortId) : '';
-      const directTargetLink = webVideoLink || webShortLink;
+      // Step ads happen FIRST on Redrectorlink, then redirect to Telegram Bot / Mini App to play video!
+      const tgVideoLink = longId ? window.buildVideoShareLink(longId) : '';
+      const tgShortLink = shortId ? window.buildShortShareLink(shortId) : '';
+      const directTargetLink = tgVideoLink || tgShortLink;
       if (!directTargetLink) return;
 
-      const longTgShareLink = longId ? window.buildVideoShareLink(longId) : '';
-      const shortTgShareLink = shortId ? window.buildShortShareLink(shortId) : '';
-      const shortShareLink = webShortLink || shortTgShareLink;
+      const webVideoLink = longId ? window.buildWebVideoShareLink(longId) : '';
+      const webShortLink = shortId ? window.buildWebShortShareLink(shortId) : '';
+      const shortShareLink = tgShortLink || webShortLink;
 
-      // Automatically generate Redrectorlink (https://redrectorlink.pages.dev) 4-step monetized step-link!
+      // Automatically generate Redrectorlink 4-step monetized step-link targeting Telegram Bot / Mini App!
       let monetizedStepLink = '';
       try {
-        showStatus('Generating Redrectorlink 4-Step Monetized Link...', 'info');
+        showStatus('Generating Redrectorlink Step Link (Steps -> Telegram Bot / App)...', 'info');
         const linkGen = await window.generateLinkGenStepLink(directTargetLink, title);
         if (linkGen && linkGen.shareUrl) {
           monetizedStepLink = linkGen.shareUrl;
@@ -4615,8 +4616,8 @@ service cloud.firestore {
         }
         if (modalPrimaryLabel) {
           modalPrimaryLabel.textContent = monetizedStepLink
-            ? '🔗 Redrectorlink 4-Step Monetized Share Link (Auto-Generated):'
-            : (webVideoLink ? '🎬 Direct Video Share Link (/?v=):' : '📱 Direct Short Share Link (/?short=):');
+            ? '🔗 Redrectorlink Step Link (Steps -> Telegram Bot / App):'
+            : (tgVideoLink ? '🤖 Direct Telegram Share Link:' : '📱 Direct Short Share Link:');
         }
         if (modalPrimaryInput) {
           modalPrimaryInput.value = primaryLink;

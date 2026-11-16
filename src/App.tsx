@@ -2748,12 +2748,13 @@ export default function App() {
   };
 
   // Build and copy monetized Redrectorlink step-link (https://redrectorlink.pages.dev) for the active video
+  // Steps happen FIRST on Redrectorlink, then redirect to Telegram Bot / Mini App to play video!
   const handleShareVideo = async (video: VideoItem) => {
     let shareUrl = video.monetizedShareUrl;
     const isOldLink = shareUrl && (shareUrl.includes('linkfinder') || !shareUrl.includes('redrectorlink'));
     if (!shareUrl || isOldLink) {
       try {
-        const targetUrl = buildWebVideoShareLink(video.id);
+        const targetUrl = buildVideoShareLink(video.id);
         const res = await createLinkGenStepLink({
           originalUrl: targetUrl,
           title: video.title,
@@ -2761,7 +2762,7 @@ export default function App() {
         shareUrl = res.shareUrl;
         video.monetizedShareUrl = shareUrl;
       } catch {
-        shareUrl = buildWebVideoShareLink(video.id);
+        shareUrl = buildVideoShareLink(video.id);
       }
     }
     pendingSharedIdRef.current = video.id;
