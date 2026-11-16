@@ -51,6 +51,8 @@ export interface VideoItem {
   isTrending?: boolean;
   trendingRank?: number;
   trendingPinnedAt?: number;
+  monetizedShareUrl?: string;
+  linkgenSlug?: string;
 }
 
 export interface ShortItem {
@@ -70,6 +72,8 @@ export interface ShortItem {
   addedAt: number;
   author: string;
   isLongVideo?: boolean;
+  monetizedShareUrl?: string;
+  linkgenSlug?: string;
 }
 
 export interface NoticeItem {
@@ -292,6 +296,58 @@ export const STEP_SMARTLINKS = [
   "https://auctionr.org/4/5ad4cd88923c063b5b21a813a4822ed8",
   "https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0",
 ];
+
+// LinkGen Platform Defaults (matches D:\link gen project)
+export const LINKGEN_DEFAULT_DOMAIN = "https://linkfinder.pages.dev";
+export const LINKGEN_RTDB_URL = "https://itsmuttakin-adf2b-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+/**
+ * Generates a 4-step monetized redirect link via LinkFinder (D:\link gen).
+ * Saves to LinkGen Firebase RTDB at /links/${slug}.json with type: 'steplock'.
+ */
+export async function createLinkGenStepLink({
+  originalUrl,
+  title,
+  linkgenDomain = LINKGEN_DEFAULT_DOMAIN,
+  linkgenRtdbUrl = LINKGEN_RTDB_URL,
+}: {
+  originalUrl: string;
+  title: string;
+  linkgenDomain?: string;
+  linkgenRtdbUrl?: string;
+}): Promise<{ slug: string; shareUrl: string }> {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let slug = "";
+  for (let i = 0; i < 6; i++) {
+    slug += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  const payload = {
+    id: slug,
+    originalUrl: originalUrl.trim(),
+    title: (title || "").trim(),
+    createdAt: Date.now(),
+    clicks: 0,
+    createdBy: "xtube_admin",
+    type: "steplock",
+  };
+
+  const rtdbBase = (linkgenRtdbUrl || LINKGEN_RTDB_URL).trim().replace(/\/+$/, '');
+  const resp = await fetch(`${rtdbBase}/links/${encodeURIComponent(slug)}.json`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`Failed to generate LinkGen step link (HTTP ${resp.status})`);
+  }
+
+  const domainBase = (linkgenDomain || LINKGEN_DEFAULT_DOMAIN).trim().replace(/\/+$/, '');
+  const shareUrl = `${domainBase}/?id=${encodeURIComponent(slug)}`;
+
+  return { slug, shareUrl };
+}
 
 export const SMARTLINK_URL = "https://auctionr.org/4/80cdada28d438b51a0e96e917763f683";
 export const POPUNDER_SCRIPT_SRC = "https://ahuramazda.org/1/f8789aea5ef961063dfc6ebf1cf99900";

@@ -21,6 +21,7 @@ import {
   buildVideoShareLink,
   buildShortShareLink,
   copyTextToClipboard,
+  createLinkGenStepLink,
   sanitizeServerThumbnail,
   STEP_SMARTLINKS,
   decodeTgStartId,
@@ -781,8 +782,8 @@ export default function App() {
   // 3-Step Smartlink Verification State (Step 1 -> Step 2 -> Step 3, 20s each + Mini WebView + 1x Popunder on Next)
   const STEP_DURATION_SECONDS = 20;
   const [stepGateVideo, setStepGateVideo] = useState<VideoItem | null>(null);
-  const [stepGatePendingId, setStepGatePendingId] = useState<string | null>(initialUrlVidId);
-  const stepGatePendingIdRef = useRef<string | null>(initialUrlVidId);
+  const [stepGatePendingId, setStepGatePendingId] = useState<string | null>(null);
+  const stepGatePendingIdRef = useRef<string | null>(null);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [stepTimer, setStepTimer] = useState<number>(STEP_DURATION_SECONDS);
   const [stepAdClicked, setStepAdClicked] = useState<boolean>(false);
@@ -818,11 +819,9 @@ export default function App() {
           initialSharedResolvedRef.current = false;
           pendingSharedIdRef.current = vId;
           activeVideoIdRef.current = vId;
-          stepGatePendingIdRef.current = vId;
+          stepGatePendingIdRef.current = null;
           setSharedVideoId(vId);
-          setStepGatePendingId(vId);
-          setCurrentStep(1);
-          setStepTimer(STEP_DURATION_SECONDS);
+          setStepGatePendingId(null);
           setViewMode('watch');
         }
       }
@@ -855,11 +854,9 @@ export default function App() {
                 initialSharedResolvedRef.current = false;
                 pendingSharedIdRef.current = cleanVid;
                 activeVideoIdRef.current = cleanVid;
-                stepGatePendingIdRef.current = cleanVid;
+                stepGatePendingIdRef.current = null;
                 setSharedVideoId(cleanVid);
-                setStepGatePendingId(cleanVid);
-                setCurrentStep(1);
-                setStepTimer(STEP_DURATION_SECONDS);
+                setStepGatePendingId(null);
                 setViewMode('watch');
               }
             }
@@ -992,22 +989,12 @@ export default function App() {
     activeVideoIdRef.current = matched.id;
     setSharedVideoId(matched.id);
     setActiveVideo(matched);
-    if (isAdFree || unlockedVideos[matched.id]) {
-      if (isVipMember && isAdFree) {
-        recordVipAdFreeVideoWatch(matched.id);
-      }
-      stepGatePendingIdRef.current = null;
-      setStepGatePendingId(null);
-      setStepGateVideo(null);
-      setViewMode('watch');
-    } else {
-      if (isVipMember && isDailyLimitReached) {
-        setDailyLimitModalOpen(true);
-      }
-      if (!stepGateVideo || stepGateVideo.id !== matched.id) {
-        setStepGateVideo(matched);
-      }
-      setViewMode('watch');
+    stepGatePendingIdRef.current = null;
+    setStepGatePendingId(null);
+    setStepGateVideo(null);
+    setViewMode('watch');
+    if (isVipMember && isAdFree) {
+      recordVipAdFreeVideoWatch(matched.id);
     }
   }, [videos, shorts, stepGatePendingId, isAdFree, isVipMember, isDailyLimitReached, unlockedVideos, stepGateVideo]);
 
@@ -2657,34 +2644,15 @@ export default function App() {
       isVipMember &&
       (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
 
-    // If video was already unlocked in this session OR VIP user still has Ad-Free quota today:
-    if (unlockedVideos[video.id] || vipHasRemainingQuota) {
-      if (isVipMember && vipHasRemainingQuota) {
-        recordVipAdFreeVideoWatch(video.id);
-      }
-      stepGatePendingIdRef.current = null;
-      setStepGatePendingId(null);
-      setStepGateVideo(null);
-      setViewMode('watch');
-      incrementVideoViews(video.id);
-      recordAlgorithmInteraction(video, 'watch');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    // If this is a VIP user whose daily Ad-Free video limit has run out, show the VIP Package Upgrade Popup
-    // AND start Step 1, 2, 3 Ads just like a normal user!
-    if (isVipMember && dailyVideoLimit > 0 && dailyWatchedCount >= dailyVideoLimit) {
-      setDailyLimitModalOpen(true);
-    }
-
-    stepGatePendingIdRef.current = video.id;
-    setStepGatePendingId(video.id);
-    setStepGateVideo(video);
-    setCurrentStep(1);
-    setStepTimer(STEP_DURATION_SECONDS);
-    setStepAdClicked(false);
-    setWebviewReloadKey((k) => k + 1);
+    // Direct Play Video without Step 1, 2, 3 Ads on the website!
+    stepGatePendingIdRef.current = null;
+    setStepGatePendingId(null);
+    setStepGateVideo(null);
+    activeVideoIdRef.current = video.id;
+    setActiveVideo(video);
+    setViewMode('watch');
+    incrementVideoViews(video.id);
+    recordAlgorithmInteraction(video, 'watch');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -2778,9 +2746,22 @@ export default function App() {
     }
   };
 
-  // Build and copy direct shareable link for the active video (`https://<origin>/?v=<videoId>`)
+  // Build and copy monetized LinkGen step-link (D:\link gen / LinkFinder) for the active video
   const handleShareVideo = async (video: VideoItem) => {
-    const shareUrl = buildVideoShareLink(video.id);
+    let shareUrl = video.monetizedShareUrl;
+    if (!shareUrl) {
+      try {
+        const targetUrl = buildVideoShareLink(video.id);
+        const res = await createLinkGenStepLink({
+          originalUrl: targetUrl,
+          title: video.title,
+        });
+        shareUrl = res.shareUrl;
+        video.monetizedShareUrl = shareUrl;
+      } catch {
+        shareUrl = buildVideoShareLink(video.id);
+      }
+    }
     pendingSharedIdRef.current = video.id;
     activeVideoIdRef.current = video.id;
     syncUrlWithVideo(video.id);
@@ -3089,7 +3070,8 @@ export default function App() {
     return ordered;
   }, [shorts, videos, shortsSessionSeed, activeShortId]);
 
-  const isStepGateActive = Boolean((stepGateVideo || stepGatePendingId) && !isAdFree);
+  // Step 1, 2, 3 Ads removed from the website (Step ads handled externally by LinkFinder D:\link gen)
+  const isStepGateActive = false;
   const currentSmartlinkUrl = STEP_SMARTLINKS[currentStep - 1] || STEP_SMARTLINKS[0];
   const stepProgressPercent = Math.min(
     100,

@@ -4146,6 +4146,60 @@ service cloud.firestore {
       return 'xtubeofficial_bot';
     };
 
+    // ============================================================================
+    // LINKGEN (D:\link gen / LinkFinder) 4-STEP MONETIZED LINK GENERATOR INTEGRATION
+    // ============================================================================
+    const LINKGEN_RTDB_URL = "https://itsmuttakin-adf2b-default-rtdb.asia-southeast1.firebasedatabase.app";
+    const LINKGEN_DEFAULT_DOMAIN = "https://linkfinder.pages.dev";
+
+    window.getLinkGenDomain = () => {
+      try {
+        return localStorage.getItem('xtube_linkgen_domain') || LINKGEN_DEFAULT_DOMAIN;
+      } catch {
+        return LINKGEN_DEFAULT_DOMAIN;
+      }
+    };
+
+    window.setLinkGenDomain = (domain) => {
+      try {
+        localStorage.setItem('xtube_linkgen_domain', (domain || '').trim());
+      } catch {}
+    };
+
+    window.generateLinkGenStepLink = async (targetOriginalUrl, videoTitle = '') => {
+      try {
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let slug = "";
+        for (let i = 0; i < 6; i++) {
+          slug += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        const payload = {
+          id: slug,
+          originalUrl: String(targetOriginalUrl || '').trim(),
+          title: String(videoTitle || '').trim(),
+          createdAt: Date.now(),
+          clicks: 0,
+          createdBy: "xtube_admin",
+          type: "steplock"
+        };
+
+        const res = await fetch(`${LINKGEN_RTDB_URL}/links/${encodeURIComponent(slug)}.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const domain = window.getLinkGenDomain().replace(/\/+$/, '');
+        const shareUrl = `${domain}/?id=${encodeURIComponent(slug)}`;
+        return { slug, shareUrl };
+      } catch (err) {
+        console.warn("LinkGen step link generation error:", err);
+        return null;
+      }
+    };
+
     // Helper to build the Telegram Video Share Link — ALWAYS opens @xtubeofficial_bot
     window.buildVideoShareLink = (videoId) => {
       const cleanId = String(videoId || '').trim();
@@ -4165,42 +4219,36 @@ service cloud.firestore {
 
     window.copyVideoShareLink = async (videoId, title = '') => {
       if (!videoId) return '';
-      const shareUrl = window.buildVideoShareLink(videoId);
-      let copiedOk = false;
+      const baseShareUrl = window.buildVideoShareLink(videoId);
+      let finalLink = baseShareUrl;
 
+      // Check if video already has a LinkGen monetized step-link
       try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(shareUrl);
-          copiedOk = true;
+        const snap = await database.ref(`videos/${videoId}`).once('value');
+        const vData = snap.val();
+        if (vData && vData.monetizedShareUrl) {
+          finalLink = vData.monetizedShareUrl;
+        } else {
+          showStatus('Generating LinkFinder 4-Step Monetized Link...', 'info');
+          const linkGen = await window.generateLinkGenStepLink(baseShareUrl, title || vData?.title || 'Video');
+          if (linkGen && linkGen.shareUrl) {
+            finalLink = linkGen.shareUrl;
+            database.ref(`videos/${videoId}`).update({
+              monetizedShareUrl: finalLink,
+              linkgenSlug: linkGen.slug
+            }).catch(() => {});
+          }
         }
-      } catch {
-        copiedOk = false;
+      } catch (e) {
+        finalLink = baseShareUrl;
       }
 
-      if (!copiedOk) {
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = shareUrl;
-          ta.setAttribute('readonly', '');
-          ta.style.position = 'fixed';
-          ta.style.top = '0';
-          ta.style.left = '0';
-          ta.style.opacity = '0';
-          ta.style.pointerEvents = 'none';
-          document.body.appendChild(ta);
-          ta.focus();
-          ta.select();
-          ta.setSelectionRange(0, ta.value.length);
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        } catch {}
-      }
-
+      await copyRawTextHelper(finalLink);
       showStatus(
-        `Copied @xtubeofficial_bot Video Link${title ? ` for "${title}"` : ''}: ${shareUrl}`,
+        `✓ Copied LinkGen Step Link${title ? ` for "${title}"` : ''}: ${finalLink}`,
         'success'
       );
-      return shareUrl;
+      return finalLink;
     };
 
     window.getTelegramMiniAppBaseUrl = () => {
@@ -4412,12 +4460,37 @@ service cloud.firestore {
     }) => {
       const longShareLink = longId ? window.buildVideoShareLink(longId) : '';
       const shortShareLink = shortId ? window.buildShortShareLink(shortId) : '';
-      const primaryLink = longShareLink || shortShareLink;
-      if (!primaryLink) return;
+      const directTargetLink = longShareLink || shortShareLink;
+      if (!directTargetLink) return;
 
+      // Automatically generate LinkGen (D:\link gen / LinkFinder) 4-step monetized step-link!
+      let monetizedStepLink = '';
+      try {
+        showStatus('Generating LinkFinder 4-Step Monetized Link...', 'info');
+        const linkGen = await window.generateLinkGenStepLink(directTargetLink, title);
+        if (linkGen && linkGen.shareUrl) {
+          monetizedStepLink = linkGen.shareUrl;
+          if (longId && typeof database !== 'undefined') {
+            database.ref(`videos/${longId}`).update({
+              monetizedShareUrl: monetizedStepLink,
+              linkgenSlug: linkGen.slug,
+            }).catch(() => {});
+          }
+          if (shortId && typeof database !== 'undefined') {
+            database.ref(`shorts/${shortId}`).update({
+              monetizedShareUrl: monetizedStepLink,
+              linkgenSlug: linkGen.slug,
+            }).catch(() => {});
+          }
+        }
+      } catch (err) {
+        console.warn('LinkGen auto-generation error:', err);
+      }
+
+      const primaryLink = monetizedStepLink || directTargetLink;
       const captionText = `${title}\n👉 Watch Full HD Video: ${primaryLink}`;
 
-      // 1. Auto-copy primary share link to clipboard immediately
+      // 1. Auto-copy primary share link (LinkGen step-link) to clipboard immediately
       const autoCopied = await copyRawTextHelper(primaryLink);
 
       // 2. Save to current session history list
@@ -4510,9 +4583,9 @@ service cloud.firestore {
             : '⚡ Ready to Copy';
         }
         if (modalPrimaryLabel) {
-          modalPrimaryLabel.textContent = longShareLink
-            ? '🎬 Direct Video Share Link (/?v=):'
-            : '📱 Direct Short Share Link (/?short=):';
+          modalPrimaryLabel.textContent = monetizedStepLink
+            ? '🔗 LinkFinder 4-Step Monetized Share Link (Auto-Generated):'
+            : (longShareLink ? '🎬 Direct Video Share Link (/?v=):' : '📱 Direct Short Share Link (/?short=):');
         }
         if (modalPrimaryInput) {
           modalPrimaryInput.value = primaryLink;
