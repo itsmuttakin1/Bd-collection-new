@@ -4244,8 +4244,8 @@ service cloud.firestore {
 
     window.copyVideoShareLink = async (videoId, title = '') => {
       if (!videoId) return '';
-      // Destination URL is the Telegram Bot Mini App link so Step ads happen first, then Telegram opens!
-      const tgTargetUrl = window.buildVideoShareLink(videoId);
+      // Destination URL is the website video player (Step complete -> Website Video Player)
+      const webTargetUrl = window.buildWebVideoShareLink(videoId);
       let finalLink = '';
 
       // Check if video already has a valid Redrectorlink monetized step-link
@@ -4255,8 +4255,8 @@ service cloud.firestore {
         if (vData && vData.monetizedShareUrl && vData.monetizedShareUrl.includes('redrectorlink')) {
           finalLink = vData.monetizedShareUrl;
         } else {
-          showStatus('Generating Redrectorlink 4-Step Monetized Link (Steps -> Telegram App)...', 'info');
-          const linkGen = await window.generateLinkGenStepLink(tgTargetUrl, title || vData?.title || 'Video');
+          showStatus('Generating Redrectorlink 4-Step Monetized Link (Steps -> Video Player)...', 'info');
+          const linkGen = await window.generateLinkGenStepLink(webTargetUrl, title || vData?.title || 'Video');
           if (linkGen && linkGen.shareUrl) {
             finalLink = linkGen.shareUrl;
             database.ref(`videos/${videoId}`).update({
@@ -4266,13 +4266,13 @@ service cloud.firestore {
           }
         }
       } catch (e) {
-        finalLink = tgTargetUrl;
+        finalLink = webTargetUrl;
       }
 
-      if (!finalLink) finalLink = tgTargetUrl;
+      if (!finalLink) finalLink = webTargetUrl;
       await copyRawTextHelper(finalLink);
       showStatus(
-        `✓ Copied Step Link (Steps -> Telegram App)${title ? ` for "${title}"` : ''}: ${finalLink}`,
+        `✓ Copied Step Link (Steps -> Video Player)${title ? ` for "${title}"` : ''}: ${finalLink}`,
         'success'
       );
       return finalLink;
@@ -4485,20 +4485,20 @@ service cloud.firestore {
       serverName = '',
       uploadedKey = '',
     }) => {
-      // Step ads happen FIRST on Redrectorlink, then redirect to Telegram Bot / Mini App to play video!
-      const tgVideoLink = longId ? window.buildVideoShareLink(longId) : '';
-      const tgShortLink = shortId ? window.buildShortShareLink(shortId) : '';
-      const directTargetLink = tgVideoLink || tgShortLink;
-      if (!directTargetLink) return;
-
+      // Step ads happen on Redrectorlink, then redirect directly to Website Video Player!
       const webVideoLink = longId ? window.buildWebVideoShareLink(longId) : '';
       const webShortLink = shortId ? window.buildWebShortShareLink(shortId) : '';
-      const shortShareLink = tgShortLink || webShortLink;
+      const directTargetLink = webVideoLink || webShortLink;
+      if (!directTargetLink) return;
 
-      // Automatically generate Redrectorlink 4-step monetized step-link targeting Telegram Bot / Mini App!
+      const tgVideoLink = longId ? window.buildVideoShareLink(longId) : '';
+      const tgShortLink = shortId ? window.buildShortShareLink(shortId) : '';
+      const shortShareLink = webShortLink || tgShortLink;
+
+      // Automatically generate Redrectorlink 4-step monetized step-link targeting Website Video Player!
       let monetizedStepLink = '';
       try {
-        showStatus('Generating Redrectorlink Step Link (Steps -> Telegram Bot / App)...', 'info');
+        showStatus('Generating Redrectorlink Step Link (Steps -> Video Player)...', 'info');
         const linkGen = await window.generateLinkGenStepLink(directTargetLink, title);
         if (linkGen && linkGen.shareUrl) {
           monetizedStepLink = linkGen.shareUrl;
@@ -4616,8 +4616,8 @@ service cloud.firestore {
         }
         if (modalPrimaryLabel) {
           modalPrimaryLabel.textContent = monetizedStepLink
-            ? '🔗 Redrectorlink Step Link (Steps -> Telegram Bot / App):'
-            : (tgVideoLink ? '🤖 Direct Telegram Share Link:' : '📱 Direct Short Share Link:');
+            ? '🔗 Redrectorlink Step Link (Steps -> Video Player):'
+            : (webVideoLink ? '🎬 Direct Video Share Link (/?v=):' : '📱 Direct Short Share Link (/?short=):');
         }
         if (modalPrimaryInput) {
           modalPrimaryInput.value = primaryLink;

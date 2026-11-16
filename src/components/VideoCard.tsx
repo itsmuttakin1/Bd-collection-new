@@ -636,7 +636,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     const shareUrl =
       video.monetizedShareUrl && video.monetizedShareUrl.includes('redrectorlink')
         ? video.monetizedShareUrl
-        : buildVideoShareLink(video.id);
+        : buildWebVideoShareLink(video.id);
     await copyTextToClipboard(shareUrl);
     setCopiedCardLink(true);
     setTimeout(() => setCopiedCardLink(false), 2000);

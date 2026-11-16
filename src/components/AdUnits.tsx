@@ -1440,6 +1440,7 @@ export const Banner320x50Ad: React.FC<{ className?: string }> = ({ className = '
 
 /**
  * Social Bar Ad Loader (Disabled when Redeem Code VIP is active)
+ * Script: https://brijmohan.org/14/4c4a8e781dbd7fa6718915694148d8d9
  */
 export const SocialBarLoader: React.FC<{ active: boolean }> = ({ active }) => {
   const { isAdFree } = useAdFreeVip();
@@ -1470,6 +1471,31 @@ export const SocialBarLoader: React.FC<{ active: boolean }> = ({ active }) => {
 
   return null;
 };
+
+/**
+ * Triggers or re-injects the Social Bar Ad during video playback (especially in the middle of playback).
+ * Strictly blocked for VIP users ("vip der asbe na").
+ */
+export function triggerSocialBarAd() {
+  if (isAdFreeVipActive()) {
+    const existing = document.getElementById('social-bar-ad-script');
+    if (existing) {
+      try {
+        existing.remove();
+      } catch {}
+    }
+    return;
+  }
+  const id = 'social-bar-ad-script';
+  if (!document.getElementById(id)) {
+    const script = document.createElement('script');
+    script.id = id;
+    script.setAttribute('data-cfasync', 'false');
+    script.src = SOCIAL_BAR_SCRIPT_SRC;
+    script.async = true;
+    document.body.appendChild(script);
+  }
+}
 
 /**
  * Triggers the Popunder script dynamically on Play button click (No-op when Redeem Code VIP is active)

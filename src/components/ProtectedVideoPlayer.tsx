@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { sanitizeServerThumbnail } from '../firebase';
 import { getBlurUpLqipSync } from '../utils/thumbCache';
+import { triggerSocialBarAd } from './AdUnits';
 
 interface ProtectedVideoPlayerProps {
   videoId: string;
@@ -31,6 +32,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const seekTrackRef = useRef<HTMLDivElement>(null);
+  const socialBarMidpointTriggeredRef = useRef<boolean>(false);
 
   // Video is unlocked once the 3-step verification completes
   const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
@@ -170,6 +172,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     setShowControlsMobile(true);
     setIsFullscreen(false);
     setIsRotatedLandscape(false);
+    socialBarMidpointTriggeredRef.current = false;
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -494,6 +497,14 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
             setCurrentTime(vid.currentTime);
             if (vid.duration && isFinite(vid.duration)) {
               setProgress((vid.currentTime / vid.duration) * 100);
+              // Video play hobe majkhne asbe vip der asbe na
+              if (
+                !socialBarMidpointTriggeredRef.current &&
+                (vid.currentTime >= vid.duration / 2 || vid.currentTime >= 15)
+              ) {
+                socialBarMidpointTriggeredRef.current = true;
+                triggerSocialBarAd();
+              }
             }
           }}
           onLoadedMetadata={() => {
@@ -515,6 +526,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           onPlaying={() => {
             setIsBuffering(false);
             setIsPlaying(true);
+            triggerSocialBarAd();
           }}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}

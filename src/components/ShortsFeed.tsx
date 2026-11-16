@@ -556,7 +556,7 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
     const link =
       short.monetizedShareUrl && short.monetizedShareUrl.includes('redrectorlink')
         ? short.monetizedShareUrl
-        : buildShortShareLink(short.id);
+        : buildWebShortShareLink(short.id);
     await copyTextToClipboard(link);
     setCopiedId(short.id);
     setTimeout(() => setCopiedId(null), 2000);
