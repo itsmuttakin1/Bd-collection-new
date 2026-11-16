@@ -4147,14 +4147,39 @@ service cloud.firestore {
     };
 
     // ============================================================================
-    // LINKGEN (D:\link gen / LinkFinder) 4-STEP MONETIZED LINK GENERATOR INTEGRATION
+    // LINKGEN (D:\link gen / Redrectorlink) 4-STEP MONETIZED LINK GENERATOR INTEGRATION
     // ============================================================================
     const LINKGEN_RTDB_URL = "https://itsmuttakin-adf2b-default-rtdb.asia-southeast1.firebasedatabase.app";
-    const LINKGEN_DEFAULT_DOMAIN = "https://linkfinder.pages.dev";
+    const LINKGEN_DEFAULT_DOMAIN = "https://redrectorlink.pages.dev";
+    const MAIN_SITE_DEFAULT_DOMAIN = "https://xtubeofficial.pages.dev";
+
+    window.getMainSiteDomain = () => {
+      try {
+        if (typeof window !== 'undefined' && window.location && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')) {
+          return window.location.origin;
+        }
+      } catch {}
+      return MAIN_SITE_DEFAULT_DOMAIN;
+    };
+
+    window.buildWebVideoShareLink = (videoId) => {
+      const cleanId = String(videoId || '').trim();
+      const domain = window.getMainSiteDomain().replace(/\/+$/, '');
+      return `${domain}/?v=${encodeURIComponent(cleanId)}`;
+    };
+
+    window.buildWebShortShareLink = (shortId) => {
+      const cleanId = String(shortId || '').trim();
+      const domain = window.getMainSiteDomain().replace(/\/+$/, '');
+      return `${domain}/?short=${encodeURIComponent(cleanId)}`;
+    };
 
     window.getLinkGenDomain = () => {
       try {
-        return localStorage.getItem('xtube_linkgen_domain') || LINKGEN_DEFAULT_DOMAIN;
+        const stored = localStorage.getItem('xtube_linkgen_domain');
+        if (stored && stored.includes('redrectorlink')) return stored;
+        localStorage.setItem('xtube_linkgen_domain', LINKGEN_DEFAULT_DOMAIN);
+        return LINKGEN_DEFAULT_DOMAIN;
       } catch {
         return LINKGEN_DEFAULT_DOMAIN;
       }
@@ -4219,18 +4244,18 @@ service cloud.firestore {
 
     window.copyVideoShareLink = async (videoId, title = '') => {
       if (!videoId) return '';
-      const baseShareUrl = window.buildVideoShareLink(videoId);
-      let finalLink = baseShareUrl;
+      const webTargetUrl = window.buildWebVideoShareLink(videoId);
+      let finalLink = '';
 
-      // Check if video already has a LinkGen monetized step-link
+      // Check if video already has a valid Redrectorlink monetized step-link
       try {
         const snap = await database.ref(`videos/${videoId}`).once('value');
         const vData = snap.val();
-        if (vData && vData.monetizedShareUrl) {
+        if (vData && vData.monetizedShareUrl && vData.monetizedShareUrl.includes('redrectorlink')) {
           finalLink = vData.monetizedShareUrl;
         } else {
-          showStatus('Generating LinkFinder 4-Step Monetized Link...', 'info');
-          const linkGen = await window.generateLinkGenStepLink(baseShareUrl, title || vData?.title || 'Video');
+          showStatus('Generating Redrectorlink 4-Step Monetized Link...', 'info');
+          const linkGen = await window.generateLinkGenStepLink(webTargetUrl, title || vData?.title || 'Video');
           if (linkGen && linkGen.shareUrl) {
             finalLink = linkGen.shareUrl;
             database.ref(`videos/${videoId}`).update({
@@ -4240,12 +4265,13 @@ service cloud.firestore {
           }
         }
       } catch (e) {
-        finalLink = baseShareUrl;
+        finalLink = webTargetUrl;
       }
 
+      if (!finalLink) finalLink = webTargetUrl;
       await copyRawTextHelper(finalLink);
       showStatus(
-        `✓ Copied LinkGen Step Link${title ? ` for "${title}"` : ''}: ${finalLink}`,
+        `✓ Copied Redrectorlink Step Link${title ? ` for "${title}"` : ''}: ${finalLink}`,
         'success'
       );
       return finalLink;
@@ -4458,15 +4484,20 @@ service cloud.firestore {
       serverName = '',
       uploadedKey = '',
     }) => {
-      const longShareLink = longId ? window.buildVideoShareLink(longId) : '';
-      const shortShareLink = shortId ? window.buildShortShareLink(shortId) : '';
-      const directTargetLink = longShareLink || shortShareLink;
+      // Main site web links (destination of the monetized step-link)
+      const webVideoLink = longId ? window.buildWebVideoShareLink(longId) : '';
+      const webShortLink = shortId ? window.buildWebShortShareLink(shortId) : '';
+      const directTargetLink = webVideoLink || webShortLink;
       if (!directTargetLink) return;
 
-      // Automatically generate LinkGen (D:\link gen / LinkFinder) 4-step monetized step-link!
+      const longTgShareLink = longId ? window.buildVideoShareLink(longId) : '';
+      const shortTgShareLink = shortId ? window.buildShortShareLink(shortId) : '';
+      const shortShareLink = webShortLink || shortTgShareLink;
+
+      // Automatically generate Redrectorlink (https://redrectorlink.pages.dev) 4-step monetized step-link!
       let monetizedStepLink = '';
       try {
-        showStatus('Generating LinkFinder 4-Step Monetized Link...', 'info');
+        showStatus('Generating Redrectorlink 4-Step Monetized Link...', 'info');
         const linkGen = await window.generateLinkGenStepLink(directTargetLink, title);
         if (linkGen && linkGen.shareUrl) {
           monetizedStepLink = linkGen.shareUrl;
@@ -4490,7 +4521,7 @@ service cloud.firestore {
       const primaryLink = monetizedStepLink || directTargetLink;
       const captionText = `${title}\n👉 Watch Full HD Video: ${primaryLink}`;
 
-      // 1. Auto-copy primary share link (LinkGen step-link) to clipboard immediately
+      // 1. Auto-copy primary share link (Redrectorlink step-link) to clipboard immediately
       const autoCopied = await copyRawTextHelper(primaryLink);
 
       // 2. Save to current session history list
@@ -4584,8 +4615,8 @@ service cloud.firestore {
         }
         if (modalPrimaryLabel) {
           modalPrimaryLabel.textContent = monetizedStepLink
-            ? '🔗 LinkFinder 4-Step Monetized Share Link (Auto-Generated):'
-            : (longShareLink ? '🎬 Direct Video Share Link (/?v=):' : '📱 Direct Short Share Link (/?short=):');
+            ? '🔗 Redrectorlink 4-Step Monetized Share Link (Auto-Generated):'
+            : (webVideoLink ? '🎬 Direct Video Share Link (/?v=):' : '📱 Direct Short Share Link (/?short=):');
         }
         if (modalPrimaryInput) {
           modalPrimaryInput.value = primaryLink;

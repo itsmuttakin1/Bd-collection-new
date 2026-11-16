@@ -240,10 +240,22 @@ export const buildVideoShareLink = (videoId: string, customBotUsername?: string)
 export const buildWebVideoShareLink = (videoId: string): string => {
   const cleanId = String(videoId || '').trim();
   const origin =
-    typeof window !== 'undefined' && window.location?.origin
+    typeof window !== 'undefined' && window.location?.origin && !window.location.origin.includes('localhost')
       ? window.location.origin
       : 'https://xtubeofficial.pages.dev';
   return `${origin}/?v=${encodeURIComponent(cleanId)}`;
+};
+
+/**
+ * Generates the canonical Web URL (`https://<origin>/?short=<shortId>`) for Shorts web navigation.
+ */
+export const buildWebShortShareLink = (shortId: string): string => {
+  const cleanId = String(shortId || '').trim();
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin && !window.location.origin.includes('localhost')
+      ? window.location.origin
+      : 'https://xtubeofficial.pages.dev';
+  return `${origin}/?short=${encodeURIComponent(cleanId)}`;
 };
 
 /**
@@ -297,12 +309,12 @@ export const STEP_SMARTLINKS = [
   "https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0",
 ];
 
-// LinkGen Platform Defaults (matches D:\link gen project)
-export const LINKGEN_DEFAULT_DOMAIN = "https://linkfinder.pages.dev";
+// LinkGen Platform Defaults (matches D:\link gen / Redrectorlink project)
+export const LINKGEN_DEFAULT_DOMAIN = "https://redrectorlink.pages.dev";
 export const LINKGEN_RTDB_URL = "https://itsmuttakin-adf2b-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 /**
- * Generates a 4-step monetized redirect link via LinkFinder (D:\link gen).
+ * Generates a 4-step monetized redirect link via Redrectorlink (D:\link gen).
  * Saves to LinkGen Firebase RTDB at /links/${slug}.json with type: 'steplock'.
  */
 export async function createLinkGenStepLink({

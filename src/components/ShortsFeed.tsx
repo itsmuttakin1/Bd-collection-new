@@ -17,6 +17,7 @@ import {
 import {
   ShortItem,
   buildShortShareLink,
+  buildWebShortShareLink,
   copyTextToClipboard,
   sanitizeServerThumbnail,
 } from '../firebase';
@@ -552,7 +553,10 @@ export const ShortsFeed: React.FC<ShortsFeedProps> = ({
 
   const handleShareShort = async (short: ShortItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = buildShortShareLink(short.id);
+    const link =
+      short.monetizedShareUrl && short.monetizedShareUrl.includes('redrectorlink')
+        ? short.monetizedShareUrl
+        : buildWebShortShareLink(short.id);
     await copyTextToClipboard(link);
     setCopiedId(short.id);
     setTimeout(() => setCopiedId(null), 2000);

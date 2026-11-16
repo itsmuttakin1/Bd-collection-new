@@ -4,6 +4,7 @@ import {
   VideoItem,
   ShortItem,
   buildVideoShareLink,
+  buildWebVideoShareLink,
   copyTextToClipboard,
   buildVideoStreamCandidates,
   sanitizeServerThumbnail,
@@ -621,7 +622,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     </div>
   );
 
-  const watchHref = buildVideoShareLink(video.id);
+  const watchHref = `/?v=${encodeURIComponent(video.id)}`;
 
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
@@ -632,7 +633,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const handleQuickShare = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    const shareUrl = buildVideoShareLink(video.id);
+    const shareUrl =
+      video.monetizedShareUrl && video.monetizedShareUrl.includes('redrectorlink')
+        ? video.monetizedShareUrl
+        : buildWebVideoShareLink(video.id);
     await copyTextToClipboard(shareUrl);
     setCopiedCardLink(true);
     setTimeout(() => setCopiedCardLink(false), 2000);

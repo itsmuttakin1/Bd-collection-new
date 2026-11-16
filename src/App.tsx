@@ -19,6 +19,7 @@ import {
   RedeemPackageItem,
   RedeemStoreConfig,
   buildVideoShareLink,
+  buildWebVideoShareLink,
   buildShortShareLink,
   copyTextToClipboard,
   createLinkGenStepLink,
@@ -2746,12 +2747,13 @@ export default function App() {
     }
   };
 
-  // Build and copy monetized LinkGen step-link (D:\link gen / LinkFinder) for the active video
+  // Build and copy monetized Redrectorlink step-link (https://redrectorlink.pages.dev) for the active video
   const handleShareVideo = async (video: VideoItem) => {
     let shareUrl = video.monetizedShareUrl;
-    if (!shareUrl) {
+    const isOldLink = shareUrl && (shareUrl.includes('linkfinder') || !shareUrl.includes('redrectorlink'));
+    if (!shareUrl || isOldLink) {
       try {
-        const targetUrl = buildVideoShareLink(video.id);
+        const targetUrl = buildWebVideoShareLink(video.id);
         const res = await createLinkGenStepLink({
           originalUrl: targetUrl,
           title: video.title,
@@ -2759,7 +2761,7 @@ export default function App() {
         shareUrl = res.shareUrl;
         video.monetizedShareUrl = shareUrl;
       } catch {
-        shareUrl = buildVideoShareLink(video.id);
+        shareUrl = buildWebVideoShareLink(video.id);
       }
     }
     pendingSharedIdRef.current = video.id;
@@ -3070,7 +3072,7 @@ export default function App() {
     return ordered;
   }, [shorts, videos, shortsSessionSeed, activeShortId]);
 
-  // Step 1, 2, 3 Ads removed from the website (Step ads handled externally by LinkFinder D:\link gen)
+  // Step 1, 2, 3 Ads removed from the website (Step ads handled externally by Redrectorlink D:\link gen)
   const isStepGateActive = false;
   const currentSmartlinkUrl = STEP_SMARTLINKS[currentStep - 1] || STEP_SMARTLINKS[0];
   const stepProgressPercent = Math.min(
