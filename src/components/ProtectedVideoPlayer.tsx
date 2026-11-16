@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { sanitizeServerThumbnail } from '../firebase';
 import { getBlurUpLqipSync } from '../utils/thumbCache';
-import { triggerSocialBarAd } from './AdUnits';
+import { triggerSocialBarAd, triggerPopunderAd } from './AdUnits';
 
 interface ProtectedVideoPlayerProps {
   videoId: string;
@@ -33,6 +33,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const seekTrackRef = useRef<HTMLDivElement>(null);
   const socialBarMidpointTriggeredRef = useRef<boolean>(false);
+  const lastPopunderTimeRef = useRef<number>(0);
 
   // Video is unlocked once the 3-step verification completes
   const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
@@ -185,6 +186,13 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
 
   const handleOverlayPlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    const now = Date.now();
+    if (now - lastPopunderTimeRef.current > 30000) {
+      lastPopunderTimeRef.current = now;
+      triggerPopunderAd();
+    }
+    triggerSocialBarAd();
+
     if (!isUnlocked) {
       setIsUnlocked(true);
     }
@@ -244,6 +252,12 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     if (!vid || !isUnlocked) return;
     setShowControlsMobile(true);
     if (vid.paused) {
+      const now = Date.now();
+      if (now - lastPopunderTimeRef.current > 45000) {
+        lastPopunderTimeRef.current = now;
+        triggerPopunderAd();
+      }
+      triggerSocialBarAd();
       vid
         .play()
         .then(() => setIsPlaying(true))

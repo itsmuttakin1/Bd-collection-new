@@ -1557,3 +1557,114 @@ export function openStepSmartlinkWithPopunder(stepSmartlinkUrl?: string) {
   triggerSmartlinkAd(stepSmartlinkUrl || SMARTLINK_URL);
 }
 
+/**
+ * Top Sponsored Banner placed above the Video Player on the Watch page.
+ * Strictly hidden for VIP users ("vip der asbe na").
+ */
+export const PlayerTopSponsoredBanner: React.FC<{ className?: string }> = ({ className = '' }) => {
+  const { isAdFree } = useAdFreeVip();
+  if (isAdFree) return null;
+
+  return (
+    <div className={`w-full flex flex-col items-center justify-center p-2 rounded-xl bg-zinc-950/80 border border-zinc-800 shadow-md ${className}`}>
+      <div className="w-full flex items-center justify-between text-[10px] text-zinc-400 font-medium px-2 pb-1.5 border-b border-zinc-800/60 mb-1.5">
+        <span className="flex items-center gap-1.5 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+          Sponsored Ad · বিজ্ঞাপন
+        </span>
+        <span className="text-[10px] text-zinc-500 font-mono">X Tube Partner Network</span>
+      </div>
+      <Banner320x50Ad className="my-0" />
+    </div>
+  );
+};
+
+/**
+ * High-Converting Sponsored HD Server & Fast Download Action Buttons placed right under the Video Player.
+ * Triggers high-CPM Smartlink & Popunder for maximum earnings.
+ * Strictly hidden for VIP users ("vip der asbe na").
+ */
+export const SponsoredDownloadStreamButtons: React.FC<{ videoTitle?: string; className?: string }> = ({
+  videoTitle = 'Video',
+  className = '',
+}) => {
+  const { isAdFree } = useAdFreeVip();
+  if (isAdFree) return null;
+
+  const handleAction = () => {
+    triggerPopunderAd();
+    triggerSmartlinkAd();
+  };
+
+  return (
+    <div className={`w-full p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border border-zinc-800/90 shadow-xl space-y-2.5 ${className}`}>
+      <div className="flex items-center justify-between text-[11px] px-1">
+        <span className="text-zinc-300 font-bold flex items-center gap-1.5">
+          <span className="text-red-500">⚡</span> Ultra-Fast HD Streaming & Download Servers:
+        </span>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-semibold border border-emerald-500/30">
+          HD 1080p · Free
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={handleAction}
+          className="group px-3 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold text-xs sm:text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+        >
+          <span className="text-base group-hover:scale-110 transition-transform">⚡</span>
+          <span>Fast Server (1080p)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleAction}
+          className="group px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xs sm:text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+        >
+          <span className="text-base group-hover:scale-110 transition-transform">⬇</span>
+          <span>Download Video (HD)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleAction}
+          className="group px-3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-500 hover:to-purple-600 text-white font-bold text-xs sm:text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+        >
+          <span className="text-base group-hover:scale-110 transition-transform">🚀</span>
+          <span>Cloud Server 2 (4K)</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Floating Sticky Bottom Ad Bar anchored to viewport bottom with close button.
+ * Yields continuous 100% viewability on CPM networks.
+ * Strictly hidden for VIP users ("vip der asbe na").
+ */
+export const FloatingStickyBottomBanner: React.FC = () => {
+  const { isAdFree } = useAdFreeVip();
+  const [closed, setClosed] = useState<boolean>(false);
+
+  if (isAdFree || closed) return null;
+
+  return (
+    <div className="fixed bottom-0 inset-x-0 z-40 bg-zinc-950/95 border-t border-zinc-800 shadow-[0_-8px_25px_rgba(0,0,0,0.85)] backdrop-blur-md pb-1 pt-1.5 transition-all">
+      <div className="max-w-4xl mx-auto px-2 relative flex flex-col items-center">
+        <button
+          type="button"
+          onClick={() => setClosed(true)}
+          className="absolute -top-3 right-2 px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-[10px] font-bold border border-zinc-700 shadow-md cursor-pointer flex items-center gap-1"
+          title="Close Ad"
+        >
+          <span>✕</span>
+          <span>Close</span>
+        </button>
+        <Banner320x50Ad className="my-0" />
+      </div>
+    </div>
+  );
+};
+

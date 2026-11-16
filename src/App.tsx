@@ -41,6 +41,9 @@ import {
   openStepSmartlinkWithPopunder,
   VipFramedAvatar,
   getVipFrameById,
+  PlayerTopSponsoredBanner,
+  SponsoredDownloadStreamButtons,
+  FloatingStickyBottomBanner,
 } from './components/AdUnits';
 import { ProtectedVideoPlayer } from './components/ProtectedVideoPlayer';
 import {
@@ -4345,6 +4348,9 @@ export default function App() {
           {viewMode === 'watch' && activeVideo && !isStepGateActive && (
             <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
               <div className="lg:col-span-8 space-y-4 min-w-0">
+                {/* 1. Top Sponsored Banner directly above the video player */}
+                <PlayerTopSponsoredBanner />
+
                 <ProtectedVideoPlayer
                   key={activeVideo.id}
                   videoId={activeVideo.id}
@@ -4353,6 +4359,12 @@ export default function App() {
                   poster={activeVideo.thumbnail || activeVideo.thumbnailUrl}
                   onPlaySuccess={() => handleVideoPlaySuccess(activeVideo)}
                 />
+
+                {/* 2. High-Converting Sponsored Fast HD Streaming & Download Buttons directly below player */}
+                <SponsoredDownloadStreamButtons videoTitle={activeVideo.title} />
+
+                {/* 3. High-CPM Inline 320x50 Banner below action buttons */}
+                <Banner320x50Ad className="my-1" />
 
                 <div className="space-y-3 pt-1">
                   <h1 className="text-base sm:text-xl font-bold text-white leading-snug break-words">
@@ -4477,7 +4489,19 @@ export default function App() {
                 <Banner320x50Ad className="my-0" />
                 <h3 className="text-sm font-semibold text-zinc-200 px-1">{t.upNext}</h3>
                 <div className="space-y-2">
-                  {suggestedVideos.map((video) => (
+                  {suggestedVideos.slice(0, 3).map((video) => (
+                    <VideoCard
+                      key={`side-${video.id}`}
+                      video={video}
+                      compact
+                      onCardClick={handleVideoCardClick}
+                      t={t}
+                    />
+                  ))}
+                  {suggestedVideos.length > 3 && (
+                    <Banner320x50Ad className="my-2" />
+                  )}
+                  {suggestedVideos.slice(3).map((video) => (
                     <VideoCard
                       key={`side-${video.id}`}
                       video={video}
@@ -4490,6 +4514,9 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Floating Sticky Bottom High-CPM Ad (Automatically hidden for VIP users) */}
+          <FloatingStickyBottomBanner />
 
           {/* Crawlable SEO Index for Googlebot */}
           <footer className="sr-only" aria-label="X Tube Official Video and Shorts Directory">
