@@ -793,7 +793,29 @@ export default function App() {
   const [stepTimer, setStepTimer] = useState<number>(STEP_DURATION_SECONDS);
   const [stepAdClicked, setStepAdClicked] = useState<boolean>(false);
   const [webviewReloadKey, setWebviewReloadKey] = useState<number>(0);
-  const [unlockedVideos, setUnlockedVideos] = useState<Record<string, boolean>>({});
+
+  // Persistent Unlocked Videos Tracker (Ensures once a user finds the link, the popup never reappears on mobile or reload)
+  const getStoredUnlockedVideos = (): Record<string, boolean> => {
+    try {
+      const raw = localStorage.getItem('xtube_unlocked_videos');
+      if (!raw) return {};
+      return JSON.parse(raw) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveStoredUnlockedVideo = (videoId: string) => {
+    try {
+      const current = getStoredUnlockedVideos();
+      current[videoId] = true;
+      localStorage.setItem('xtube_unlocked_videos', JSON.stringify(current));
+    } catch {}
+  };
+
+  const [unlockedVideos, setUnlockedVideos] = useState<Record<string, boolean>>(() =>
+    getStoredUnlockedVideos()
+  );
   const [gateVideo, setGateVideo] = useState<VideoItem | null>(null);
 
   // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
@@ -1001,10 +1023,13 @@ export default function App() {
     setStepGateVideo(null);
     setViewMode('watch');
 
-    // VIP with active ad-free bypasses 3-button gate directly
-    if (isVipMember && isAdFree) {
+    const isAlreadyUnlocked = Boolean(unlockedVideos[matched.id] || getStoredUnlockedVideos()[matched.id]);
+    // VIP with active ad-free OR already unlocked video bypasses 3-button gate directly
+    if ((isVipMember && isAdFree) || isAlreadyUnlocked) {
       setGateVideo(null);
-      recordVipAdFreeVideoWatch(matched.id);
+      if (isVipMember && isAdFree) {
+        recordVipAdFreeVideoWatch(matched.id);
+      }
     } else {
       // Normal visitors / non-VIP / expired VIP must solve 3-button gate first!
       setGateVideo(matched);
@@ -1681,6 +1706,10 @@ export default function App() {
         if (found) {
           activeVideoIdRef.current = found.id;
           setActiveVideo(found);
+          const isAlreadyUnlocked = Boolean(unlockedVideos[found.id] || getStoredUnlockedVideos()[found.id]);
+          if (isAlreadyUnlocked || (isVipMember && isAdFree)) {
+            setGateVideo(null);
+          }
           setViewMode('watch');
         }
       } else {
@@ -2426,9 +2455,12 @@ export default function App() {
           }
           setViewMode('watch');
           syncUrlWithVideo(targetVideo.id, true);
-          if (isVipMember && isAdFree) {
+          const isAlreadyUnlocked = Boolean(unlockedVideos[targetVideo.id] || getStoredUnlockedVideos()[targetVideo.id]);
+          if ((isVipMember && isAdFree) || isAlreadyUnlocked) {
             setGateVideo(null);
-            recordVipAdFreeVideoWatch(targetVideo.id);
+            if (isVipMember && isAdFree) {
+              recordVipAdFreeVideoWatch(targetVideo.id);
+            }
             if (!initialSharedViewCounted) {
               initialSharedViewCounted = true;
               incrementVideoViews(targetVideo.id);
@@ -2506,9 +2538,12 @@ export default function App() {
                 }
                 setViewMode('watch');
                 syncUrlWithVideo(resolvedVid.id, true);
-                if (isVipMember && isAdFree) {
+                const isAlreadyUnlocked = Boolean(unlockedVideos[resolvedVid.id] || getStoredUnlockedVideos()[resolvedVid.id]);
+                if ((isVipMember && isAdFree) || isAlreadyUnlocked) {
                   setGateVideo(null);
-                  recordVipAdFreeVideoWatch(resolvedVid.id);
+                  if (isVipMember && isAdFree) {
+                    recordVipAdFreeVideoWatch(resolvedVid.id);
+                  }
                   if (!initialSharedViewCounted) {
                     initialSharedViewCounted = true;
                     incrementVideoViews(resolvedVid.id);
@@ -2672,8 +2707,10 @@ export default function App() {
       isVipMember &&
       (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
 
-    // Active VIP with remaining daily quota -> direct play, no gate screen!
-    if (isAdFree && vipHasRemainingQuota) {
+    const isAlreadyUnlocked = Boolean(unlockedVideos[video.id] || getStoredUnlockedVideos()[video.id]);
+
+    // Active VIP with remaining daily quota OR already unlocked video -> direct play, no gate screen!
+    if ((isAdFree && vipHasRemainingQuota) || isAlreadyUnlocked) {
       setGateVideo(null);
       stepGatePendingIdRef.current = null;
       setStepGatePendingId(null);
@@ -2681,7 +2718,7 @@ export default function App() {
       activeVideoIdRef.current = video.id;
       setActiveVideo(video);
       setViewMode('watch');
-      recordVipAdFreeVideoWatch(video.id);
+      if (isAdFree) recordVipAdFreeVideoWatch(video.id);
       incrementVideoViews(video.id);
       recordAlgorithmInteraction(video, 'watch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2701,6 +2738,17 @@ export default function App() {
 
   // Called when the user clicks the winning button on the 3-Button Random Gate Screen
   const handleUnlockVideoFromGate = (video: VideoItem) => {
+    userNavigatedRef.current = true;
+    initialSharedResolvedRef.current = true;
+    pendingSharedIdRef.current = null;
+    stepGatePendingIdRef.current = null;
+    setStepGatePendingId(null);
+    setStepGateVideo(null);
+
+    // Save in localStorage & React state so mobile browser never re-prompts for this video
+    saveStoredUnlockedVideo(video.id);
+    setUnlockedVideos((prev) => ({ ...prev, [video.id]: true }));
+
     setGateVideo(null);
     activeVideoIdRef.current = video.id;
     setActiveVideo(video);

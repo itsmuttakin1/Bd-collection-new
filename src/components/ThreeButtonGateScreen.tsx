@@ -42,12 +42,6 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     }
   }, [isAdFree, video, onUnlock]);
 
-  // Load Popunder script on mount for non-VIP visitors
-  useEffect(() => {
-    if (isAdFree) return;
-    triggerPopunderAd();
-  }, [isAdFree]);
-
   // Rotate winning index on video change
   useEffect(() => {
     setWinningIndex(Math.floor(Math.random() * 3));
@@ -64,11 +58,10 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     // WINNER: User hit the random button containing the real video URL!
     if (buttonIndex === winningIndex) {
       setIsSuccess(true);
-      triggerPopunderAd();
       setToastMessage('✓ লিঙ্ক ভেরিফাই হয়েছে! ভিডিও চালু হচ্ছে...');
       setTimeout(() => {
         onUnlock(video);
-      }, 700);
+      }, 250);
       return;
     }
 
