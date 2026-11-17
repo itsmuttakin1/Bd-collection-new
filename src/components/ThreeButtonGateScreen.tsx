@@ -83,15 +83,6 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
       window.open(chosenSmartlink, '_blank');
     }
 
-    // Shift/re-randomize winning index to another button so it is completely dynamic
-    setWinningIndex((prev) => {
-      let next = Math.floor(Math.random() * 3);
-      if (next === buttonIndex) {
-        next = (next + 1) % 3;
-      }
-      return next;
-    });
-
     setToastMessage('⚠️ Server এর সমস্যার জন্য এই লিংকটি কাজ করেনি। অন্য লিংকে ট্রাই করুন!');
     setTimeout(() => {
       setToastMessage(null);

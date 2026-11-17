@@ -186,12 +186,6 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
 
   const handleOverlayPlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const now = Date.now();
-    if (now - lastPopunderTimeRef.current > 30000) {
-      lastPopunderTimeRef.current = now;
-      triggerPopunderAd();
-    }
-    triggerSocialBarAd();
 
     if (!isUnlocked) {
       setIsUnlocked(true);
@@ -201,6 +195,13 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     } else {
       togglePlayPause();
     }
+
+    const now = Date.now();
+    if (now - lastPopunderTimeRef.current > 30000) {
+      lastPopunderTimeRef.current = now;
+      triggerPopunderAd();
+    }
+    triggerSocialBarAd();
   };
 
   const startVideoPlayback = () => {
@@ -211,25 +212,25 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
         vid.currentTime = 0;
       } catch {}
     }
-    vid
-      .play()
-      .then(() => {
+    const p = vid.play();
+    if (p !== undefined) {
+      p.then(() => {
         setIsPlaying(true);
         if (onPlaySuccess) onPlaySuccess();
-      })
-      .catch(() => {
+      }).catch(() => {
         try {
           vid.muted = true;
           setIsMuted(true);
-          vid
-            .play()
-            .then(() => {
+          const p2 = vid.play();
+          if (p2 !== undefined) {
+            p2.then(() => {
               setIsPlaying(true);
               if (onPlaySuccess) onPlaySuccess();
-            })
-            .catch(() => {});
+            }).catch(() => {});
+          }
         } catch {}
       });
+    }
   };
 
   const handleVideoError = () => {

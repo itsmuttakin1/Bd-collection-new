@@ -793,29 +793,9 @@ export default function App() {
   const [stepTimer, setStepTimer] = useState<number>(STEP_DURATION_SECONDS);
   const [stepAdClicked, setStepAdClicked] = useState<boolean>(false);
   const [webviewReloadKey, setWebviewReloadKey] = useState<number>(0);
-
-  // Persistent Unlocked Videos Tracker (Ensures once a user finds the link, the popup never reappears on mobile or reload)
-  const getStoredUnlockedVideos = (): Record<string, boolean> => {
-    try {
-      const raw = localStorage.getItem('xtube_unlocked_videos');
-      if (!raw) return {};
-      return JSON.parse(raw) || {};
-    } catch {
-      return {};
-    }
-  };
-
-  const saveStoredUnlockedVideo = (videoId: string) => {
-    try {
-      const current = getStoredUnlockedVideos();
-      current[videoId] = true;
-      localStorage.setItem('xtube_unlocked_videos', JSON.stringify(current));
-    } catch {}
-  };
-
-  const [unlockedVideos, setUnlockedVideos] = useState<Record<string, boolean>>(() =>
-    getStoredUnlockedVideos()
-  );
+  // In-session unlocked video tracker: every video requires finding the link via 3-button gate,
+  // but once unlocked, the popup is removed and does not re-appear while watching that video.
+  const [unlockedVideoId, setUnlockedVideoId] = useState<string | null>(null);
   const [gateVideo, setGateVideo] = useState<VideoItem | null>(null);
 
   // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
@@ -916,6 +896,7 @@ export default function App() {
       setViewMode('home');
       setActiveVideo(null);
     setGateVideo(null);
+    setUnlockedVideoId(null);
       try {
         window.history.pushState({}, '', '/');
       } catch {}
@@ -1023,18 +1004,18 @@ export default function App() {
     setStepGateVideo(null);
     setViewMode('watch');
 
-    const isAlreadyUnlocked = Boolean(unlockedVideos[matched.id] || getStoredUnlockedVideos()[matched.id]);
-    // VIP with active ad-free OR already unlocked video bypasses 3-button gate directly
-    if ((isVipMember && isAdFree) || isAlreadyUnlocked) {
+    // VIP with active ad-free OR video already unlocked during current watch bypasses gate
+    if ((isVipMember && isAdFree) || unlockedVideoId === matched.id) {
       setGateVideo(null);
       if (isVipMember && isAdFree) {
+        setUnlockedVideoId(matched.id);
         recordVipAdFreeVideoWatch(matched.id);
       }
     } else {
-      // Normal visitors / non-VIP / expired VIP must solve 3-button gate first!
+      // Normal visitors / non-VIP must solve 3-button gate to find the link!
       setGateVideo(matched);
     }
-  }, [videos, shorts, stepGatePendingId, isAdFree, isVipMember, isDailyLimitReached, unlockedVideos, stepGateVideo]);
+  }, [videos, shorts, stepGatePendingId, isAdFree, isVipMember, isDailyLimitReached, unlockedVideoId, stepGateVideo]);
 
   // Auto-bypass 3-Button Verification if user activates a valid VIP Ad-Free Redeem Code with remaining daily quota
   useEffect(() => {
@@ -1661,6 +1642,7 @@ export default function App() {
     setActiveShortId(null);
     setActiveVideo(null);
     setGateVideo(null);
+    setUnlockedVideoId(null);
     setHomeRefreshSeed((s) => s + 1);
     setViewMode('home');
     syncUrlWithVideo(null);
@@ -1706,9 +1688,10 @@ export default function App() {
         if (found) {
           activeVideoIdRef.current = found.id;
           setActiveVideo(found);
-          const isAlreadyUnlocked = Boolean(unlockedVideos[found.id] || getStoredUnlockedVideos()[found.id]);
-          if (isAlreadyUnlocked || (isVipMember && isAdFree)) {
+          if (unlockedVideoId === found.id || (isVipMember && isAdFree)) {
             setGateVideo(null);
+          } else {
+            setGateVideo(found);
           }
           setViewMode('watch');
         }
@@ -1719,6 +1702,7 @@ export default function App() {
         setActiveShortId(null);
         setActiveVideo(null);
     setGateVideo(null);
+    setUnlockedVideoId(null);
         setViewMode('home');
       }
     };
@@ -2455,10 +2439,10 @@ export default function App() {
           }
           setViewMode('watch');
           syncUrlWithVideo(targetVideo.id, true);
-          const isAlreadyUnlocked = Boolean(unlockedVideos[targetVideo.id] || getStoredUnlockedVideos()[targetVideo.id]);
-          if ((isVipMember && isAdFree) || isAlreadyUnlocked) {
+          if ((isVipMember && isAdFree) || unlockedVideoId === targetVideo.id) {
             setGateVideo(null);
             if (isVipMember && isAdFree) {
+              setUnlockedVideoId(targetVideo.id);
               recordVipAdFreeVideoWatch(targetVideo.id);
             }
             if (!initialSharedViewCounted) {
@@ -2538,10 +2522,10 @@ export default function App() {
                 }
                 setViewMode('watch');
                 syncUrlWithVideo(resolvedVid.id, true);
-                const isAlreadyUnlocked = Boolean(unlockedVideos[resolvedVid.id] || getStoredUnlockedVideos()[resolvedVid.id]);
-                if ((isVipMember && isAdFree) || isAlreadyUnlocked) {
+                if ((isVipMember && isAdFree) || unlockedVideoId === resolvedVid.id) {
                   setGateVideo(null);
                   if (isVipMember && isAdFree) {
+                    setUnlockedVideoId(resolvedVid.id);
                     recordVipAdFreeVideoWatch(resolvedVid.id);
                   }
                   if (!initialSharedViewCounted) {
@@ -2707,18 +2691,17 @@ export default function App() {
       isVipMember &&
       (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
 
-    const isAlreadyUnlocked = Boolean(unlockedVideos[video.id] || getStoredUnlockedVideos()[video.id]);
-
-    // Active VIP with remaining daily quota OR already unlocked video -> direct play, no gate screen!
-    if ((isAdFree && vipHasRemainingQuota) || isAlreadyUnlocked) {
+    // Active VIP with remaining daily quota -> direct play, no gate screen!
+    if (isAdFree && vipHasRemainingQuota) {
       setGateVideo(null);
+      setUnlockedVideoId(video.id);
       stepGatePendingIdRef.current = null;
       setStepGatePendingId(null);
       setStepGateVideo(null);
       activeVideoIdRef.current = video.id;
       setActiveVideo(video);
       setViewMode('watch');
-      if (isAdFree) recordVipAdFreeVideoWatch(video.id);
+      recordVipAdFreeVideoWatch(video.id);
       incrementVideoViews(video.id);
       recordAlgorithmInteraction(video, 'watch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2726,6 +2709,8 @@ export default function App() {
     }
 
     // Normal user or VIP whose daily limit is reached -> SHOW 3-BUTTON RANDOM GATE!
+    // For EVERY video, user must find the link through the 3-button gate!
+    setUnlockedVideoId(null);
     stepGatePendingIdRef.current = null;
     setStepGatePendingId(null);
     setStepGateVideo(null);
@@ -2745,10 +2730,8 @@ export default function App() {
     setStepGatePendingId(null);
     setStepGateVideo(null);
 
-    // Save in localStorage & React state so mobile browser never re-prompts for this video
-    saveStoredUnlockedVideo(video.id);
-    setUnlockedVideos((prev) => ({ ...prev, [video.id]: true }));
-
+    // Unlocks this video: popup goes away, video plays, and does not re-appear while watching
+    setUnlockedVideoId(video.id);
     setGateVideo(null);
     activeVideoIdRef.current = video.id;
     setActiveVideo(video);
@@ -4444,7 +4427,7 @@ export default function App() {
           {viewMode === 'watch' && !activeVideo && loadingVideos && <WatchSkeletonView />}
 
           {/* 3-Button Random Verification Gate Screen (Shown before playing video for non-VIP) */}
-          {viewMode === 'watch' && gateVideo && (
+          {viewMode === 'watch' && activeVideo && gateVideo && gateVideo.id !== unlockedVideoId && (
             <ThreeButtonGateScreen
               video={gateVideo}
               onUnlock={handleUnlockVideoFromGate}
@@ -4453,7 +4436,7 @@ export default function App() {
           )}
 
           {/* Watch View (Plays Video After 3-Button Gate Unlocks or directly for VIP) */}
-          {viewMode === 'watch' && activeVideo && !gateVideo && !isStepGateActive && (
+          {viewMode === 'watch' && activeVideo && (!gateVideo || gateVideo.id === unlockedVideoId) && !isStepGateActive && (
             <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
               <div className="lg:col-span-8 space-y-4 min-w-0">
                 {/* 1. Top Sponsored Banner directly above the video player */}
