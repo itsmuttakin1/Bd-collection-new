@@ -139,6 +139,10 @@
           class="w-full py-2.5 px-4 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors cursor-pointer">
           Sign In to Admin Panel
         </button>
+        <button id="forgot-password-btn" type="button"
+          class="w-full py-2 text-xs text-zinc-400 hover:text-zinc-200 underline cursor-pointer text-center">
+          Forgot Password?
+        </button>
       </form>
 
       <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
@@ -2406,6 +2410,7 @@
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       onAuthStateChanged,
+      sendPasswordResetEmail,
       signOut
     } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
     import {
@@ -5873,8 +5878,39 @@ service cloud.firestore {
           await signInWithEmailAndPassword(auth, email, pass);
         }
       } catch (err) {
-        errBox.textContent = err.message || 'Authentication failed';
+        const code = err.code || '';
+        let msg = 'লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।';
+        if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+          msg = 'ইমেইল বা পাসওয়ার্ড ভুল। আবার চেষ্টা করুন।';
+        } else if (code === 'auth/too-many-requests') {
+          msg = 'অনেকবার ভুল চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।';
+        } else if (code === 'auth/invalid-email') {
+          msg = 'ইমেইল ঠিকানা সঠিক নয়।';
+        } else if (code === 'auth/network-request-failed') {
+          msg = 'নেটওয়ার্ক সমস্যা। ইন্টারনেট সংযোগ চেক করুন।';
+        }
+        errBox.textContent = msg;
         errBox.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('forgot-password-btn').addEventListener('click', async () => {
+      const errBox = document.getElementById('auth-error');
+      const email = document.getElementById('auth-email').value.trim();
+      if (!email) {
+        errBox.textContent = 'পাসওয়ার্ড রিসেটের জন্য আগে ইমেইল লিখুন।';
+        errBox.classList.remove('hidden');
+        return;
+      }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        errBox.textContent = `✅ ${email} এ পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে।`;
+        errBox.classList.remove('hidden');
+        errBox.style.color = '#4ade80';
+      } catch (err) {
+        errBox.textContent = 'রিসেট ইমেইল পাঠানো যায়নি। ইমেইল ঠিকানা চেক করুন।';
+        errBox.classList.remove('hidden');
+        errBox.style.color = '';
       }
     });
 
@@ -6777,11 +6813,6 @@ service cloud.firestore {
       }
     });
 
-      if (typeof refreshNoticeTargetDropdown === 'function') {
-        refreshNoticeTargetDropdown();
-      }
-    });
-
     // 1-Click Live Google Video + Shorts Sitemap Generator for X Tube (https://xtubeofficial.pages.dev)
     let rawShortsMap = {};
 
@@ -6981,15 +7012,6 @@ service cloud.firestore {
         });
       }
     })();
-
-    let publishedShortsRenderLimit = 50;
-    let debounceShortsTableTimer = null;
-    const requestShortsTableRender = () => {
-      if (debounceShortsTableTimer) clearTimeout(debounceShortsTableTimer);
-      debounceShortsTableTimer = setTimeout(() => {
-        renderPublishedShortsTable();
-      }, 150);
-    };
 
     let publishedShortsRenderLimit = 50;
     let debounceShortsTableTimer = null;
