@@ -2168,11 +2168,11 @@
 
                 <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-zinc-800/80">
                   <p id="upload-ready-hint" class="text-xs text-zinc-400">
-                    নিচের <strong>🚀 Upload Video</strong> বাটনে ক্লিক করলে <strong>Shorts, Long বা Both</strong> সিলেক্ট করার অপশন আসবে।
+                    উপরে সিলেক্ট করা অপশন অনুযায়ী সরাসরি <strong>🚀 Upload &amp; Publish Video</strong> বাটনে ক্লিক করুন।
                   </p>
                   <button id="upload-submit-btn" type="button"
                     class="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-lg shadow-red-600/25 shrink-0">
-                    🚀 Upload &amp; Publish Video (Choose: Shorts / Long / Both)
+                    🚀 Upload &amp; Publish Video
                   </button>
                 </div>
               </div>
@@ -2185,6 +2185,10 @@
                     <span id="last-uploaded-label" class="text-xs sm:text-sm font-bold text-emerald-300">✅ সদ্য আপলোড করা ভিডিওর Share Link:</span>
                   </div>
                   <div class="flex flex-wrap items-center gap-1.5">
+                    <button id="last-uploaded-play-btn" type="button"
+                      class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer shadow flex items-center gap-1">
+                      ▶️ Play Video
+                    </button>
                     <button id="last-uploaded-copy-btn" type="button"
                       class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow">
                       📋 Copy Share Link
@@ -2201,6 +2205,10 @@
                       class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer">
                       ✈️ Copy TG Link
                     </button>
+                    <button id="last-uploaded-delete-btn" type="button"
+                      class="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-bold cursor-pointer shadow flex items-center gap-1">
+                      🗑️ Delete (Server + DB)
+                    </button>
                     <a id="last-uploaded-open-link" href="/" target="_blank" rel="noopener noreferrer"
                       class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-medium">
                       ↗ Open
@@ -2209,6 +2217,11 @@
                 </div>
                 <input id="last-uploaded-share-input" type="text" readonly
                   class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-emerald-700 text-xs sm:text-sm font-mono text-emerald-300 focus:outline-none select-all" />
+
+                <!-- Uploaded Video Inline Player Preview Container -->
+                <div id="last-uploaded-video-preview" class="hidden mt-3 rounded-2xl overflow-hidden border border-zinc-700 bg-black aspect-video max-w-lg mx-auto shadow-2xl relative">
+                  <video id="last-uploaded-video-el" controls playsinline class="w-full h-full object-contain"></video>
+                </div>
 
                 <div id="recent-uploaded-links-wrap" class="hidden pt-2 border-t border-emerald-800/60 space-y-1.5">
                   <span class="block text-[11px] font-semibold text-emerald-300/90">📂 এই সেশনে আপলোড করা সব ভিডিওর Share Link লিস্ট:</span>
@@ -3471,6 +3484,11 @@ service cloud.firestore {
             longId: newRef.key,
             shortId: '',
             targetLabel: 'Long Videos',
+            videoUrl: streamUrl,
+            r2Key: file.key,
+            serverId: activeSrv.id,
+            serverName: activeSrv.name || '',
+            uploadedKey: file.key,
           });
         } else if (copyShareAfter && window.copyVideoShareLink) {
           await window.copyVideoShareLink(newRef.key, title);
@@ -3909,6 +3927,17 @@ service cloud.firestore {
             : 'p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/60 text-left transition-all cursor-pointer';
         }
       });
+
+      const submitBtn = document.getElementById('upload-submit-btn');
+      if (submitBtn && !submitBtn.disabled) {
+        if (cleanMode === 'shorts') {
+          submitBtn.textContent = '🚀 Upload to Shorts';
+        } else if (cleanMode === 'long') {
+          submitBtn.textContent = '🚀 Upload to Long Video';
+        } else {
+          submitBtn.textContent = '🚀 Upload to Both (Shorts + Long)';
+        }
+      }
     };
 
     document.querySelectorAll('[data-select-mode]').forEach((btn) => {
@@ -4244,38 +4273,14 @@ service cloud.firestore {
 
     window.copyVideoShareLink = async (videoId, title = '') => {
       if (!videoId) return '';
-      // Destination URL is the website video player (Step complete -> Website Video Player)
-      const webTargetUrl = window.buildWebVideoShareLink(videoId);
-      let finalLink = '';
-
-      // Check if video already has a valid Redrectorlink monetized step-link
-      try {
-        const snap = await database.ref(`videos/${videoId}`).once('value');
-        const vData = snap.val();
-        if (vData && vData.monetizedShareUrl && vData.monetizedShareUrl.includes('redrectorlink')) {
-          finalLink = vData.monetizedShareUrl;
-        } else {
-          showStatus('Generating Redrectorlink 4-Step Monetized Link (Steps -> Video Player)...', 'info');
-          const linkGen = await window.generateLinkGenStepLink(webTargetUrl, title || vData?.title || 'Video');
-          if (linkGen && linkGen.shareUrl) {
-            finalLink = linkGen.shareUrl;
-            database.ref(`videos/${videoId}`).update({
-              monetizedShareUrl: finalLink,
-              linkgenSlug: linkGen.slug
-            }).catch(() => {});
-          }
-        }
-      } catch (e) {
-        finalLink = webTargetUrl;
-      }
-
-      if (!finalLink) finalLink = webTargetUrl;
-      await copyRawTextHelper(finalLink);
+      // Generate standard Telegram Mini App video link (opens video directly in Telegram)
+      const tgShareUrl = window.buildVideoShareLink(videoId);
+      await copyRawTextHelper(tgShareUrl);
       showStatus(
-        `✓ Copied Step Link (Steps -> Video Player)${title ? ` for "${title}"` : ''}: ${finalLink}`,
+        `✓ Copied Telegram Mini App Video Link${title ? ` for "${title}"` : ''}: ${tgShareUrl}`,
         'success'
       );
-      return finalLink;
+      return tgShareUrl;
     };
 
     window.getTelegramMiniAppBaseUrl = () => {
@@ -4484,45 +4489,20 @@ service cloud.firestore {
       targetLabel = 'Both',
       serverName = '',
       uploadedKey = '',
+      videoUrl = '',
+      r2Key = '',
+      serverId = '',
     }) => {
-      // Step ads happen on Redrectorlink, then redirect directly to Website Video Player!
-      const webVideoLink = longId ? window.buildWebVideoShareLink(longId) : '';
-      const webShortLink = shortId ? window.buildWebShortShareLink(shortId) : '';
-      const directTargetLink = webVideoLink || webShortLink;
-      if (!directTargetLink) return;
-
+      // Generate Telegram Mini App Video Share Links
       const tgVideoLink = longId ? window.buildVideoShareLink(longId) : '';
       const tgShortLink = shortId ? window.buildShortShareLink(shortId) : '';
-      const shortShareLink = webShortLink || tgShortLink;
+      const primaryLink = tgVideoLink || tgShortLink;
+      if (!primaryLink) return;
 
-      // Automatically generate Redrectorlink 4-step monetized step-link targeting Website Video Player!
-      let monetizedStepLink = '';
-      try {
-        showStatus('Generating Redrectorlink Step Link (Steps -> Video Player)...', 'info');
-        const linkGen = await window.generateLinkGenStepLink(directTargetLink, title);
-        if (linkGen && linkGen.shareUrl) {
-          monetizedStepLink = linkGen.shareUrl;
-          if (longId && typeof database !== 'undefined') {
-            database.ref(`videos/${longId}`).update({
-              monetizedShareUrl: monetizedStepLink,
-              linkgenSlug: linkGen.slug,
-            }).catch(() => {});
-          }
-          if (shortId && typeof database !== 'undefined') {
-            database.ref(`shorts/${shortId}`).update({
-              monetizedShareUrl: monetizedStepLink,
-              linkgenSlug: linkGen.slug,
-            }).catch(() => {});
-          }
-        }
-      } catch (err) {
-        console.warn('LinkGen auto-generation error:', err);
-      }
+      const shortShareLink = tgShortLink;
+      const captionText = `${title}\n👉 Watch Full HD Video on Telegram: ${primaryLink}`;
 
-      const primaryLink = monetizedStepLink || directTargetLink;
-      const captionText = `${title}\n👉 Watch Full HD Video: ${primaryLink}`;
-
-      // 1. Auto-copy primary share link (Redrectorlink step-link) to clipboard immediately
+      // 1. Auto-copy primary Telegram Mini App share link to clipboard immediately
       const autoCopied = await copyRawTextHelper(primaryLink);
 
       // 2. Save to current session history list
@@ -4545,6 +4525,10 @@ service cloud.firestore {
       const captionCopyBtn = document.getElementById('last-uploaded-caption-copy-btn');
       const shortCopyBtn = document.getElementById('last-uploaded-short-copy-btn');
       const tgBtn = document.getElementById('last-uploaded-tg-btn');
+      const playBtn = document.getElementById('last-uploaded-play-btn');
+      const delBtn = document.getElementById('last-uploaded-delete-btn');
+      const videoPreviewWrap = document.getElementById('last-uploaded-video-preview');
+      const videoPreviewEl = document.getElementById('last-uploaded-video-el');
 
       if (shareBox && shareInput && openLink && copyBtn) {
         shareInput.value = primaryLink;
@@ -4554,7 +4538,7 @@ service cloud.firestore {
         copyBtn.onclick = async () => {
           await copyRawTextHelper(primaryLink);
           copyBtn.textContent = '✓ Copied!';
-          showStatus(`Copied Share Link: ${primaryLink}`, 'success');
+          showStatus(`Copied Telegram Share Link: ${primaryLink}`, 'success');
           setTimeout(() => (copyBtn.textContent = '📋 Copy Share Link'), 2000);
         };
 
@@ -4590,6 +4574,79 @@ service cloud.firestore {
             }
           };
         }
+
+        // Inline Video Player Preview Button
+        if (playBtn && videoPreviewWrap && videoPreviewEl) {
+          playBtn.onclick = () => {
+            if (!videoUrl) {
+              showStatus('Video stream URL is not available to preview.', 'info');
+              return;
+            }
+            if (!videoPreviewWrap.classList.contains('hidden') && !videoPreviewEl.paused) {
+              videoPreviewEl.pause();
+              videoPreviewWrap.classList.add('hidden');
+              playBtn.textContent = '▶️ Play Video';
+            } else {
+              videoPreviewWrap.classList.remove('hidden');
+              if (videoPreviewEl.src !== videoUrl) {
+                videoPreviewEl.src = videoUrl;
+              }
+              videoPreviewEl.play().catch(() => {});
+              playBtn.textContent = '⏸ Pause Video';
+            }
+          };
+        }
+
+        // Inline Delete Button (Deletes permanently from Server + Firebase)
+        if (delBtn) {
+          delBtn.onclick = async () => {
+            if (!confirm(`Are you sure you want to permanently delete "${title}" from website AND delete the video file from Cloudflare R2 Storage Server?`)) {
+              return;
+            }
+            delBtn.disabled = true;
+            delBtn.textContent = '⏳ Deleting...';
+
+            try {
+              // 1. Delete file from R2 Storage Server
+              const targetKey = uploadedKey || r2Key;
+              if (targetKey) {
+                const targetSrv = servers.find((s) => s.id === serverId) || servers[0];
+                if (targetSrv && targetSrv.workerUrl && targetSrv.adminKey) {
+                  try {
+                    const baseUrl = normalizeBaseUrl(targetSrv.workerUrl);
+                    await fetch(`${baseUrl}/api/delete`, {
+                      method: 'DELETE',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Key': targetSrv.adminKey.trim()
+                      },
+                      body: JSON.stringify({ key: targetKey })
+                    });
+                  } catch (e) {
+                    console.warn('R2 delete warning:', e);
+                  }
+                }
+              }
+
+              // 2. Delete from Firebase
+              if (longId) await remove(ref(db, `videos/${longId}`));
+              if (shortId) await remove(ref(db, `shorts/${shortId}`));
+
+              // 3. Reset UI & stop video
+              if (videoPreviewEl) {
+                videoPreviewEl.pause();
+                videoPreviewEl.src = '';
+              }
+              if (videoPreviewWrap) videoPreviewWrap.classList.add('hidden');
+              shareBox.classList.add('hidden');
+              showStatus(`✓ Successfully deleted "${title}" from website and Cloudflare R2 server!`, 'success');
+            } catch (err) {
+              showStatus(`Delete Error: ${err.message}`, 'error');
+              delBtn.disabled = false;
+              delBtn.textContent = '🗑️ Delete (Server + DB)';
+            }
+          };
+        }
       }
 
       // 4. Populate & Open the Automatic Share Link Popup Modal (#upload-share-link-modal)
@@ -4611,13 +4668,11 @@ service cloud.firestore {
         if (modalTitle) modalTitle.textContent = `🎬 ${title}`;
         if (modalBadge) {
           modalBadge.textContent = autoCopied
-            ? '✓ Share Link Auto-Copied!'
+            ? '✓ Telegram Share Link Auto-Copied!'
             : '⚡ Ready to Copy';
         }
         if (modalPrimaryLabel) {
-          modalPrimaryLabel.textContent = monetizedStepLink
-            ? '🔗 Redrectorlink Step Link (Steps -> Video Player):'
-            : (webVideoLink ? '🎬 Direct Video Share Link (/?v=):' : '📱 Direct Short Share Link (/?short=):');
+          modalPrimaryLabel.textContent = '✈️ Telegram Mini App Video Share Link:';
         }
         if (modalPrimaryInput) {
           modalPrimaryInput.value = primaryLink;
@@ -4999,9 +5054,17 @@ service cloud.firestore {
 
       if (selectedVideoFile) {
         nameEl.textContent = `📁 ${selectedVideoFile.name}`;
-        sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Ready to upload ✓`;
-        if (hintEl) {
-          hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✓ "${selectedVideoFile.name}" (${formatBytes(selectedVideoFile.size)}) সিলেক্ট হয়েছে! এবার নিচে <strong>🚀 Upload &amp; Publish Video</strong> বাটনে ক্লিক করে <strong>Shorts / Long / Both</strong> অপশন বেছে নিন।</span>`;
+        if (selectedVideoFile.size > 100 * 1024 * 1024) {
+          sizeEl.innerHTML = `<span class="text-amber-400 font-bold">${formatBytes(selectedVideoFile.size)} ⚠️ সতর্কতা: সাইজ 100MB-এর বেশি!</span>`;
+          if (hintEl) {
+            hintEl.innerHTML = `<span class="text-amber-400 font-semibold">⚠️ সতর্কতা: ভিডিও ফাইলের সাইজ ${formatBytes(selectedVideoFile.size)} (100 MB-এর বেশি)। Cloudflare Free Worker লিমিট ১০০ MB, তাই ১০০ MB-এর বেশি ফাইল আপলোড দিলে Cloudflare 413 এরর দিবে। ১০০ MB-এর নিচের ভিডিও দিন অথবা ফাইলটি হালকা কম্প্রেস করে আপলোড করুন।</span>`;
+          }
+          showStatus(`⚠️ ফাইল সাইজ ${formatBytes(selectedVideoFile.size)}! Cloudflare Free Worker লিমিট ১০০ MB। ফাইলটি কম্প্রেস করুন।`, 'error');
+        } else {
+          sizeEl.textContent = `${formatBytes(selectedVideoFile.size)} · Ready to upload ✓`;
+          if (hintEl) {
+            hintEl.innerHTML = `<span class="text-emerald-400 font-semibold">✓ "${selectedVideoFile.name}" (${formatBytes(selectedVideoFile.size)}) সিলেক্ট হয়েছে! সরাসরি নিচে <strong>🚀 Upload &amp; Publish Video</strong> বাটনে ক্লিক করুন।</span>`;
+          }
         }
         // Ensure Auto Viral Adult Title & Hashtags are populated
         if (!titleInput.value.trim()) {
@@ -5333,13 +5396,22 @@ service cloud.firestore {
     };
 
     // Clicking "🚀 Upload & Publish Video" button opens the Shorts / Long / Both selector modal
-    document.getElementById('upload-submit-btn').addEventListener('click', () => {
-      openUploadChoiceModal();
-    });
+    // Directly upload using the chosen mode on the form (No duplicate popup)
+    const triggerDirectUpload = () => {
+      const customUrl = document.getElementById('video-custom-url').value.trim();
+      if (!selectedVideoFile && !customUrl) {
+        showStatus('প্রথমে একটি ভিডিও ফাইল সিলেক্ট করুন অথবা Direct Video Stream URL দিন!', 'error');
+        return;
+      }
+      const targetMode = document.getElementById('upload-target-mode')?.value || 'both';
+      executeUnifiedUpload(targetMode);
+    };
+
+    document.getElementById('upload-submit-btn').addEventListener('click', triggerDirectUpload);
 
     document.getElementById('upload-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      openUploadChoiceModal();
+      triggerDirectUpload();
     });
 
     // Execute the Unified Upload to R2 Storage Server and Publish to Shorts, Long, or Both
@@ -5582,6 +5654,9 @@ service cloud.firestore {
             targetLabel,
             serverName: activeSrv?.name || '',
             uploadedKey: uploadedKey || '',
+            videoUrl: finalVideoUrl,
+            r2Key: uploadedKey || '',
+            serverId: activeSrv?.id || '',
           });
         }
 
@@ -6172,6 +6247,74 @@ service cloud.firestore {
       }
     });
 
+    // Unified Video Deletion: Deletes from both Cloudflare R2 Storage Server and Firebase RTDB
+    window.deleteVideoAndR2File = async (item, type = 'videos') => {
+      if (!item) return false;
+      const title = item.title || item.id || 'Video';
+      if (!confirm(`Are you sure you want to permanently delete "${title}" from website AND delete the video file from Cloudflare R2 Storage Server?`)) {
+        return false;
+      }
+
+      showStatus(`Deleting "${title}" from server and database...`, 'info');
+
+      // 1. Delete file from Cloudflare R2 Server
+      let r2Key = item.r2Key || '';
+      const streamUrl = item.streamUrl || item.videoUrl || item.url || '';
+      if (!r2Key && streamUrl) {
+        try {
+          const u = new URL(streamUrl);
+          r2Key = decodeURIComponent(u.pathname.replace(/^\/+/, ''));
+        } catch {}
+      }
+
+      if (r2Key) {
+        let deletedOk = false;
+        const targetSrv = servers.find((s) => s.id === item.serverId) || servers[0];
+        if (targetSrv && targetSrv.workerUrl && targetSrv.adminKey) {
+          try {
+            const baseUrl = normalizeBaseUrl(targetSrv.workerUrl);
+            const res = await fetch(`${baseUrl}/api/delete`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Key': targetSrv.adminKey.trim()
+              },
+              body: JSON.stringify({ key: r2Key })
+            });
+            if (res.ok) deletedOk = true;
+          } catch {}
+        }
+        if (!deletedOk) {
+          for (const srv of servers) {
+            if (srv && srv.workerUrl && srv.adminKey && srv !== targetSrv) {
+              try {
+                const bUrl = normalizeBaseUrl(srv.workerUrl);
+                const res = await fetch(`${bUrl}/api/delete`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Key': srv.adminKey.trim()
+                  },
+                  body: JSON.stringify({ key: r2Key })
+                });
+                if (res.ok) break;
+              } catch {}
+            }
+          }
+        }
+      }
+
+      // 2. Delete from Firebase RTDB
+      try {
+        await remove(ref(db, `${type}/${item.id}`));
+        showStatus(`✓ Permanently deleted "${title}" from website & Cloudflare R2 server!`, 'success');
+        return true;
+      } catch (err) {
+        showStatus(`Delete Error: ${err.message}. Make sure your UID is in Firebase Rules.`, 'error');
+        return false;
+      }
+    };
+
     // Zero-Bandwidth Lazy Renderer for Published Videos Table (Only renders DOM rows when Videos tab is active, and NEVER auto-downloads 150+ MP4 streams!)
     const renderPublishedVideosTable = () => {
       const tbody = document.getElementById('catalog-table-body');
@@ -6435,12 +6578,7 @@ service cloud.firestore {
         });
 
         tr.querySelector('[data-rm-vid]').addEventListener('click', async () => {
-          try {
-            await remove(ref(db, `videos/${v.id}`));
-            showStatus(`Removed "${v.title}" from website.`, 'success');
-          } catch (err) {
-            showStatus(`Delete Error: ${err.message}. Make sure your UID is in Firebase Rules.`, 'error');
-          }
+          await window.deleteVideoAndR2File(v, 'videos');
         });
         tbody.appendChild(tr);
       });
@@ -6835,12 +6973,7 @@ service cloud.firestore {
         tr.querySelector('[data-play-thumb-short]')?.addEventListener('click', handlePlayShort);
 
         tr.querySelector('[data-rm-short]').addEventListener('click', async () => {
-          try {
-            await remove(ref(db, `shorts/${s.id}`));
-            showStatus(`Removed Short "${s.title}" from website.`, 'success');
-          } catch (err) {
-            showStatus(`Delete Error: ${err.message}`, 'error');
-          }
+          await window.deleteVideoAndR2File(s, 'shorts');
         });
 
         tbody.appendChild(tr);
