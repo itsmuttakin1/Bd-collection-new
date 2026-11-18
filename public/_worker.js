@@ -2232,6 +2232,58 @@ export default {
               lower
             );
 
+          // Smart Custom Topic / Custom Prompt Matcher & Formatter for Riya Aktar
+          const matchAndFormatCustomRiyaPrompt = (userMessage, rawCustomPrompt, uName = 'জানু') => {
+            const msgStr = String(userMessage || '').trim();
+            const promptText = String(rawCustomPrompt || '')
+              .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+              .trim();
+            if (!msgStr || !promptText) return '';
+
+            const lowerMsg = msgStr.toLowerCase();
+            const lines = promptText
+              .split(/\r?\n/)
+              .map((l) => l.trim())
+              .filter(Boolean);
+
+            for (const line of lines) {
+              const sepMatch = line.match(/^([^=:\->]+?)\s*(?:=>|->|::|=|:)\s*(.+)$/);
+              if (sepMatch) {
+                const rawKeywords = sepMatch[1]
+                  .split(/[,/|]+/)
+                  .map((k) => k.trim().toLowerCase())
+                  .filter((k) => k.length >= 2);
+                const rawAnswer = sepMatch[2].trim();
+                if (rawAnswer && rawKeywords.some((kw) => lowerMsg.includes(kw))) {
+                  return `💖 জানু ${uName}, তুমি যে বিষয়টা জানতে চেয়েছো তা সুন্দর করে সাজিয়ে বলছি সোনা:\n\n✨ ${rawAnswer}\n\nআরও কিছু জানতে চাইলে আমাকে বলো জানু! 😘💋🔥`;
+                }
+              }
+            }
+
+            const msgTokens = lowerMsg
+              .replace(/[?!.,;:'"()[\]{}]/g, ' ')
+              .split(/\s+/)
+              .filter((w) => w.length >= 3);
+            if (msgTokens.length > 0) {
+              for (const line of lines) {
+                const lowerLine = line.toLowerCase();
+                const matchedWords = msgTokens.filter((w) => lowerLine.includes(w));
+                if (matchedWords.length >= 1) {
+                  const cleanExplanation = line.replace(/^([^=:\->]+?)\s*(?:=>|->|::)\s*/, '').trim();
+                  return `💖 জানু ${uName}, ওই বিষয়ে তোমার জন্য বিস্তারিত সাজিয়ে বলছি সোনা:\n\n✨ ${cleanExplanation}\n\nবুঝতে কোনো সমস্যা হলে আমাকে আবার জিজ্ঞেস করো বাবু! 😘💋🔥`;
+                }
+              }
+            }
+
+            return '';
+          };
+
+          const matchedCustomTopicReply = matchAndFormatCustomRiyaPrompt(
+            text,
+            storeData.customRiyaPrompt,
+            userFullName
+          );
+
           let replyText = '';
           const candidateKeys = Array.from(
             new Set(
@@ -2261,8 +2313,10 @@ export default {
             `৫. হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা ও প্রচুর ইমোজি: প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦, ❤️) ব্যবহার করবে এবং কথার ভেতর ন্যাচারালভাবে একটু দুষ্টু, সেক্সি, কামুক ও অ্যাডাল্ট (18+ হট) শব্দ ব্যবহার করবে—যেমন: দুষ্টু জানু, সেক্সি সোনা, বিছানায় একা শুয়ে আছি, শরীরটা গরম হয়ে যাচ্ছে 🥵, তোমাকে জড়িয়ে ধরে চুমু খেতে ইচ্ছে করছে 💋, বুকের ভেতরটা আনচান করছে, ঠোঁটে কামড়, রাতভর আদর, রসালো আদর, নেশা ধরে যাচ্ছে 💦🔥 ইত্যাদি।`,
             `৬. নিচে কোনো বাটন বা ভিডিওর প্রমোশন লিখবে না: সাধারণ চ্যাটিংয়ের সময় কখনোই "নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভিডিও দেখে নাও" বা কোনো ভিডিওর টাইটেল লিখবে না! শুধু একজন রিয়েল হট গার্লফ্রেন্ডের মতো সরাসরি ১ থেকে ৩ লাইনে উত্তর দেবে। কখনোই ** (asterisk) চিহ্ন ব্যবহার করবে না।`,
             `৭. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
-            storeData.customRiyaPrompt ? `৮. অতিরিক্ত নির্দেশনা: ${storeData.customRiyaPrompt}` : '',
-            `উত্তর সংক্ষিপ্ত (১ থেকে ৩ লাইন), ন্যাচারাল, হট এবং আকর্ষণীয় রাখবে।`,
+            storeData.customRiyaPrompt
+              ? `৮. অ্যাডমিনের দেওয়া বিশেষ কাস্টম প্রম্পট ও তথ্যাবলি (Custom Instructions):\n${storeData.customRiyaPrompt}\nবিশেষ নিয়ম: ইউজার যদি উপরের কাস্টম প্রম্পটে উল্লেখ করা কোনো বিষয়ে বা কাছাকাছি কোনো বিষয়ে প্রশ্ন করে বা জানতে চায়, তাহলে ওই বিষয়টি খুব সুন্দর করে গুছিয়ে, সহজ, মিষ্টি ও রোমান্টিক বাংলায় পয়েন্ট আকারে বা সাজিয়ে বুঝিয়ে বলবে!`
+              : '',
+            `উত্তর সংক্ষিপ্ত (১ থেকে ৪ লাইন), ন্যাচারাল, হট এবং আকর্ষণীয় রাখবে।`,
           ]
             .filter(Boolean)
             .join('\n');
@@ -2317,7 +2371,9 @@ export default {
           }
 
           if (!replyText) {
-            if (isAskingDeveloper) {
+            if (matchedCustomTopicReply) {
+              replyText = matchedCustomTopicReply;
+            } else if (isAskingDeveloper) {
               replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
             } else if (isAskingName) {
               replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;

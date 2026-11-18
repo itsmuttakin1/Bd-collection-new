@@ -2789,7 +2789,7 @@ export default function App() {
     setStepAdClicked(false);
 
     if (target) {
-      setUnlockedVideos((prev) => ({ ...prev, [target.id]: true }));
+      setUnlockedVideoId(target.id);
       activeVideoIdRef.current = target.id;
       setActiveVideo(target);
       setViewMode('watch');
