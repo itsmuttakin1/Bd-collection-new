@@ -2925,7 +2925,8 @@ service cloud.firestore {
         servers = sanitizeServerList(remoteList);
         activeServerId = servers[0]?.id || '';
         renderServerSelect();
-        await refreshAllServers();
+        renderStorageCards();
+        renderActiveServerFiles();
       } catch {
         servers = [];
         activeServerId = '';
@@ -3154,20 +3155,32 @@ service cloud.firestore {
       }
 
       serverStats[server.id] = { ...(serverStats[server.id] || {}), status: 'loading' };
-      renderStorageCards();
+
+      const fetchWithTimeout = async (url, options = {}, timeoutMs = 6000) => {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, { ...options, signal: controller.signal });
+          clearTimeout(tid);
+          return res;
+        } catch (err) {
+          clearTimeout(tid);
+          throw err;
+        }
+      };
 
       try {
         let res;
         try {
-          res = await fetch(`${baseUrl}/api/list`, {
+          res = await fetchWithTimeout(`${baseUrl}/api/list`, {
             method: 'GET',
             headers: { 'X-Admin-Key': key }
-          });
+          }, 6000);
         } catch {
-          res = await fetch('/api/r2-proxy/list', {
+          res = await fetchWithTimeout('/api/r2-proxy/list', {
             method: 'GET',
             headers: { 'X-Admin-Key': key, 'X-Worker-Url': baseUrl }
-          });
+          }, 6000);
         }
 
         const data = await res.json();
@@ -3189,7 +3202,7 @@ service cloud.firestore {
           fileCount: 0,
           files: [],
           status: 'error',
-          error: err.message || 'Connection failed'
+          error: err.name === 'AbortError' ? 'Server timeout (slow worker)' : (err.message || 'Connection failed')
         };
       }
     }
@@ -3427,22 +3440,33 @@ service cloud.firestore {
       renderActiveServerFiles();
     });
 
-    // Find if an R2 file is already published in Firebase `rawVideosMap` and return its Firebase videoId
-    function findPublishedVideoIdForServerFile(fileKey) {
-      if (!fileKey || !rawVideosMap) return null;
-      const encodedKey = fileKey.split('/').map(encodeURIComponent).join('/');
+    // High-Performance O(1) Index for Server File -> Published Video ID
+    const publishedFileKeyMap = new Map();
+
+    function rebuildPublishedKeyIndex() {
+      publishedFileKeyMap.clear();
+      if (!rawVideosMap || typeof rawVideosMap !== 'object') return;
       for (const [vidId, item] of Object.entries(rawVideosMap)) {
         if (!item || typeof item !== 'object') continue;
+        if (item.r2Key) {
+          publishedFileKeyMap.set(item.r2Key, vidId);
+        }
         const u = (item.url || item.videoUrl || '').trim();
-        if (
-          item.r2Key === fileKey ||
-          u.endsWith(`/${fileKey}`) ||
-          u.endsWith(`/${encodedKey}`)
-        ) {
-          return vidId;
+        if (u) {
+          try {
+            const path = decodeURIComponent(new URL(u).pathname.replace(/^\/+/, ''));
+            if (path) publishedFileKeyMap.set(path, vidId);
+          } catch {
+            const rawPath = u.replace(/^https?:\/\/[^/]+\//, '');
+            if (rawPath) publishedFileKeyMap.set(decodeURIComponent(rawPath), vidId);
+          }
         }
       }
-      return null;
+    }
+
+    function findPublishedVideoIdForServerFile(fileKey) {
+      if (!fileKey) return null;
+      return publishedFileKeyMap.get(fileKey) || null;
     }
 
     async function publishServerFileToWebsite(activeSrv, file, copyShareAfter = false) {
@@ -3663,7 +3687,9 @@ service cloud.firestore {
       renderActiveServerFiles();
     }
 
-    function renderActiveServerFiles() {
+    let serverFilesRenderLimit = 50;
+
+    function renderActiveServerFiles(showAll = false) {
       const container = document.getElementById('r2-files-list');
       const headerBadge = document.getElementById('explorer-header-badge');
       const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
@@ -3677,92 +3703,137 @@ service cloud.firestore {
       }
 
       const st = serverStats[activeSrv.id] || { files: [], usedBytes: 0 };
-      const count = (st.files || []).length;
+      const allFiles = st.files || [];
+      const count = allFiles.length;
 
       document.getElementById('explorer-file-count').textContent = `${count} files on ${activeSrv.name}`;
       document.getElementById('explorer-total-size').textContent = `${formatBytes(st.usedBytes || 0)} used`;
       if (headerBadge) headerBadge.textContent = `📁 ${count} files`;
 
-      if (!st.files || st.files.length === 0) {
+      if (count === 0) {
         container.innerHTML = `<p class="text-xs text-zinc-500 py-8 text-center">${
           st.error ? st.error : `No files found on "${activeSrv.name}".`
         }</p>`;
         return;
       }
 
-      container.innerHTML = '';
-      st.files.forEach((file, idx) => {
+      if (showAll) {
+        serverFilesRenderLimit = count;
+      }
+
+      const filesToRender = allFiles.slice(0, serverFilesRenderLimit);
+
+      // Single Event Delegation on container
+      if (!container.dataset.hasDelegated) {
+        container.dataset.hasDelegated = 'true';
+        container.addEventListener('click', async (e) => {
+          const currentSrv = servers.find((s) => s.id === activeServerId) || servers[0];
+          if (!currentSrv) return;
+          const currFiles = (serverStats[currentSrv.id] || {}).files || [];
+
+          const loadMoreBtn = e.target.closest('#btn-load-more-server-files');
+          if (loadMoreBtn) {
+            serverFilesRenderLimit += 50;
+            renderActiveServerFiles();
+            return;
+          }
+
+          const shareBtn = e.target.closest('[data-share-r2]');
+          if (shareBtn) {
+            const key = shareBtn.getAttribute('data-share-r2');
+            const file = currFiles.find((f) => f.key === key);
+            if (!file) return;
+            const existingId = findPublishedVideoIdForServerFile(file.key);
+            if (existingId) {
+              await window.copyVideoShareLink(existingId, rawVideosMap[existingId]?.title || file.key);
+            } else {
+              await publishServerFileToWebsite(currentSrv, file, true);
+            }
+            shareBtn.textContent = '✓ Copied!';
+            setTimeout(() => (shareBtn.textContent = '🔗 Share Link'), 2000);
+            return;
+          }
+
+          const playBtn = e.target.closest('[data-play-key]') || e.target.closest('[data-play-row]');
+          if (playBtn) {
+            const key = playBtn.getAttribute('data-play-key') || playBtn.getAttribute('data-play-row');
+            const file = currFiles.find((f) => f.key === key);
+            if (file) playServerFileInExplorer(currentSrv, file);
+            return;
+          }
+
+          const pubBtn = e.target.closest('[data-pub-key]');
+          if (pubBtn) {
+            const key = pubBtn.getAttribute('data-pub-key');
+            const file = currFiles.find((f) => f.key === key);
+            if (file) publishServerFileToWebsite(currentSrv, file, false);
+            return;
+          }
+
+          const delBtn = e.target.closest('[data-del-key]');
+          if (delBtn) {
+            const key = delBtn.getAttribute('data-del-key');
+            const file = currFiles.find((f) => f.key === key);
+            if (file) deleteServerFileFromR2(currentSrv, file);
+            return;
+          }
+        });
+      }
+
+      container.innerHTML = filesToRender.map((file, idx) => {
         const isPlaying =
           currentlyPlayingServerFile &&
           currentlyPlayingServerFile.serverId === activeSrv.id &&
           currentlyPlayingServerFile.key === file.key;
         const publishedVidId = findPublishedVideoIdForServerFile(file.key);
 
-        const row = document.createElement('div');
-        row.className = `p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition-colors ${
-          isPlaying
-            ? 'border-red-500/80 bg-red-950/20'
-            : 'border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700'
-        }`;
-        row.innerHTML = `
-          <div class="min-w-0 flex-1 cursor-pointer" data-play-row="${file.key}">
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">#${idx + 1}</span>
-              <p class="text-xs font-mono ${isPlaying ? 'text-red-300 font-semibold' : 'text-zinc-200'} truncate">${file.key}</p>
+        return `
+          <div class="p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 transition-colors ${
+            isPlaying
+              ? 'border-red-500/80 bg-red-950/20'
+              : 'border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700'
+          }">
+            <div class="min-w-0 flex-1 cursor-pointer" data-play-row="${file.key}">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">#${idx + 1}</span>
+                <p class="text-xs font-mono ${isPlaying ? 'text-red-300 font-semibold' : 'text-zinc-200'} truncate">${file.key}</p>
+              </div>
+              <p class="text-[11px] font-mono text-zinc-500 mt-0.5">${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}${publishedVidId ? ' · <span class="text-emerald-400">Published ✓</span>' : ''}</p>
             </div>
-            <p class="text-[11px] font-mono text-zinc-500 mt-0.5">${formatBytes(file.size)} · ${new Date(file.uploaded).toLocaleDateString()}${publishedVidId ? ' · <span class="text-emerald-400">Published ✓</span>' : ''}</p>
-          </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <button data-share-r2="${file.key}" type="button" title="Copy Index Share Link"
-              class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
-              🔗 Share Link
-            </button>
-            <button data-play-key="${file.key}" type="button" class="px-2.5 py-1 rounded ${
-              isPlaying
-                ? 'bg-red-600 text-white'
-                : 'bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300'
-            } text-[11px] font-semibold cursor-pointer">
-              ${isPlaying ? '▶ Playing' : '▶ Play'}
-            </button>
-            <button data-pub-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium cursor-pointer">
-              ${publishedVidId ? '✓ Published' : '+ Publish'}
-            </button>
-            <button data-del-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium cursor-pointer">
-              Delete
-            </button>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button data-share-r2="${file.key}" type="button" title="Copy Index Share Link"
+                class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
+                🔗 Share Link
+              </button>
+              <button data-play-key="${file.key}" type="button" class="px-2.5 py-1 rounded ${
+                isPlaying
+                  ? 'bg-red-600 text-white'
+                  : 'bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300'
+              } text-[11px] font-semibold cursor-pointer">
+                ${isPlaying ? '▶ Playing' : '▶ Play'}
+              </button>
+              <button data-pub-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800/60 text-emerald-300 text-[11px] font-medium cursor-pointer">
+                ${publishedVidId ? '✓ Published' : '+ Publish'}
+              </button>
+              <button data-del-key="${file.key}" type="button" class="px-2.5 py-1 rounded bg-red-950/70 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] font-medium cursor-pointer">
+                Delete
+              </button>
+            </div>
           </div>
         `;
+      }).join('');
 
-        row.querySelector('[data-share-r2]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          const existingId = findPublishedVideoIdForServerFile(file.key);
-          if (existingId) {
-            await window.copyVideoShareLink(existingId, rawVideosMap[existingId]?.title || file.key);
-          } else {
-            await publishServerFileToWebsite(activeSrv, file, true);
-          }
-          btn.textContent = '✓ Copied!';
-          setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
-        });
-
-        row.querySelector('[data-play-key]').addEventListener('click', () => {
-          playServerFileInExplorer(activeSrv, file);
-        });
-
-        row.querySelector('[data-play-row]').addEventListener('click', () => {
-          playServerFileInExplorer(activeSrv, file);
-        });
-
-        row.querySelector('[data-pub-key]').addEventListener('click', () => {
-          publishServerFileToWebsite(activeSrv, file, false);
-        });
-
-        row.querySelector('[data-del-key]').addEventListener('click', () => {
-          deleteServerFileFromR2(activeSrv, file);
-        });
-
-        container.appendChild(row);
-      });
+      if (count > filesToRender.length) {
+        const loadMoreBox = document.createElement('div');
+        loadMoreBox.className = 'pt-2 text-center';
+        loadMoreBox.innerHTML = `
+          <button id="btn-load-more-server-files" type="button"
+            class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-semibold text-zinc-200 cursor-pointer transition-colors shadow">
+            Showing ${filesToRender.length} of ${count} files · Click to Load More (+50)
+          </button>
+        `;
+        container.appendChild(loadMoreBox);
+      }
     }
 
     document.getElementById('open-add-server-btn').addEventListener('click', () => {
@@ -6239,7 +6310,9 @@ service cloud.firestore {
         initLiveUserTrafficMonitor();
         renderServerSelect();
         await loadAdminServersFromFirebase();
-        refreshAllServers();
+        setTimeout(() => {
+          refreshAllServers().catch(() => {});
+        }, 100);
       } else {
         currentUser = null;
         document.getElementById('dashboard-view').classList.add('hidden');
@@ -6315,13 +6388,21 @@ service cloud.firestore {
       }
     };
 
+    let publishedVideosRenderLimit = 50;
+    let debounceVideosTableTimer = null;
+    const requestVideosTableRender = () => {
+      if (debounceVideosTableTimer) clearTimeout(debounceVideosTableTimer);
+      debounceVideosTableTimer = setTimeout(() => {
+        renderPublishedVideosTable();
+      }, 150);
+    };
+
     // Zero-Bandwidth Lazy Renderer for Published Videos Table (Only renders DOM rows when Videos tab is active, and NEVER auto-downloads 150+ MP4 streams!)
     const renderPublishedVideosTable = () => {
       const tbody = document.getElementById('catalog-table-body');
       if (!tbody) return;
       if (activeAdminTabName !== 'videos') return;
 
-      tbody.innerHTML = '';
       if (!cachedVideosList || cachedVideosList.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-zinc-500">No published videos in Firebase yet.</td></tr>';
         return;
@@ -6339,12 +6420,8 @@ service cloud.firestore {
           pinnedWrapEl.innerHTML =
             '<p class="text-xs text-zinc-400 col-span-full py-2">এখনো কোনো ভিডিও Trending Top-এ পিন করা হয়নি। নিচের টেবিল থেকে যেকোনো ভিডিওতে <strong>🔥 Pin Top</strong> বাটনে ক্লিক করুন!</p>';
         } else {
-          pinnedWrapEl.innerHTML = '';
-          pinnedTrendingList.forEach((pv, idx) => {
-            const card = document.createElement('div');
-            card.className =
-              'p-2.5 rounded-xl bg-zinc-950 border border-amber-500/60 flex items-center justify-between gap-2 text-xs';
-            card.innerHTML = `
+          pinnedWrapEl.innerHTML = pinnedTrendingList.map((pv, idx) => `
+            <div class="p-2.5 rounded-xl bg-zinc-950 border border-amber-500/60 flex items-center justify-between gap-2 text-xs">
               <div class="min-w-0 flex items-center gap-2">
                 <span class="px-2 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-mono font-extrabold shrink-0">
                   #${pv.trendingRank < 999 ? pv.trendingRank : idx + 1}
@@ -6355,145 +6432,278 @@ service cloud.firestore {
                 class="px-2 py-1 rounded bg-red-950/80 hover:bg-red-900 border border-red-700/60 text-red-200 text-[10px] font-bold cursor-pointer shrink-0">
                 ✕ Unpin
               </button>
-            `;
-            card.querySelector('[data-unpin-top]')?.addEventListener('click', async () => {
-              await update(ref(db, `videos/${pv.id}`), {
-                isTrending: false,
-                trendingRank: 9999,
-                botAuthToken: 'xtube_tg_bot_2026',
-              });
-              showStatus(`Removed "${pv.title}" from Trending Top.`, 'info');
+            </div>
+          `).join('');
+
+          if (!pinnedWrapEl.dataset.delegated) {
+            pinnedWrapEl.dataset.delegated = 'true';
+            pinnedWrapEl.addEventListener('click', async (e) => {
+              const btn = e.target.closest('[data-unpin-top]');
+              if (!btn) return;
+              const vidId = btn.getAttribute('data-unpin-top');
+              const pv = cachedVideosList.find((v) => v.id === vidId);
+              try {
+                await update(ref(db, `videos/${vidId}`), {
+                  isTrending: false,
+                  trendingRank: 9999,
+                  botAuthToken: 'xtube_tg_bot_2026',
+                });
+                showStatus(`Removed "${pv?.title || vidId}" from Trending Top.`, 'info');
+              } catch (err) {
+                showStatus(`Unpin Error: ${err.message}`, 'error');
+              }
             });
-            pinnedWrapEl.appendChild(card);
-          });
+          }
         }
       }
 
-      cachedVideosList.forEach((v) => {
+      const itemsToRender = cachedVideosList.slice(0, publishedVideosRenderLimit);
+
+      const rowsHtml = itemsToRender.map((v) => {
         const shareLink = window.buildVideoShareLink ? window.buildVideoShareLink(v.id) : `${window.location.origin}/?v=${encodeURIComponent(v.id)}`;
-        const tr = document.createElement('tr');
-        tr.className = v.isTrending ? 'bg-amber-950/15 hover:bg-amber-950/25' : 'hover:bg-zinc-900/60';
-        tr.innerHTML = `
-          <td class="py-2.5 px-3">
-            <div class="relative w-24 h-13 group">
-              ${
-                v.thumb
-                  ? `<img src="${v.thumb}" loading="lazy" alt="thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
-                  : `<button type="button" data-play-thumb-vid="${v.id}" class="w-24 h-13 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-emerald-400 cursor-pointer transition-colors" title="Click to preview video without background bandwidth drain">
-                      <span>🎬 HD VIDEO</span>
-                      <span class="text-[9px] text-zinc-400 font-normal">▶ Tap Preview</span>
-                    </button>`
-              }
-              <button data-dl-thumb-img="${v.id}" type="button" title="Download Thumbnail"
-                class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer transition-colors">
-                ⬇
+        return `
+          <tr class="${v.isTrending ? 'bg-amber-950/15 hover:bg-amber-950/25' : 'hover:bg-zinc-900/60'}">
+            <td class="py-2.5 px-3">
+              <div class="relative w-24 h-13 group">
+                ${
+                  v.thumb
+                    ? `<img src="${v.thumb}" loading="lazy" alt="thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
+                    : `<button type="button" data-play-thumb-vid="${v.id}" class="w-24 h-13 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-emerald-400 cursor-pointer transition-colors" title="Click to preview video without background bandwidth drain">
+                        <span>🎬 HD VIDEO</span>
+                        <span class="text-[9px] text-zinc-400 font-normal">▶ Tap Preview</span>
+                      </button>`
+                }
+                <button data-dl-thumb-img="${v.id}" type="button" title="Download Thumbnail"
+                  class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer transition-colors">
+                  ⬇
+                </button>
+              </div>
+            </td>
+            <td class="py-2.5 px-3">
+              <div class="flex flex-wrap items-center gap-1.5">
+                ${
+                  v.isTrending
+                    ? `<span class="px-1.5 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-extrabold">🔥 TRENDING TOP #${v.trendingRank < 999 ? v.trendingRank : 1}</span>`
+                    : ''
+                }
+                <p class="font-medium text-white line-clamp-1">${v.title}</p>
+              </div>
+              <p class="text-[11px] text-zinc-500 line-clamp-1">${v.keywords}</p>
+              <div class="flex items-center gap-1.5 mt-1">
+                <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
+                  class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]"
+                  title="Open Share Link in New Tab">
+                  ${shareLink}
+                </a>
+                <button data-copy-inline="${v.id}" type="button" title="Copy Share Link"
+                  class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
+                  Copy
+                </button>
+              </div>
+            </td>
+            <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
+              <button type="button" data-play-pub="${v.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to play video">
+                ${v.streamUrl}
               </button>
-            </div>
-          </td>
-          <td class="py-2.5 px-3">
-            <div class="flex flex-wrap items-center gap-1.5">
+            </td>
+            <td class="py-2.5 px-3 text-right font-mono">
+              <span class="text-emerald-400 font-semibold">${v.views.toLocaleString()}</span>
+              <span class="text-zinc-500"> / </span>
+              <span class="text-red-400 font-semibold">♥ ${v.likes.toLocaleString()}</span>
+            </td>
+            <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
+              <button data-toggle-trending="${v.id}" type="button" title="Pin or Unpin at Top of Trending Section"
+                class="px-2.5 py-1 rounded ${
+                  v.isTrending
+                    ? 'bg-amber-500 text-zinc-950 font-extrabold shadow shadow-amber-500/30'
+                    : 'bg-zinc-800 hover:bg-amber-950 border border-amber-700/50 text-amber-300 font-semibold'
+                } text-[11px] cursor-pointer transition-colors">
+                ${v.isTrending ? '🔥 Pinned Top' : '🔥 Pin Top'}
+              </button>
               ${
                 v.isTrending
-                  ? `<span class="px-1.5 py-0.5 rounded bg-gradient-to-r from-red-600 to-amber-500 text-white text-[10px] font-extrabold">🔥 TRENDING TOP #${v.trendingRank < 999 ? v.trendingRank : 1}</span>`
+                  ? `<select data-rank-trending="${v.id}" title="Trending Top Order (#1, #2, #3...)"
+                      class="px-1.5 py-1 rounded bg-zinc-950 border border-amber-500/60 text-amber-300 text-[11px] font-mono cursor-pointer">
+                      ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                        .map(
+                          (r) =>
+                            `<option value="${r}" ${(v.trendingRank || 1) === r ? 'selected' : ''}>#${r}</option>`
+                        )
+                        .join('')}
+                    </select>`
                   : ''
               }
-              <p class="font-medium text-white line-clamp-1">${v.title}</p>
-            </div>
-            <p class="text-[11px] text-zinc-500 line-clamp-1">${v.keywords}</p>
-            <div class="flex items-center gap-1.5 mt-1">
-              <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
-                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]"
-                title="Open Share Link in New Tab">
-                ${shareLink}
-              </a>
-              <button data-copy-inline="${v.id}" type="button" title="Copy Share Link"
-                class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
-                Copy
+              <button data-share-vid="${v.id}" type="button" title="Copy Share Link"
+                class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
+                🔗 Share Link
               </button>
-            </div>
-          </td>
-          <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
-            <button type="button" data-play-pub="${v.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to play video">
-              ${v.streamUrl}
-            </button>
-          </td>
-          <td class="py-2.5 px-3 text-right font-mono">
-            <span class="text-emerald-400 font-semibold">${v.views.toLocaleString()}</span>
-            <span class="text-zinc-500"> / </span>
-            <span class="text-red-400 font-semibold">♥ ${v.likes.toLocaleString()}</span>
-          </td>
-          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
-            <button data-toggle-trending="${v.id}" type="button" title="Pin or Unpin at Top of Trending Section"
-              class="px-2.5 py-1 rounded ${
-                v.isTrending
-                  ? 'bg-amber-500 text-zinc-950 font-extrabold shadow shadow-amber-500/30'
-                  : 'bg-zinc-800 hover:bg-amber-950 border border-amber-700/50 text-amber-300 font-semibold'
-              } text-[11px] cursor-pointer transition-colors">
-              ${v.isTrending ? '🔥 Pinned Top' : '🔥 Pin Top'}
-            </button>
-            ${
-              v.isTrending
-                ? `<select data-rank-trending="${v.id}" title="Trending Top Order (#1, #2, #3...)"
-                    class="px-1.5 py-1 rounded bg-zinc-950 border border-amber-500/60 text-amber-300 text-[11px] font-mono cursor-pointer">
-                    ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-                      .map(
-                        (r) =>
-                          `<option value="${r}" ${(v.trendingRank || 1) === r ? 'selected' : ''}>#${r}</option>`
-                      )
-                      .join('')}
-                  </select>`
-                : ''
-            }
-            <button data-share-vid="${v.id}" type="button" title="Copy Share Link"
-              class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer transition-colors">
-              🔗 Share Link
-            </button>
-            <button data-tg-share-vid="${v.id}" type="button" title="Copy Telegram Mini App Direct Video Link"
-              class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer transition-colors">
-              ✈️ TG Link
-            </button>
-            <a href="${shareLink}" target="_blank" rel="noopener noreferrer" title="Open Share Link in New Tab"
-              class="inline-block px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-semibold transition-colors">
-              ↗ Open
-            </a>
-            <button data-dl-thumb="${v.id}" type="button" title="Download Video Thumbnail"
-              class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer transition-colors">
-              ⬇ Thumb
-            </button>
-            <button data-play-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
-              ▶ Play
-            </button>
-            <button data-edit-vid="${v.id}" type="button" class="px-3 py-1 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-800/60 text-amber-300 text-[11px] font-medium cursor-pointer">
-              ✎ Edit
-            </button>
-            <button data-rm-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
-              Delete
-            </button>
-          </td>
+              <button data-tg-share-vid="${v.id}" type="button" title="Copy Telegram Mini App Direct Video Link"
+                class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer transition-colors">
+                ✈️ TG Link
+              </button>
+              <a href="${shareLink}" target="_blank" rel="noopener noreferrer" title="Open Share Link in New Tab"
+                class="inline-block px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-semibold transition-colors">
+                ↗ Open
+              </a>
+              <button data-dl-thumb="${v.id}" type="button" title="Download Video Thumbnail"
+                class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer transition-colors">
+                ⬇ Thumb
+              </button>
+              <button data-play-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
+                ▶ Play
+              </button>
+              <button data-edit-vid="${v.id}" type="button" class="px-3 py-1 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-800/60 text-amber-300 text-[11px] font-medium cursor-pointer">
+                ✎ Edit
+              </button>
+              <button data-rm-vid="${v.id}" type="button" class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
+                Delete
+              </button>
+            </td>
+          </tr>
         `;
+      }).join('');
 
-        tr.querySelector('[data-toggle-trending]')?.addEventListener('click', async () => {
-          const nextState = !v.isTrending;
-          try {
-            await update(ref(db, `videos/${v.id}`), {
-              isTrending: nextState,
-              trendingRank: nextState ? 1 : 9999,
-              trendingPinnedAt: nextState ? Date.now() : 0,
-              botAuthToken: 'xtube_tg_bot_2026',
-            });
-            showStatus(
-              nextState
-                ? `🔥 "${v.title}" এখন ওয়েবসাইটের Trending সেকশনের একদম উপরে শো করবে!`
-                : `Removed "${v.title}" from Trending Top.`,
-              nextState ? 'success' : 'info'
-            );
-          } catch (err) {
-            showStatus(`Trending Update Error: ${err.message}`, 'error');
+      let loadMoreHtml = '';
+      if (cachedVideosList.length > itemsToRender.length) {
+        loadMoreHtml = `
+          <tr>
+            <td colspan="5" class="py-3 text-center">
+              <button id="btn-load-more-published-videos" type="button"
+                class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-semibold text-zinc-200 cursor-pointer shadow">
+                Showing ${itemsToRender.length} of ${cachedVideosList.length} videos · Click to Load More (+50)
+              </button>
+            </td>
+          </tr>
+        `;
+      }
+
+      tbody.innerHTML = rowsHtml + loadMoreHtml;
+
+      const handlePlayPublished = (v) => {
+        if (!v || !v.streamUrl) return;
+        currentlyPlayingServerFile = null;
+        renderActiveServerFiles();
+        playStreamWithFallbacks(
+          [v.streamUrl],
+          v.title,
+          `Published Video · ${v.views.toLocaleString()} views · ${v.streamUrl}`,
+          null,
+          async () => {
+            try {
+              await remove(ref(db, `videos/${v.id}`));
+              closeExplorerVideoPlayer();
+              showStatus(`Removed "${v.title}" from website.`, 'success');
+            } catch (err) {
+              showStatus(`Delete Error: ${err.message}`, 'error');
+            }
+          }
+        );
+      };
+
+      const handleDownloadPublishedThumb = async (btnEl, v) => {
+        const origHtml = btnEl.textContent;
+        btnEl.textContent = '⏳...';
+        try {
+          await window.downloadThumbnailImage(v.thumb, v.title || v.id, v.streamUrl);
+        } finally {
+          btnEl.textContent = origHtml;
+        }
+      };
+
+      if (!tbody.dataset.delegated) {
+        tbody.dataset.delegated = 'true';
+
+        tbody.addEventListener('click', async (e) => {
+          const loadMoreBtn = e.target.closest('#btn-load-more-published-videos');
+          if (loadMoreBtn) {
+            publishedVideosRenderLimit += 50;
+            renderPublishedVideosTable();
+            return;
+          }
+
+          const btn = e.target.closest('[data-share-vid], [data-tg-share-vid], [data-copy-inline], [data-dl-thumb], [data-dl-thumb-img], [data-play-vid], [data-play-pub], [data-play-thumb-vid], [data-edit-vid], [data-rm-vid], [data-toggle-trending]');
+          if (!btn) return;
+
+          const vidId = btn.getAttribute('data-share-vid') ||
+                        btn.getAttribute('data-tg-share-vid') ||
+                        btn.getAttribute('data-copy-inline') ||
+                        btn.getAttribute('data-dl-thumb') ||
+                        btn.getAttribute('data-dl-thumb-img') ||
+                        btn.getAttribute('data-play-vid') ||
+                        btn.getAttribute('data-play-pub') ||
+                        btn.getAttribute('data-play-thumb-vid') ||
+                        btn.getAttribute('data-edit-vid') ||
+                        btn.getAttribute('data-rm-vid') ||
+                        btn.getAttribute('data-toggle-trending');
+          const v = cachedVideosList.find((item) => item.id === vidId);
+          if (!v) return;
+
+          if (btn.hasAttribute('data-share-vid') || btn.hasAttribute('data-copy-inline')) {
+            await window.copyVideoShareLink(v.id, v.title);
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => (btn.textContent = orig), 2000);
+            return;
+          }
+
+          if (btn.hasAttribute('data-tg-share-vid')) {
+            const copied = await window.copyTelegramVideoShareLink(v.id, v.title);
+            if (copied) {
+              btn.textContent = '✓ TG Copied!';
+              setTimeout(() => (btn.textContent = '✈️ TG Link'), 2000);
+            }
+            return;
+          }
+
+          if (btn.hasAttribute('data-dl-thumb') || btn.hasAttribute('data-dl-thumb-img')) {
+            handleDownloadPublishedThumb(btn, v);
+            return;
+          }
+
+          if (btn.hasAttribute('data-play-vid') || btn.hasAttribute('data-play-pub') || btn.hasAttribute('data-play-thumb-vid')) {
+            handlePlayPublished(v);
+            return;
+          }
+
+          if (btn.hasAttribute('data-edit-vid')) {
+            openEditVideoModal(v.id);
+            return;
+          }
+
+          if (btn.hasAttribute('data-rm-vid')) {
+            await window.deleteVideoAndR2File(v, 'videos');
+            return;
+          }
+
+          if (btn.hasAttribute('data-toggle-trending')) {
+            const nextState = !v.isTrending;
+            try {
+              await update(ref(db, `videos/${v.id}`), {
+                isTrending: nextState,
+                trendingRank: nextState ? 1 : 9999,
+                trendingPinnedAt: nextState ? Date.now() : 0,
+                botAuthToken: 'xtube_tg_bot_2026',
+              });
+              showStatus(
+                nextState
+                  ? `🔥 "${v.title}" এখন ওয়েবসাইটের Trending সেকশনের একদম উপরে শো করবে!`
+                  : `Removed "${v.title}" from Trending Top.`,
+                nextState ? 'success' : 'info'
+              );
+            } catch (err) {
+              showStatus(`Trending Update Error: ${err.message}`, 'error');
+            }
+            return;
           }
         });
 
-        tr.querySelector('[data-rank-trending]')?.addEventListener('change', async (e) => {
-          const newRank = Number(e.target.value) || 1;
+        tbody.addEventListener('change', async (e) => {
+          const sel = e.target.closest('[data-rank-trending]');
+          if (!sel) return;
+          const vidId = sel.getAttribute('data-rank-trending');
+          const v = cachedVideosList.find((item) => item.id === vidId);
+          if (!v) return;
+          const newRank = Number(sel.value) || 1;
           try {
             await update(ref(db, `videos/${v.id}`), {
               isTrending: true,
@@ -6506,82 +6716,7 @@ service cloud.firestore {
             showStatus(`Rank Update Error: ${err.message}`, 'error');
           }
         });
-
-        const handlePlayPublished = () => {
-          if (!v.streamUrl) return;
-          currentlyPlayingServerFile = null;
-          renderActiveServerFiles();
-          playStreamWithFallbacks(
-            [v.streamUrl],
-            v.title,
-            `Published Video · ${v.views.toLocaleString()} views · ${v.streamUrl}`,
-            null,
-            async () => {
-              try {
-                await remove(ref(db, `videos/${v.id}`));
-                closeExplorerVideoPlayer();
-                showStatus(`Removed "${v.title}" from website.`, 'success');
-              } catch (err) {
-                showStatus(`Delete Error: ${err.message}`, 'error');
-              }
-            }
-          );
-        };
-
-        const handleDownloadPublishedThumb = async (btnEl) => {
-          const origHtml = btnEl.textContent;
-          btnEl.textContent = '⏳...';
-          try {
-            await window.downloadThumbnailImage(v.thumb, v.title || v.id, v.streamUrl);
-          } finally {
-            btnEl.textContent = origHtml;
-          }
-        };
-
-        tr.querySelector('[data-share-vid]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          await window.copyVideoShareLink(v.id, v.title);
-          btn.textContent = '✓ Copied!';
-          setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
-        });
-
-        tr.querySelector('[data-tg-share-vid]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          const copied = await window.copyTelegramVideoShareLink(v.id, v.title);
-          if (copied) {
-            btn.textContent = '✓ TG Copied!';
-            setTimeout(() => (btn.textContent = '✈️ TG Link'), 2000);
-          }
-        });
-
-        tr.querySelector('[data-copy-inline]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          await window.copyVideoShareLink(v.id, v.title);
-          btn.textContent = '✓ Copied';
-          setTimeout(() => (btn.textContent = 'Copy'), 2000);
-        });
-
-        tr.querySelector('[data-dl-thumb]').addEventListener('click', (e) => {
-          handleDownloadPublishedThumb(e.currentTarget);
-        });
-
-        tr.querySelector('[data-dl-thumb-img]').addEventListener('click', (e) => {
-          handleDownloadPublishedThumb(e.currentTarget);
-        });
-
-        tr.querySelector('[data-play-vid]').addEventListener('click', handlePlayPublished);
-        tr.querySelector('[data-play-pub]').addEventListener('click', handlePlayPublished);
-        tr.querySelector('[data-play-thumb-vid]')?.addEventListener('click', handlePlayPublished);
-
-        tr.querySelector('[data-edit-vid]').addEventListener('click', () => {
-          openEditVideoModal(v.id);
-        });
-
-        tr.querySelector('[data-rm-vid]').addEventListener('click', async () => {
-          await window.deleteVideoAndR2File(v, 'videos');
-        });
-        tbody.appendChild(tr);
-      });
+      }
     };
 
     // Sync Published Website Videos from Firebase RTDB (Lightweight stats + lazy table render)
@@ -6594,16 +6729,18 @@ service cloud.firestore {
       const val = snapshot.val();
       if (!val || typeof val !== 'object') {
         rawVideosMap = {};
+        rebuildPublishedKeyIndex();
         cachedVideosList = [];
         if (countEl) countEl.textContent = '0 videos';
         if (tabBadgeVideosEl) tabBadgeVideosEl.textContent = '0';
         if (totalViewsEl) totalViewsEl.textContent = '0';
         if (totalVideosSubEl) totalVideosSubEl.textContent = '0 Videos';
-        renderPublishedVideosTable();
+        requestVideosTableRender();
         return;
       }
 
       rawVideosMap = val;
+      rebuildPublishedKeyIndex();
       renderActiveServerFiles();
       const list = Object.entries(val).map(([id, item]) => ({
         id,
@@ -6633,7 +6770,12 @@ service cloud.firestore {
       if (totalVideosSubEl) totalVideosSubEl.textContent = `${list.length} Videos`;
 
       cachedVideosList = list;
-      renderPublishedVideosTable();
+      requestVideosTableRender();
+
+      if (typeof refreshNoticeTargetDropdown === 'function') {
+        refreshNoticeTargetDropdown();
+      }
+    });
 
       if (typeof refreshNoticeTargetDropdown === 'function') {
         refreshNoticeTargetDropdown();
@@ -6840,144 +6982,199 @@ service cloud.firestore {
       }
     })();
 
+    let publishedShortsRenderLimit = 50;
+    let debounceShortsTableTimer = null;
+    const requestShortsTableRender = () => {
+      if (debounceShortsTableTimer) clearTimeout(debounceShortsTableTimer);
+      debounceShortsTableTimer = setTimeout(() => {
+        renderPublishedShortsTable();
+      }, 150);
+    };
+
+    let publishedShortsRenderLimit = 50;
+    let debounceShortsTableTimer = null;
+    const requestShortsTableRender = () => {
+      if (debounceShortsTableTimer) clearTimeout(debounceShortsTableTimer);
+      debounceShortsTableTimer = setTimeout(() => {
+        renderPublishedShortsTable();
+      }, 150);
+    };
+
     // Zero-Bandwidth Lazy Renderer for Published Shorts Table
     const renderPublishedShortsTable = () => {
       const tbody = document.getElementById('shorts-table-body');
       if (!tbody) return;
       if (activeAdminTabName !== 'shorts') return;
 
-      tbody.innerHTML = '';
       if (!cachedShortsList || cachedShortsList.length === 0) {
         tbody.innerHTML =
           '<tr><td colspan="5" class="py-5 text-center text-zinc-500">No Shorts uploaded yet. Upload your first Short above!</td></tr>';
         return;
       }
 
-      cachedShortsList.forEach((s) => {
+      const itemsToRender = cachedShortsList.slice(0, publishedShortsRenderLimit);
+
+      const rowsHtml = itemsToRender.map((s) => {
         const shareLink = window.buildShortShareLink(s.id);
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-zinc-900/60';
-        tr.innerHTML = `
-          <td class="py-2.5 px-3">
-            <div class="relative w-24 h-13 group">
-              ${
-                s.thumb
-                  ? `<img src="${s.thumb}" loading="lazy" alt="short thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
-                  : `<button type="button" data-play-thumb-short="${s.id}" class="w-24 h-13 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-red-400 cursor-pointer transition-colors" title="Click to preview Short without background bandwidth drain">
-                      <span>📱 SHORT</span>
-                      <span class="text-[9px] text-zinc-400 font-normal">▶ Tap Preview</span>
-                    </button>`
-              }
-              <button data-dl-short-thumb-img="${s.id}" type="button" title="Download Short Thumbnail"
-                class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer">
-                ⬇
+        return `
+          <tr class="hover:bg-zinc-900/60">
+            <td class="py-2.5 px-3">
+              <div class="relative w-24 h-13 group">
+                ${
+                  s.thumb
+                    ? `<img src="${s.thumb}" loading="lazy" alt="short thumb" referrerpolicy="no-referrer" class="w-24 h-13 object-cover rounded border border-zinc-800" />`
+                    : `<button type="button" data-play-thumb-short="${s.id}" class="w-24 h-13 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-red-400 cursor-pointer transition-colors" title="Click to preview Short without background bandwidth drain">
+                        <span>📱 SHORT</span>
+                        <span class="text-[9px] text-zinc-400 font-normal">▶ Tap Preview</span>
+                      </button>`
+                }
+                <button data-dl-short-thumb-img="${s.id}" type="button" title="Download Short Thumbnail"
+                  class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-sky-600 text-[10px] font-semibold text-white border border-white/15 cursor-pointer">
+                  ⬇
+                </button>
+              </div>
+            </td>
+            <td class="py-2.5 px-3">
+              <p class="font-medium text-white line-clamp-1">${s.title}</p>
+              <p class="text-[11px] text-red-400 font-mono line-clamp-1">${s.hashtags}</p>
+              <div class="flex items-center gap-1.5 mt-1">
+                <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
+                  class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]">
+                  ${shareLink}
+                </a>
+                <button data-copy-short-inline="${s.id}" type="button"
+                  class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
+                  Copy
+                </button>
+              </div>
+            </td>
+            <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
+              <button type="button" data-play-short="${s.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to preview Short">
+                ${s.streamUrl}
               </button>
-            </div>
-          </td>
-          <td class="py-2.5 px-3">
-            <p class="font-medium text-white line-clamp-1">${s.title}</p>
-            <p class="text-[11px] text-red-400 font-mono line-clamp-1">${s.hashtags}</p>
-            <div class="flex items-center gap-1.5 mt-1">
-              <a href="${shareLink}" target="_blank" rel="noopener noreferrer"
-                class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 underline truncate max-w-[200px]">
-                ${shareLink}
-              </a>
-              <button data-copy-short-inline="${s.id}" type="button"
-                class="px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-700/70 text-[10px] font-semibold text-emerald-300 cursor-pointer shrink-0">
-                Copy
+            </td>
+            <td class="py-2.5 px-3 text-right font-mono">
+              <span class="text-emerald-400 font-semibold">${s.views.toLocaleString()}</span>
+              <span class="text-zinc-500"> / </span>
+              <span class="text-red-400 font-semibold">♥ ${s.likes.toLocaleString()}</span>
+            </td>
+            <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
+              <button data-share-short="${s.id}" type="button"
+                class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
+                🔗 Share Link
               </button>
-            </div>
-          </td>
-          <td class="py-2.5 px-3 font-mono text-zinc-400 max-w-xs truncate">
-            <button type="button" data-play-short="${s.id}" class="hover:text-red-400 text-left truncate max-w-xs cursor-pointer" title="Click to preview Short">
-              ${s.streamUrl}
-            </button>
-          </td>
-          <td class="py-2.5 px-3 text-right font-mono">
-            <span class="text-emerald-400 font-semibold">${s.views.toLocaleString()}</span>
-            <span class="text-zinc-500"> / </span>
-            <span class="text-red-400 font-semibold">♥ ${s.likes.toLocaleString()}</span>
-          </td>
-          <td class="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap mobile-actions-cell">
-            <button data-share-short="${s.id}" type="button"
-              class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/70 text-emerald-300 text-[11px] font-semibold cursor-pointer">
-              🔗 Share Link
-            </button>
-            <button data-tg-share-short="${s.id}" type="button"
-              class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
-              ✈️ TG Link
-            </button>
-            <button data-dl-short-thumb="${s.id}" type="button"
-              class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer">
-              ⬇ Thumb
-            </button>
-            <button data-play-short-btn="${s.id}" type="button"
-              class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
-              ▶ Play
-            </button>
-            <button data-rm-short="${s.id}" type="button"
-              class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
-              Delete
-            </button>
-          </td>
+              <button data-tg-share-short="${s.id}" type="button"
+                class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
+                ✈️ TG Link
+              </button>
+              <button data-dl-short-thumb="${s.id}" type="button"
+                class="px-2.5 py-1 rounded bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800/70 text-indigo-300 text-[11px] font-semibold cursor-pointer">
+                ⬇ Thumb
+              </button>
+              <button data-play-short-btn="${s.id}" type="button"
+                class="px-2.5 py-1 rounded bg-sky-950/80 hover:bg-sky-900 border border-sky-800/70 text-sky-300 text-[11px] font-semibold cursor-pointer">
+                ▶ Play
+              </button>
+              <button data-rm-short="${s.id}" type="button"
+                class="px-2.5 py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800/60 text-red-300 text-[11px] cursor-pointer">
+                Delete
+              </button>
+            </td>
+          </tr>
         `;
+      }).join('');
 
-        const handlePlayShort = () => {
-          if (!s.streamUrl) return;
-          playStreamWithFallbacks(
-            [s.streamUrl],
-            s.title,
-            `Published Short · ${s.views.toLocaleString()} views · ${s.streamUrl}`,
-            null,
-            async () => {
-              await remove(ref(db, `shorts/${s.id}`));
-              closeExplorerVideoPlayer();
-              showStatus(`Removed Short "${s.title}"`, 'success');
+      let loadMoreHtml = '';
+      if (cachedShortsList.length > itemsToRender.length) {
+        loadMoreHtml = `
+          <tr>
+            <td colspan="5" class="py-3 text-center">
+              <button id="btn-load-more-published-shorts" type="button"
+                class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-semibold text-zinc-200 cursor-pointer shadow">
+                Showing ${itemsToRender.length} of ${cachedShortsList.length} shorts · Click to Load More (+50)
+              </button>
+            </td>
+          </tr>
+        `;
+      }
+
+      tbody.innerHTML = rowsHtml + loadMoreHtml;
+
+      const handlePlayShort = (s) => {
+        if (!s || !s.streamUrl) return;
+        playStreamWithFallbacks(
+          [s.streamUrl],
+          s.title,
+          `Published Short · ${s.views.toLocaleString()} views · ${s.streamUrl}`,
+          null,
+          async () => {
+            await remove(ref(db, `shorts/${s.id}`));
+            closeExplorerVideoPlayer();
+            showStatus(`Removed Short "${s.title}"`, 'success');
+          }
+        );
+      };
+
+      if (!tbody.dataset.delegated) {
+        tbody.dataset.delegated = 'true';
+
+        tbody.addEventListener('click', async (e) => {
+          const loadMoreBtn = e.target.closest('#btn-load-more-published-shorts');
+          if (loadMoreBtn) {
+            publishedShortsRenderLimit += 50;
+            renderPublishedShortsTable();
+            return;
+          }
+
+          const btn = e.target.closest('[data-share-short], [data-copy-short-inline], [data-tg-share-short], [data-dl-short-thumb], [data-dl-short-thumb-img], [data-play-short], [data-play-short-btn], [data-play-thumb-short], [data-rm-short]');
+          if (!btn) return;
+
+          const shortId = btn.getAttribute('data-share-short') ||
+                          btn.getAttribute('data-copy-short-inline') ||
+                          btn.getAttribute('data-tg-share-short') ||
+                          btn.getAttribute('data-dl-short-thumb') ||
+                          btn.getAttribute('data-dl-short-thumb-img') ||
+                          btn.getAttribute('data-play-short') ||
+                          btn.getAttribute('data-play-short-btn') ||
+                          btn.getAttribute('data-play-thumb-short') ||
+                          btn.getAttribute('data-rm-short');
+
+          const s = cachedShortsList.find((item) => item.id === shortId);
+          if (!s) return;
+
+          if (btn.hasAttribute('data-share-short') || btn.hasAttribute('data-copy-short-inline')) {
+            await window.copyShortShareLink(s.id, s.title);
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => (btn.textContent = orig), 2000);
+            return;
+          }
+
+          if (btn.hasAttribute('data-tg-share-short')) {
+            const copied = await window.copyTelegramShortShareLink(s.id, s.title);
+            if (copied) {
+              btn.textContent = '✓ TG Copied!';
+              setTimeout(() => (btn.textContent = '✈️ TG Link'), 2000);
             }
-          );
-        };
+            return;
+          }
 
-        tr.querySelector('[data-share-short]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          await window.copyShortShareLink(s.id, s.title);
-          btn.textContent = '✓ Copied!';
-          setTimeout(() => (btn.textContent = '🔗 Share Link'), 2000);
-        });
+          if (btn.hasAttribute('data-dl-short-thumb') || btn.hasAttribute('data-dl-short-thumb-img')) {
+            window.downloadThumbnailImage(s.thumb, s.title || s.id, s.streamUrl);
+            return;
+          }
 
-        tr.querySelector('[data-copy-short-inline]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          await window.copyShortShareLink(s.id, s.title);
-          btn.textContent = '✓ Copied';
-          setTimeout(() => (btn.textContent = 'Copy'), 2000);
-        });
+          if (btn.hasAttribute('data-play-short') || btn.hasAttribute('data-play-short-btn') || btn.hasAttribute('data-play-thumb-short')) {
+            handlePlayShort(s);
+            return;
+          }
 
-        tr.querySelector('[data-tg-share-short]').addEventListener('click', async (e) => {
-          const btn = e.currentTarget;
-          const copied = await window.copyTelegramShortShareLink(s.id, s.title);
-          if (copied) {
-            btn.textContent = '✓ TG Copied!';
-            setTimeout(() => (btn.textContent = '✈️ TG Link'), 2000);
+          if (btn.hasAttribute('data-rm-short')) {
+            await window.deleteVideoAndR2File(s, 'shorts');
+            return;
           }
         });
-
-        tr.querySelector('[data-dl-short-thumb]').addEventListener('click', () => {
-          window.downloadThumbnailImage(s.thumb, s.title || s.id, s.streamUrl);
-        });
-
-        tr.querySelector('[data-dl-short-thumb-img]').addEventListener('click', () => {
-          window.downloadThumbnailImage(s.thumb, s.title || s.id, s.streamUrl);
-        });
-
-        tr.querySelector('[data-play-short]').addEventListener('click', handlePlayShort);
-        tr.querySelector('[data-play-short-btn]').addEventListener('click', handlePlayShort);
-        tr.querySelector('[data-play-thumb-short]')?.addEventListener('click', handlePlayShort);
-
-        tr.querySelector('[data-rm-short]').addEventListener('click', async () => {
-          await window.deleteVideoAndR2File(s, 'shorts');
-        });
-
-        tbody.appendChild(tr);
-      });
+      }
     };
 
     // Listen to Published Shorts in Firebase RTDB (`shorts`) - Lightweight stats + lazy table render
@@ -6990,7 +7187,7 @@ service cloud.firestore {
         cachedShortsList = [];
         if (countEl) countEl.textContent = '0 shorts';
         if (tabBadgeShortsEl) tabBadgeShortsEl.textContent = '0';
-        renderPublishedShortsTable();
+        requestShortsTableRender();
         return;
       }
 
@@ -7010,7 +7207,7 @@ service cloud.firestore {
       if (tabBadgeShortsEl) tabBadgeShortsEl.textContent = String(list.length);
 
       cachedShortsList = list;
-      renderPublishedShortsTable();
+      requestShortsTableRender();
       if (typeof refreshNoticeTargetDropdown === 'function') {
         refreshNoticeTargetDropdown();
       }
