@@ -353,7 +353,7 @@ const buildFakePopupVideoObject = (fakeId: string, val?: any): VideoItem => {
     ? val.smartlinks.map((s: any) => String(s || '').trim()).filter(Boolean)
     : undefined;
   return {
-    id: fakeId.startsWith('fake_') ? fakeId : `fake_${fakeId}`,
+    id: fakeId,
     title,
     description: title,
     category: 'Viral',
@@ -914,14 +914,32 @@ export default function App() {
           const fakeVid = buildFakePopupVideoObject(k, item);
           nextMap[k] = fakeVid;
           nextMap[fakeVid.id] = fakeVid;
+          const cleanKey = k.replace(/^(vid_|fake_|v_)/, '');
+          nextMap[cleanKey] = fakeVid;
+          nextMap[`vid_${cleanKey}`] = fakeVid;
+          nextMap[`fake_${cleanKey}`] = fakeVid;
         }
       }
       setFakeLinksMap(nextMap);
 
       const currentId = activeVideoIdRef.current || pendingSharedIdRef.current;
-      if (currentId && currentId.startsWith('fake_') && nextMap[currentId]) {
-        setActiveVideo(nextMap[currentId]);
-        setGateVideo(nextMap[currentId]);
+      if (currentId) {
+        const cleanCurr = currentId.replace(/^(vid_|fake_|v_)/, '');
+        const foundFake =
+          nextMap[currentId] ||
+          nextMap[`vid_${cleanCurr}`] ||
+          nextMap[`fake_${cleanCurr}`] ||
+          nextMap[cleanCurr];
+        if (foundFake) {
+          initialSharedResolvedRef.current = true;
+          activeVideoIdRef.current = foundFake.id;
+          pendingSharedIdRef.current = foundFake.id;
+          setSharedVideoId(foundFake.id);
+          setActiveVideo(foundFake);
+          setGateVideo(foundFake);
+          setUnlockedVideoId(null);
+          setViewMode('watch');
+        }
       }
     };
 
@@ -1161,8 +1179,15 @@ export default function App() {
       return;
     }
 
-    if (pendingId.startsWith('fake_')) {
-      const fakeTarget = fakeLinksMap[pendingId] || buildFakePopupVideoObject(pendingId);
+    const cleanPending = pendingId.replace(/^(vid_|fake_|v_)/, '');
+    const fakeTarget =
+      fakeLinksMap[pendingId] ||
+      fakeLinksMap[`vid_${cleanPending}`] ||
+      fakeLinksMap[`fake_${cleanPending}`] ||
+      fakeLinksMap[cleanPending] ||
+      (pendingId.startsWith('fake_') ? buildFakePopupVideoObject(pendingId) : null);
+
+    if (fakeTarget) {
       initialSharedResolvedRef.current = true;
       pendingSharedIdRef.current = fakeTarget.id;
       activeVideoIdRef.current = fakeTarget.id;
@@ -2731,17 +2756,23 @@ export default function App() {
                 singleVideo = parseSingleVideoEntry(decodedId, shortVal);
               }
 
-              // Fallback 1.5: Check `fakeLinks/$decodedId` in case this is a Fake Pop-Up Link
+              // Fallback 1.5: Check `fakeLinks` in case this is a Fake Pop-Up Link
               if (!singleVideo) {
-                const fakeRes = await fetch(
-                  `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/fakeLinks/${encodeURIComponent(
-                    decodedId
-                  )}.json`,
-                  { cache: 'no-store' }
-                ).catch(() => null);
-                const fakeVal = fakeRes && fakeRes.ok ? await fakeRes.json().catch(() => null) : null;
-                if (fakeVal && typeof fakeVal === 'object') {
-                  singleVideo = buildFakePopupVideoObject(decodedId, fakeVal);
+                const cleanId = decodedId.replace(/^(vid_|fake_|v_)/, '');
+                const candidateKeys = [decodedId, `vid_${cleanId}`, `fake_${cleanId}`, cleanId];
+                for (const cKey of candidateKeys) {
+                  if (singleVideo) break;
+                  const fakeRes = await fetch(
+                    `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/fakeLinks/${encodeURIComponent(
+                      cKey
+                    )}.json`,
+                    { cache: 'no-store' }
+                  ).catch(() => null);
+                  const fakeVal = fakeRes && fakeRes.ok ? await fakeRes.json().catch(() => null) : null;
+                  if (fakeVal && typeof fakeVal === 'object') {
+                    singleVideo = buildFakePopupVideoObject(cKey, fakeVal);
+                    break;
+                  }
                 }
               }
 

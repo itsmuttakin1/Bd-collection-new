@@ -2036,7 +2036,7 @@ https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0</textarea>
               <!-- Newly Generated Fake Pop-Up Link Box -->
               <div id="newly-generated-fake-popup-box" class="hidden p-3.5 rounded-xl bg-emerald-950/60 border-2 border-emerald-500/80 space-y-2.5">
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span class="text-xs font-extrabold text-emerald-300">✅ Fake Pop-Up Link Ready (100% Ads):</span>
+                  <span class="text-xs font-extrabold text-emerald-300">✅ Viral Video Link Ready (100% Ads):</span>
                   <div class="flex flex-wrap items-center gap-1.5">
                     <button id="copy-fake-web-link-btn" type="button"
                       class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer">
@@ -2056,7 +2056,7 @@ https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0</textarea>
                     </button>
                     <a id="open-fake-popup-test-link" href="/" target="_blank" rel="noopener noreferrer"
                       class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-bold">
-                      ↗ Test Pop-Up
+                      👁️ Test Video Link
                     </a>
                   </div>
                 </div>
@@ -11665,7 +11665,8 @@ service cloud.firestore {
 
     const buildFakeUrls = (fakeId, title) => {
       const siteOrigin = window.location.origin || 'https://xtubeofficial.pages.dev';
-      const webUrl = `${siteOrigin}/?fake=${encodeURIComponent(fakeId)}`;
+      // URL masked as real video link (?v=vid_...) so public cannot detect it is a fake link
+      const webUrl = `${siteOrigin}/?v=${encodeURIComponent(fakeId)}`;
       const tgBotBase = window.getTelegramMiniAppBaseUrl?.() || 'https://t.me/xtubeofficial_bot';
       const sep = tgBotBase.includes('?') ? '&' : '?';
       const tgUrl = `${tgBotBase}${sep}startapp=${encodeURIComponent(fakeId)}`;
@@ -11678,7 +11679,7 @@ service cloud.firestore {
       generateFakePopupBtn.addEventListener('click', async () => {
         const title = (fakePopupTitleInput?.value || '').trim();
         if (!title) {
-          showStatus('অনুগ্রহ করে Fake Pop-Up এর জন্য একটি টাইটেল লিখুন!', 'error');
+          showStatus('অনুগ্রহ করে ভাইরাল ভিডিও লিংকের জন্য একটি টাইটেল লিখুন!', 'error');
           return;
         }
 
@@ -11691,9 +11692,10 @@ service cloud.firestore {
               'https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0',
             ];
 
-        const fakeId = `fake_${Date.now()}`;
+        // Format ID exactly like real video ID (vid_1795172475796)
+        const fakeId = `vid_${Date.now()}`;
         generateFakePopupBtn.disabled = true;
-        generateFakePopupBtn.textContent = '⚡ Generating Fake Pop-Up Link...';
+        generateFakePopupBtn.textContent = '⚡ Generating Video Link...';
 
         const fakePayload = {
           id: fakeId,
@@ -11745,7 +11747,7 @@ service cloud.firestore {
                 'error'
               );
             } else {
-              showStatus(`Error generating fake link: ${errMsg}`, 'error');
+              showStatus(`Error generating link: ${errMsg}`, 'error');
             }
             generateFakePopupBtn.disabled = false;
             generateFakePopupBtn.textContent = '⚡ Generate Fake Pop-Up Link (100% All Ads)';
@@ -11769,7 +11771,7 @@ service cloud.firestore {
           }
 
           await navigator.clipboard.writeText(urls.webUrl).catch(() => {});
-          showStatus('✅ Fake Pop-Up Link তৈরি হয়েছে এবং লিংক ক্লিপবোর্ডে কপি হয়েছে! (100% Ads)', 'success');
+          showStatus('✅ ভাইরাল ভিডিও লিংক তৈরি হয়েছে এবং লিংক ক্লিপবোর্ডে কপি হয়েছে! (100% Ads)', 'success');
         } catch (err) {
           showStatus(`Success, but clipboard copy error: ${err.message}`, 'info');
         } finally {
@@ -11908,7 +11910,7 @@ service cloud.firestore {
             await navigator.clipboard.writeText(urls.webUrl);
             webBtn.textContent = '✓ Copied!';
             setTimeout(() => (webBtn.textContent = '📋 Web'), 1800);
-            showStatus('📋 Website Fake Pop-Up Link কপি হয়েছে!', 'success');
+            showStatus('📋 Website Video Link কপি হয়েছে!', 'success');
           }
           return;
         }
@@ -11922,7 +11924,7 @@ service cloud.firestore {
             await navigator.clipboard.writeText(urls.tgUrl);
             tgBtn.textContent = '✓ Copied!';
             setTimeout(() => (tgBtn.textContent = '✈️ TG Bot'), 1800);
-            showStatus('✈️ Telegram Mini App Fake Link কপি হয়েছে!', 'success');
+            showStatus('✈️ Telegram Mini App Video Link কপি হয়েছে!', 'success');
           }
           return;
         }

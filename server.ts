@@ -2663,11 +2663,16 @@ async function startServer() {
         return;
       }
 
-      const botToken = String(req.query.token || '').trim();
+      let botToken = String(req.query.token || '').trim();
       const requiredPass = String(req.query.pass || 'Muttakin').trim();
       const queryAdminId = String(req.query.adminId || '').trim();
       const queryBkash = String(req.query.bkash || '').trim();
       const queryNagad = String(req.query.nagad || '').trim();
+
+      if (!botToken) {
+        const fallbackStatus = await ensureTelegramBotAwakeAndSynced();
+        botToken = String(fallbackStatus?.botToken || '').trim();
+      }
 
       if (!botToken) {
         res.status(200).json({ ok: false, error: 'Missing bot token' });

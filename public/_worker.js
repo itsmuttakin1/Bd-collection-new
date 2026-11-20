@@ -932,11 +932,17 @@ export default {
             },
           });
         }
-        const botToken = (url.searchParams.get('token') || '').trim();
+        let botToken = (url.searchParams.get('token') || '').trim();
         const requiredPass = (url.searchParams.get('pass') || 'Muttakin').trim();
         const queryAdminId = (url.searchParams.get('adminId') || '').trim();
         const queryBkash = (url.searchParams.get('bkash') || '').trim();
         const queryNagad = (url.searchParams.get('nagad') || '').trim();
+
+        // If webhook URL was registered without query params or params were stripped, fallback to RTDB config
+        if (!botToken) {
+          const earlyStore = await loadStoreData();
+          botToken = String(earlyStore?.botToken || '').trim();
+        }
 
         if (!botToken) {
           return new Response(JSON.stringify({ ok: false, error: 'Missing bot token' }), {
@@ -1083,6 +1089,8 @@ export default {
           const result = {
             serviceEnabled,
             aiAssistantEnabled,
+            personaMode: String(mergedCfg.personaMode || 'girlfriend').trim(),
+            botToken: String(mergedCfg.botToken || '').trim(),
             geminiApiKey: String(
               mergedCfg.geminiApiKeyV4 ||
                 mergedCfg.geminiApiKey ||
@@ -2290,7 +2298,7 @@ export default {
             .trim();
 
           const personaMode =
-            mergedCfg.personaMode ||
+            storeData.personaMode ||
             (/adult|১৮\+|হট|সেক্সি|কামুক|রসালো/i.test(cleanCustomPrompt)
               ? 'adult'
               : /normal|ভদ্র|স্মার্ট|সাধারণ|no adult/i.test(cleanCustomPrompt)
