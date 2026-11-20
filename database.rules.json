@@ -36,7 +36,22 @@
     },
     "settings": {
       ".read": true,
-      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "maintenance": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+      }
+    },
+    "fakeLinks": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$fakeId": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+        "clicks": {
+          ".write": "newData.isNumber() && (!data.exists() || newData.val() === data.val() + 1)"
+        }
+      }
     },
     "seoConfig": {
       ".read": true,

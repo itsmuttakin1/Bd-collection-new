@@ -53,6 +53,28 @@ export interface VideoItem {
   trendingPinnedAt?: number;
   monetizedShareUrl?: string;
   linkgenSlug?: string;
+  isFakePopup?: boolean;
+  fakeSmartlinks?: string[];
+}
+
+export interface FakePopupLinkItem {
+  id: string;
+  title: string;
+  smartlinks?: string[];
+  webUrl?: string;
+  tgUrl?: string;
+  monetizedShareUrl?: string;
+  linkgenSlug?: string;
+  clicks?: number;
+  createdAt: number;
+  isFakePopup: boolean;
+}
+
+export interface MaintenanceConfig {
+  enabled: boolean;
+  title?: string;
+  message?: string;
+  updatedAt?: number;
 }
 
 export interface ShortItem {

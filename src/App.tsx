@@ -18,6 +18,7 @@ import {
   NoticeItem,
   RedeemPackageItem,
   RedeemStoreConfig,
+  MaintenanceConfig,
   buildVideoShareLink,
   buildWebVideoShareLink,
   buildShortShareLink,
@@ -307,6 +308,12 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
     const v = params.get('v') || params.get('video') || params.get('id');
     if (v && v.trim()) return cleanIncomingVideoParam(v.trim());
 
+    const fakeParam = params.get('fake');
+    if (fakeParam && fakeParam.trim()) {
+      const cleanedFake = cleanIncomingVideoParam(fakeParam.trim());
+      return cleanedFake.startsWith('fake_') ? cleanedFake : `fake_${cleanedFake}`;
+    }
+
     const s = params.get('short') || params.get('s');
     if (s && s.trim() && s.trim() !== 'feed') return cleanIncomingShortParam(s.trim());
 
@@ -323,12 +330,44 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
         hashParams.get('v') ||
         hashParams.get('video') ||
         hashParams.get('id') ||
+        hashParams.get('fake') ||
         hashParams.get('short') ||
         hashParams.get('s');
       if (hv && hv.trim() && hv.trim() !== 'feed') return cleanIncomingVideoParam(hv.trim());
     }
   } catch {}
   return null;
+};
+
+const buildFakePopupVideoObject = (fakeId: string, val?: any): VideoItem => {
+  let urlTitle = '';
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      urlTitle = (params.get('title') || params.get('t') || '').trim();
+    } catch {}
+  }
+  const title =
+    String(val?.title || urlTitle || '🔥 নতুন এক্সক্লুসিভ ভাইরাল গোপন ফুল ভিডিও ফাঁস 🥵💋').trim();
+  const smartlinks = Array.isArray(val?.smartlinks)
+    ? val.smartlinks.map((s: any) => String(s || '').trim()).filter(Boolean)
+    : undefined;
+  return {
+    id: fakeId.startsWith('fake_') ? fakeId : `fake_${fakeId}`,
+    title,
+    description: title,
+    category: 'Viral',
+    videoUrl: '',
+    url: '',
+    duration: String(val?.duration || '05:24'),
+    views: Number(val?.clicks || val?.views) || 14850,
+    likes: 1240,
+    createdAt: Number(val?.createdAt) || Date.now(),
+    addedAt: Number(val?.createdAt) || Date.now(),
+    author: 'X Tube',
+    isFakePopup: true,
+    fakeSmartlinks: smartlinks,
+  };
 };
 
 const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoItem | undefined => {
@@ -796,7 +835,130 @@ export default function App() {
   // In-session unlocked video tracker: every video requires finding the link via 3-button gate,
   // but once unlocked, the popup is removed and does not re-appear while watching that video.
   const [unlockedVideoId, setUnlockedVideoId] = useState<string | null>(null);
-  const [gateVideo, setGateVideo] = useState<VideoItem | null>(null);
+  const [gateVideo, setGateVideo] = useState<VideoItem | null>(() => {
+    if (initialUrlVidId && initialUrlVidId.startsWith('fake_')) {
+      return buildFakePopupVideoObject(initialUrlVidId);
+    }
+    return null;
+  });
+  const [fakeLinksMap, setFakeLinksMap] = useState<Record<string, VideoItem>>({});
+
+  // Website Maintenance Mode State (Synced in real time from `settings/maintenance` — Admin-only control)
+  const [maintenanceConfig, setMaintenanceConfig] = useState<MaintenanceConfig>({
+    enabled: false,
+    title: '🛠️ ওয়েবসাইট মেইনটেন্যান্স চলছে! (Maintenance Mode)',
+    message:
+      'বর্তমানে আমাদের ভিডিও সার্ভার আপগ্রেড ও মেইনটেন্যান্সের কাজ চলছে। এই মুহূর্তে কোনো ভিডিও প্লে করা যাবে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।',
+  });
+  const [maintenancePopupOpen, setMaintenancePopupOpen] = useState<boolean>(false);
+  const maintenanceEnabledRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (initialUrlVidId && initialUrlVidId.startsWith('fake_') && !activeVideo) {
+      const fakeObj = buildFakePopupVideoObject(initialUrlVidId);
+      setActiveVideo(fakeObj);
+      setGateVideo(fakeObj);
+    }
+  }, [initialUrlVidId, activeVideo]);
+
+  // Real-time listener for Website Maintenance Mode (`settings/maintenance`) & Fake Pop-Up Links (`fakeLinks`)
+  useEffect(() => {
+    const applyMaintenanceVal = (val: any) => {
+      const isEnabled = Boolean(val && typeof val === 'object' && val.enabled === true);
+      maintenanceEnabledRef.current = isEnabled;
+      const nextCfg: MaintenanceConfig = {
+        enabled: isEnabled,
+        title:
+          String(
+            val?.title || '🛠️ ওয়েবসাইট মেইনটেন্যান্স চলছে! (Server Maintenance Active)'
+          ).trim(),
+        message:
+          String(
+            val?.message ||
+              'বর্তমানে আমাদের ভিডিও সার্ভার আপগ্রেড ও মেইনটেন্যান্সের কাজ চলছে। এই মুহূর্তে কোনো ভিডিও প্লে করা যাবে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
+          ).trim(),
+        updatedAt: Number(val?.updatedAt) || 0,
+      };
+      setMaintenanceConfig(nextCfg);
+      if (!isEnabled) {
+        setMaintenancePopupOpen(false);
+      }
+    };
+
+    fetch(
+      'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/settings/maintenance.json',
+      { cache: 'no-store' }
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json !== null) applyMaintenanceVal(json);
+      })
+      .catch(() => {});
+
+    const unsubMaint = onValue(
+      ref(db, 'settings/maintenance'),
+      (snap) => {
+        applyMaintenanceVal(snap.val());
+      },
+      () => {}
+    );
+
+    const applyFakeLinksVal = (val: any) => {
+      if (!val || typeof val !== 'object') {
+        setFakeLinksMap({});
+        return;
+      }
+      const nextMap: Record<string, VideoItem> = {};
+      for (const [k, item] of Object.entries(val)) {
+        if (item && typeof item === 'object') {
+          const fakeVid = buildFakePopupVideoObject(k, item);
+          nextMap[k] = fakeVid;
+          nextMap[fakeVid.id] = fakeVid;
+        }
+      }
+      setFakeLinksMap(nextMap);
+
+      const currentId = activeVideoIdRef.current || pendingSharedIdRef.current;
+      if (currentId && currentId.startsWith('fake_') && nextMap[currentId]) {
+        setActiveVideo(nextMap[currentId]);
+        setGateVideo(nextMap[currentId]);
+      }
+    };
+
+    fetch(
+      'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/fakeLinks.json',
+      { cache: 'no-store' }
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json && typeof json === 'object') applyFakeLinksVal(json);
+      })
+      .catch(() => {});
+
+    const unsubFake = onValue(
+      ref(db, 'fakeLinks'),
+      (snap) => {
+        applyFakeLinksVal(snap.val());
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubMaint();
+      unsubFake();
+    };
+  }, []);
+
+  // When Maintenance Mode is turned ON, immediately block any active video/short playback and show Maintenance Popup
+  useEffect(() => {
+    if (maintenanceConfig.enabled && (viewMode === 'watch' || viewMode === 'shorts')) {
+      setMaintenancePopupOpen(true);
+      setActiveVideo(null);
+      setGateVideo(null);
+      setUnlockedVideoId(null);
+      setViewMode('home');
+    }
+  }, [maintenanceConfig.enabled, viewMode]);
 
   // Initialize Telegram Mini App WebApp SDK if opened inside Telegram
   useEffect(() => {
@@ -989,6 +1151,29 @@ export default function App() {
   useEffect(() => {
     const pendingId = stepGatePendingId || pendingSharedIdRef.current;
     if (!pendingId || userNavigatedRef.current) return;
+
+    if (maintenanceConfig.enabled) {
+      initialSharedResolvedRef.current = true;
+      pendingSharedIdRef.current = null;
+      activeVideoIdRef.current = null;
+      setMaintenancePopupOpen(true);
+      setViewMode('home');
+      return;
+    }
+
+    if (pendingId.startsWith('fake_')) {
+      const fakeTarget = fakeLinksMap[pendingId] || buildFakePopupVideoObject(pendingId);
+      initialSharedResolvedRef.current = true;
+      pendingSharedIdRef.current = fakeTarget.id;
+      activeVideoIdRef.current = fakeTarget.id;
+      setSharedVideoId(fakeTarget.id);
+      setActiveVideo(fakeTarget);
+      setGateVideo(fakeTarget);
+      setUnlockedVideoId(null);
+      setViewMode('watch');
+      return;
+    }
+
     if (videos.length === 0 && shorts.length === 0) return;
 
     const matched = findMatchingVideoOrShort(videos, shorts, pendingId);
@@ -1004,8 +1189,8 @@ export default function App() {
     setStepGateVideo(null);
     setViewMode('watch');
 
-    // VIP with active ad-free OR video already unlocked during current watch bypasses gate
-    if ((isVipMember && isAdFree) || unlockedVideoId === matched.id) {
+    // VIP with active ad-free OR video already unlocked during current watch bypasses gate (unless Fake Popup)
+    if (!matched.isFakePopup && ((isVipMember && isAdFree) || unlockedVideoId === matched.id)) {
       setGateVideo(null);
       if (isVipMember && isAdFree) {
         setUnlockedVideoId(matched.id);
@@ -1015,14 +1200,25 @@ export default function App() {
       // Normal visitors / non-VIP must solve 3-button gate to find the link!
       setGateVideo(matched);
     }
-  }, [videos, shorts, stepGatePendingId, isAdFree, isVipMember, isDailyLimitReached, unlockedVideoId, stepGateVideo]);
+  }, [
+    videos,
+    shorts,
+    fakeLinksMap,
+    maintenanceConfig.enabled,
+    stepGatePendingId,
+    isAdFree,
+    isVipMember,
+    isDailyLimitReached,
+    unlockedVideoId,
+    stepGateVideo,
+  ]);
 
-  // Auto-bypass 3-Button Verification if user activates a valid VIP Ad-Free Redeem Code with remaining daily quota
+  // Auto-bypass 3-Button Verification if user activates a valid VIP Ad-Free Redeem Code with remaining daily quota (NEVER for Fake Pop-Up Links)
   useEffect(() => {
     if (isAdFree && (gateVideo || stepGateVideo || stepGatePendingId)) {
       const target =
         gateVideo || stepGateVideo || findMatchingVideoOrShort(videos, shorts, stepGatePendingId);
-      if (target) {
+      if (target && !target.isFakePopup && !String(target.id || '').startsWith('fake_')) {
         recordVipAdFreeVideoWatch(target.id);
         setGateVideo(null);
         stepGatePendingIdRef.current = null;
@@ -1650,6 +1846,10 @@ export default function App() {
 
   const openShortsTab = (shortId?: string) => {
     if (adBlockActive) return;
+    if (maintenanceEnabledRef.current || maintenanceConfig.enabled) {
+      setMaintenancePopupOpen(true);
+      return;
+    }
     userNavigatedRef.current = true;
     initialSharedResolvedRef.current = true;
     pendingSharedIdRef.current = null;
@@ -2427,6 +2627,54 @@ export default function App() {
       // Initial boot resolution for shared video link `?v=<videoId>` or one-time Telegram `start_param`
       const urlVidId = pendingSharedIdRef.current;
       if (urlVidId) {
+        if (maintenanceEnabledRef.current) {
+          initialSharedResolvedRef.current = true;
+          pendingSharedIdRef.current = null;
+          activeVideoIdRef.current = null;
+          setMaintenancePopupOpen(true);
+          setViewMode('home');
+          setLoadingVideos(false);
+          return;
+        }
+
+        // Check if this is a Fake Pop-Up Link (`fake_...`)
+        if (urlVidId.startsWith('fake_')) {
+          let decodedFakeId = urlVidId.trim();
+          try {
+            decodedFakeId = decodeURIComponent(decodedFakeId).trim();
+          } catch {}
+          fetch(
+            `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/fakeLinks/${encodeURIComponent(
+              decodedFakeId
+            )}.json`,
+            { cache: 'no-store' }
+          )
+            .then((r) => (r.ok ? r.json() : null))
+            .then((fakeVal) => {
+              const fakeVid = buildFakePopupVideoObject(decodedFakeId, fakeVal);
+              initialSharedResolvedRef.current = true;
+              pendingSharedIdRef.current = fakeVid.id;
+              activeVideoIdRef.current = fakeVid.id;
+              setSharedVideoId(fakeVid.id);
+              setActiveVideo(fakeVid);
+              setGateVideo(fakeVid);
+              setUnlockedVideoId(null);
+              setViewMode('watch');
+            })
+            .catch(() => {
+              const fakeVid = buildFakePopupVideoObject(decodedFakeId);
+              initialSharedResolvedRef.current = true;
+              setActiveVideo(fakeVid);
+              setGateVideo(fakeVid);
+              setUnlockedVideoId(null);
+              setViewMode('watch');
+            })
+            .finally(() => {
+              setLoadingVideos(false);
+            });
+          return;
+        }
+
         const targetVideo = findMatchingVideo(finalVideos, urlVidId);
         if (targetVideo) {
           initialSharedResolvedRef.current = true;
@@ -2483,6 +2731,20 @@ export default function App() {
                 singleVideo = parseSingleVideoEntry(decodedId, shortVal);
               }
 
+              // Fallback 1.5: Check `fakeLinks/$decodedId` in case this is a Fake Pop-Up Link
+              if (!singleVideo) {
+                const fakeRes = await fetch(
+                  `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/fakeLinks/${encodeURIComponent(
+                    decodedId
+                  )}.json`,
+                  { cache: 'no-store' }
+                ).catch(() => null);
+                const fakeVal = fakeRes && fakeRes.ok ? await fakeRes.json().catch(() => null) : null;
+                if (fakeVal && typeof fakeVal === 'object') {
+                  singleVideo = buildFakePopupVideoObject(decodedId, fakeVal);
+                }
+              }
+
               // Fallback 2: Fuzzy underscore-insensitive match across `shorts.json`
               if (!singleVideo) {
                 const allShortsRes = await fetch(
@@ -2510,9 +2772,11 @@ export default function App() {
               initialSharedResolvedRef.current = true;
               if (singleVideo) {
                 const resolvedVid = singleVideo;
-                setVideos((prev) =>
-                  prev.some((v) => v.id === resolvedVid.id) ? prev : [resolvedVid, ...prev]
-                );
+                if (!resolvedVid.isFakePopup) {
+                  setVideos((prev) =>
+                    prev.some((v) => v.id === resolvedVid.id) ? prev : [resolvedVid, ...prev]
+                  );
+                }
                 pendingSharedIdRef.current = resolvedVid.id;
                 activeVideoIdRef.current = resolvedVid.id;
                 setSharedVideoId(resolvedVid.id);
@@ -2522,7 +2786,10 @@ export default function App() {
                 }
                 setViewMode('watch');
                 syncUrlWithVideo(resolvedVid.id, true);
-                if ((isVipMember && isAdFree) || unlockedVideoId === resolvedVid.id) {
+                if (
+                  !resolvedVid.isFakePopup &&
+                  ((isVipMember && isAdFree) || unlockedVideoId === resolvedVid.id)
+                ) {
                   setGateVideo(null);
                   if (isVipMember && isAdFree) {
                     setUnlockedVideoId(resolvedVid.id);
@@ -2675,6 +2942,10 @@ export default function App() {
   // once a VIP user's daily limit is reached, Step Ads run just like a normal user + a VIP Upgrade Popup appears!
   const startVideoStepVerification = (video: VideoItem) => {
     if ((!isAdFree && adBlockActive) || !video) return;
+    if (maintenanceEnabledRef.current || maintenanceConfig.enabled) {
+      setMaintenancePopupOpen(true);
+      return;
+    }
 
     userNavigatedRef.current = true;
     initialSharedResolvedRef.current = true;
@@ -2691,8 +2962,8 @@ export default function App() {
       isVipMember &&
       (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
 
-    // Active VIP with remaining daily quota -> direct play, no gate screen!
-    if (isAdFree && vipHasRemainingQuota) {
+    // Active VIP with remaining daily quota -> direct play, no gate screen! (Unless Fake Pop-Up Link)
+    if (!video.isFakePopup && !String(video.id || '').startsWith('fake_') && isAdFree && vipHasRemainingQuota) {
       setGateVideo(null);
       setUnlockedVideoId(video.id);
       stepGatePendingIdRef.current = null;
@@ -2708,7 +2979,7 @@ export default function App() {
       return;
     }
 
-    // Normal user or VIP whose daily limit is reached -> SHOW 3-BUTTON RANDOM GATE!
+    // Normal user or VIP whose daily limit is reached (or Fake Pop-Up Link) -> SHOW 3-BUTTON RANDOM GATE!
     // For EVERY video, user must find the link through the 3-button gate!
     setUnlockedVideoId(null);
     stepGatePendingIdRef.current = null;
@@ -2723,6 +2994,13 @@ export default function App() {
 
   // Called when the user clicks the winning button on the 3-Button Random Gate Screen
   const handleUnlockVideoFromGate = (video: VideoItem) => {
+    if (maintenanceEnabledRef.current || maintenanceConfig.enabled) {
+      setMaintenancePopupOpen(true);
+      return;
+    }
+    if (video.isFakePopup || String(video.id || '').startsWith('fake_')) {
+      return;
+    }
     userNavigatedRef.current = true;
     initialSharedResolvedRef.current = true;
     pendingSharedIdRef.current = null;
@@ -4426,17 +4704,28 @@ export default function App() {
           {/* Loading state when opening a shared ?v=<videoId> link while Firebase fetches */}
           {viewMode === 'watch' && !activeVideo && loadingVideos && <WatchSkeletonView />}
 
-          {/* 3-Button Random Verification Gate Screen (Shown before playing video for non-VIP) */}
-          {viewMode === 'watch' && activeVideo && gateVideo && gateVideo.id !== unlockedVideoId && (
-            <ThreeButtonGateScreen
-              video={gateVideo}
-              onUnlock={handleUnlockVideoFromGate}
-              onBack={goHome}
-            />
-          )}
+          {/* 3-Button Random Verification Gate Screen (Shown before playing video for non-VIP or 100% Ads for Fake Pop-Up Link) */}
+          {viewMode === 'watch' &&
+            activeVideo &&
+            !maintenanceConfig.enabled &&
+            ((gateVideo && gateVideo.id !== unlockedVideoId) ||
+              activeVideo.isFakePopup ||
+              String(activeVideo.id || '').startsWith('fake_')) && (
+              <ThreeButtonGateScreen
+                video={gateVideo || activeVideo}
+                onUnlock={handleUnlockVideoFromGate}
+                onBack={goHome}
+              />
+            )}
 
-          {/* Watch View (Plays Video After 3-Button Gate Unlocks or directly for VIP) */}
-          {viewMode === 'watch' && activeVideo && (!gateVideo || gateVideo.id === unlockedVideoId) && !isStepGateActive && (
+          {/* Watch View (Plays Video After 3-Button Gate Unlocks or directly for VIP — Never for Fake Pop-Up Links or Maintenance Mode) */}
+          {viewMode === 'watch' &&
+            activeVideo &&
+            !maintenanceConfig.enabled &&
+            !activeVideo.isFakePopup &&
+            !String(activeVideo.id || '').startsWith('fake_') &&
+            (!gateVideo || gateVideo.id === unlockedVideoId) &&
+            !isStepGateActive && (
             <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
               <div className="lg:col-span-8 space-y-4 min-w-0">
                 {/* 1. Top Sponsored Banner directly above the video player */}
@@ -4726,6 +5015,41 @@ export default function App() {
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold text-xs cursor-pointer"
               >
                 ▶️ অ্যাড দেখে ভিডিও দেখুন (Step Ads)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Website Maintenance Mode Popup Modal (Shown whenever Maintenance is ON and user clicks any video link) */}
+      {maintenancePopupOpen && maintenanceConfig.enabled && (
+        <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-[#131822] border-2 border-red-500/80 p-6 shadow-2xl space-y-4 text-center relative">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-red-600/20">
+              🛠️
+            </div>
+            <div className="space-y-1.5">
+              <span className="inline-block px-3 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                WEBSITE MAINTENANCE ACTIVE
+              </span>
+              <h3 className="text-base sm:text-lg font-extrabold text-white leading-snug">
+                {maintenanceConfig.title || '🛠️ ওয়েবসাইট মেইনটেন্যান্স চলছে!'}
+              </h3>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed bg-[#1a2130] border border-slate-700/80 rounded-2xl p-4 whitespace-pre-line">
+              {maintenanceConfig.message ||
+                'বর্তমানে আমাদের ভিডিও সার্ভার আপগ্রেড ও মেইনটেন্যান্সের কাজ চলছে। এই মুহূর্তে কোনো ভিডিও প্লে করা যাবে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।'}
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMaintenancePopupOpen(false);
+                  goHome();
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs sm:text-sm cursor-pointer shadow-lg shadow-red-600/25 transition-colors"
+              >
+                ✓ ঠিক আছে (হোমে ফিরুন)
               </button>
             </div>
           </div>

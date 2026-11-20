@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { VideoItem } from '../firebase';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { VideoItem, db, ref, runTransaction } from '../firebase';
 import { Banner320x50Ad, triggerPopunderAd, useAdFreeVip } from './AdUnits';
 
 interface ThreeButtonGateScreenProps {
@@ -27,36 +27,47 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
   onBack,
 }) => {
   const { isAdFree } = useAdFreeVip();
+  const isFakePopupMode = Boolean(
+    video.isFakePopup || String(video.id || '').startsWith('fake_') || !video.url
+  );
 
-  // Winning button is randomized every time the page opens
-  const [winningIndex, setWinningIndex] = useState<number>(() => Math.floor(Math.random() * 3));
+  // Active smartlinks pool (uses custom ad links if provided on fake popup, otherwise default SMARTLINKS)
+  const activeSmartlinks =
+    Array.isArray(video.fakeSmartlinks) && video.fakeSmartlinks.filter(Boolean).length > 0
+      ? video.fakeSmartlinks.filter(Boolean)
+      : SMARTLINKS;
+
+  // Winning button is randomized every time for normal videos, or -1 (NO winner, 100% Ads) for Fake Pop-Up Links!
+  const [winningIndex, setWinningIndex] = useState<number>(() =>
+    isFakePopupMode ? -1 : Math.floor(Math.random() * 3)
+  );
   const [smartlinkIndex, setSmartlinkIndex] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [clickedButtons, setClickedButtons] = useState<Record<number, boolean>>({});
 
-  // Auto-bypass if user has active VIP
+  // Auto-bypass if user has active VIP (ONLY for real videos, NEVER for Fake Pop-Up Links)
   useEffect(() => {
-    if (isAdFree) {
+    if (isAdFree && !isFakePopupMode) {
       onUnlock(video);
     }
-  }, [isAdFree, video, onUnlock]);
+  }, [isAdFree, isFakePopupMode, video, onUnlock]);
 
   // Rotate winning index on video change
   useEffect(() => {
-    setWinningIndex(Math.floor(Math.random() * 3));
+    setWinningIndex(isFakePopupMode ? -1 : Math.floor(Math.random() * 3));
     setToastMessage(null);
     setIsSuccess(false);
     setClickedButtons({});
-  }, [video.id]);
+  }, [video.id, isFakePopupMode]);
 
   const handleButtonClick = (buttonIndex: number) => {
     if (isSuccess) return;
 
     setClickedButtons((prev) => ({ ...prev, [buttonIndex]: true }));
 
-    // WINNER: User hit the random button containing the real video URL!
-    if (buttonIndex === winningIndex) {
+    // WINNER (Only when NOT a Fake Pop-Up Link): User hit the random button containing the real video URL!
+    if (!isFakePopupMode && buttonIndex === winningIndex) {
       setIsSuccess(true);
       setToastMessage('✓ লিঙ্ক ভেরিফাই হয়েছে! ভিডিও চালু হচ্ছে...');
       setTimeout(() => {
@@ -65,12 +76,19 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
       return;
     }
 
-    // AD BUTTON: User hit one of the 2 decoy ad buttons
+    // AD BUTTON (or Fake Pop-Up Link where ALL 3 buttons are 100% Ads):
     triggerPopunderAd();
 
-    // Select current Smartlink and shift to next for rotation
-    const chosenSmartlink = SMARTLINKS[smartlinkIndex % SMARTLINKS.length];
-    setSmartlinkIndex((prev) => (prev + 1) % SMARTLINKS.length);
+    if (isFakePopupMode && video.id && String(video.id).startsWith('fake_')) {
+      runTransaction(ref(db, `fakeLinks/${video.id}/clicks`), (curr) => (Number(curr) || 0) + 1).catch(
+        () => {}
+      );
+    }
+
+    // Select current Smartlink (in Fake Pop-Up mode, map button index + rotation so each button opens an Ad link)
+    const chosenSmartlink =
+      activeSmartlinks[(buttonIndex + smartlinkIndex) % activeSmartlinks.length] || SMARTLINKS[0];
+    setSmartlinkIndex((prev) => (prev + 1) % activeSmartlinks.length);
 
     try {
       const tgWebApp = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;

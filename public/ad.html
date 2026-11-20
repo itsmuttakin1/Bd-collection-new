@@ -1612,20 +1612,20 @@
           </div>
         </section>
 
-        <!-- ROW 3.5: RIYA AKTAR (রিয়া আক্তার) TELEGRAM BOT PERSONA & LIVE PACKAGE AUTO-RESPONDER -->
+        <!-- ROW 3.5: TELEGRAM BOT CUSTOM CHARACTER, PERSONA & TOPIC INSTRUCTIONS -->
         <section class="p-4 sm:p-6 rounded-2xl border border-pink-500/50 bg-gradient-to-br from-pink-950/30 via-zinc-900/90 to-zinc-950 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
             <div class="space-y-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span id="riya-assistant-status-pill" class="px-2.5 py-0.5 rounded-full bg-pink-500 text-zinc-950 text-[11px] font-extrabold">
-                  💖 RIYA AKTAR ACTIVE (ON)
+                  🎭 BOT CHARACTER ACTIVE (ON)
                 </span>
                 <h2 class="text-base sm:text-lg font-bold text-white">
-                  Riya Aktar (রিয়া আক্তার) — Telegram Bot Romantic Auto-Reply &amp; Live Package Reader
+                  Telegram Bot Character &amp; Custom Instructions — বট কোন ক্যারেক্টারে কথা বলবে তা সেট করুন
                 </h2>
               </div>
               <p class="text-xs text-zinc-300 leading-relaxed">
-                টেলিগ্রাম বটে সাধারণ কথা বললে <strong>Riya Aktar</strong> প্রচুর ইমোজি ও হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা বলবে (সাধারণ কথার নিচে কোনো অতিরিক্ত ভিডিও টেক্সট বা বাটন আসবে না)। আর <strong>১ দিন পর পর</strong> অটোমেটিক ইউজারদের মেসেজ দিবে <em>"ভিডিও দেখতেছো না কেন?"</em> — তখন নিচে ভিডিও দেখার বাটন আসবে!
+                আগের ডিফল্ট অ্যাডাল্ট কথার পরিবর্তে এখন আপনি নিচে যেভাবে <strong>Character ও Custom Instruction</strong> লিখে দেবেন, বট ঠিক সেই ক্যারেক্টারে এবং আপনার নির্দেশনা অনুযায়ী সাজিয়ে কথা বলবে!
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -1635,50 +1635,52 @@
               </button>
               <button id="toggle-riya-assistant-btn" type="button"
                 class="px-4 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-pink-600/25">
-                🔴 Turn OFF Riya Auto-Reply
+                🔴 Turn OFF Bot Auto-Reply
               </button>
             </div>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 text-xs">
-            <!-- Left 6 Cols: Riya Custom Instructions & Topic Prompts (Synced to Firebase) -->
+            <!-- Left 6 Cols: Custom Bot Character & Topic Prompts (Synced to Firebase) -->
             <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3.5">
               <div class="flex items-center justify-between">
-                <h3 class="text-xs sm:text-sm font-bold text-pink-400">⚙️ Riya Aktar Custom Instructions &amp; Topic Prompts</h3>
+                <h3 class="text-xs sm:text-sm font-bold text-pink-400">🎭 Custom Bot Character &amp; Topic Instructions</h3>
                 <span id="riya-firebase-sync-badge" class="text-[11px] font-mono text-emerald-400">✓ Firebase Connected</span>
               </div>
 
-              <div class="grid grid-cols-2 gap-2 text-[11px]">
-                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <span class="text-zinc-400 block">সাধারণ চ্যাটিংয়ে:</span>
-                  <strong class="text-pink-300">১৮+ হট কথা ও ইমোজি (বাটন ছাড়া)</strong>
+              <!-- 1-Click Bot Character Mode Presets -->
+              <div class="p-3 rounded-xl bg-zinc-900/90 border border-sky-500/30 space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-1">
+                  <span class="text-[11px] font-bold text-sky-300">🎭 ১-ক্লিকে বটের ক্যারেক্টার সিলেক্ট করুন (অথবা নিচে নিজের মতো লিখুন):</span>
                 </div>
-                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <span class="text-zinc-400 block">কাস্টম প্রম্পট বিষয়ে প্রশ্ন করলে:</span>
-                  <strong class="text-amber-300">ওই বিষয়টা সুন্দর করে সাজিয়ে বলবে</strong>
-                </div>
-                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <span class="text-zinc-400 block">ডেভেলপার জিজ্ঞেস করলে:</span>
-                  <strong class="text-emerald-300">"আমি মানুষ ভাই, ডেভেলপার নাই"</strong>
-                </div>
-                <div class="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                  <span class="text-zinc-400 block">প্যাকেজ জিজ্ঞেস করলে:</span>
-                  <strong class="text-sky-300">ON/OFF চেক করে লাইভ প্যাকেজ বলবে</strong>
+                <div class="flex flex-wrap gap-1.5">
+                  <button type="button" data-riya-character-preset="ক্যারেক্টার নির্দেশনা: তুমি একজন ভদ্র, স্মার্ট, বন্ধুসুলভ ও হেল্পফুল অ্যাসিস্ট্যান্ট। কোনো ১৮+ বা অ্যাডাল্ট কথা বলবে না। ইউজার যে বিষয়ে প্রশ্ন করবে, সেই বিষয়ে খুব সুন্দর করে গুছিয়ে, সহজ ও মিষ্টি বাংলায় সাহায্য করবে।"
+                    class="px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-sky-950/70 border border-sky-500/40 text-[11px] font-semibold text-sky-300 cursor-pointer">
+                    👩‍💼 ভদ্র ও স্মার্ট সাপোর্ট ক্যারেক্টার (No Adult Talk)
+                  </button>
+                  <button type="button" data-riya-character-preset="ক্যারেক্টার নির্দেশনা: তুমি একজন মিষ্টি, হাসিখুশি ও আন্তরিক বন্ধু। কোনো অশ্লীল বা ১৮+ অ্যাডাল্ট কথা বলবে না। ইউজারের সাথে সুন্দর ও ভদ্রভাবে চ্যাট করবে এবং তাদের যেকোনো প্রশ্নের উত্তর সুন্দরভাবে সাজিয়ে দেবে।"
+                    class="px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/70 border border-emerald-500/40 text-[11px] font-semibold text-emerald-300 cursor-pointer">
+                    😊 মিষ্টি ও বন্ধুসুলভ চ্যাট ক্যারেক্টার
+                  </button>
+                  <button type="button" data-riya-character-preset="ক্যারেক্টার নির্দেশনা: তুমি আমাদের ওয়েবসাইট ও টেলিগ্রাম মিনি অ্যাপের অফিশিয়াল গাইড। ইউজারকে অ্যাপ ব্যবহার, ভিডিও দেখা এবং VIP Redeem Code কেনার নিয়ম খুব সুন্দরভাবে গুছিয়ে বুঝিয়ে বলবে।"
+                    class="px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/70 border border-amber-500/40 text-[11px] font-semibold text-amber-300 cursor-pointer">
+                    🎬 অ্যাপ ও ভিআইপি গাইড ক্যারেক্টার
+                  </button>
                 </div>
               </div>
 
               <!-- Quick Topic Rule Adder -->
               <div class="p-3 rounded-xl bg-zinc-900/90 border border-pink-500/30 space-y-2">
                 <div class="flex flex-wrap items-center justify-between gap-1">
-                  <span class="text-[11px] font-bold text-pink-300">➕ নতুন বিষয় / Custom Topic Prompt যোগ করুন:</span>
-                  <span class="text-[10px] text-zinc-400">ইউজার এই বিষয়ে জিজ্ঞেস করলেই রিয়া সাজিয়ে উত্তর দিবে</span>
+                  <span class="text-[11px] font-bold text-pink-300">➕ নতুন বিষয় / Custom Topic Q&amp;A যোগ করুন:</span>
+                  <span class="text-[10px] text-zinc-400">ইউজার এই বিষয়ে জিজ্ঞেস করলেই আপনার নির্দেশনা অনুযায়ী সাজিয়ে বলবে</span>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
                   <input id="riya-topic-keyword-input" type="text"
                     placeholder="বিষয় / প্রশ্ন (যেমন: ভিডিও চলে না, পেমেন্ট, ডাউনলোড)"
                     class="sm:col-span-4 px-2.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-amber-300 focus:outline-none focus:border-pink-500" />
                   <input id="riya-topic-answer-input" type="text"
-                    placeholder="কি বলবে (যেমন: জানু, VPN চালু করে বা অ্যাপ রিফ্রেশ দিয়ে ভিডিও চালাও...)"
+                    placeholder="কিভাবে উত্তর দিবে (যেমন: নেট কানেকশন চেক করে অ্যাপ রিফ্রেশ দিন বা VPN চালু করুন...)"
                     class="sm:col-span-6 px-2.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-pink-500" />
                   <button id="riya-add-topic-rule-btn" type="button"
                     class="sm:col-span-2 px-3 py-2 rounded-lg bg-pink-600/30 hover:bg-pink-600 border border-pink-500/50 text-pink-200 hover:text-white text-xs font-extrabold cursor-pointer transition-colors">
@@ -1687,15 +1689,15 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
                   <span class="text-[10px] text-zinc-400">⚡ উদাহরণ যোগ করুন:</span>
-                  <button type="button" data-riya-preset-topic="ভিডিও চলে না / লোড হয় না => জানু, ভিডিও লোড হতে সমস্যা হলে একবার নেট কানেকশন চেক করে অ্যাপটা রিফ্রেশ দাও অথবা 1.1.1.1 VPN চালু করো সোনা, একদম মাখনের মতো HD ভিডিও চলবে! 😘🔥"
+                  <button type="button" data-riya-preset-topic="ভিডিও চলে না / লোড হয় না => ভিডিও লোড হতে সমস্যা হলে একবার নেট কানেকশন চেক করে অ্যাপটা রিফ্রেশ দিন অথবা 1.1.1.1 VPN চালু করুন, তাহলে একদম ফাস্ট HD ভিডিও চলবে!"
                     class="px-2 py-0.5 rounded bg-zinc-950 hover:bg-pink-950/60 border border-zinc-800 text-[10px] text-zinc-300 cursor-pointer">
                     + ভিডিও না চললে
                   </button>
-                  <button type="button" data-riya-preset-topic="কিভাবে ভিডিও দেখব / লিংক কই => জানু, বটের নিচে 📱 Open App বাটনে ক্লিক করলেই আমাদের সব নতুন ভাইরাল ভিডিও ও Shorts দেখতে পাবে সোনা! 🥵💋"
+                  <button type="button" data-riya-preset-topic="কিভাবে ভিডিও দেখব / লিংক কই => বটের নিচে 📱 Open App বাটনে ক্লিক করলেই আমাদের সব নতুন ভিডিও ও Shorts সরাসরি দেখতে পাবেন!"
                     class="px-2 py-0.5 rounded bg-zinc-950 hover:bg-pink-950/60 border border-zinc-800 text-[10px] text-zinc-300 cursor-pointer">
                     + কিভাবে ভিডিও দেখবে
                   </button>
-                  <button type="button" data-riya-preset-topic="কোড কাজ করে না / রিডিম কোড => সোনা, আমাদের ওয়েবসাইটের উপরে 🎟️ Redeem বাটনে ক্লিক করে তোমার VIP কোডটা পেস্ট করে Activate চাপলেই সব Ads বন্ধ হয়ে যাবে জানু! 💖✨"
+                  <button type="button" data-riya-preset-topic="কোড কাজ করে না / রিডিম কোড => আমাদের ওয়েবসাইটের উপরে 🎟️ Redeem বাটনে ক্লিক করে আপনার VIP কোডটি পেস্ট করে Activate চাপলেই সব Ads বন্ধ হয়ে যাবে!"
                     class="px-2 py-0.5 rounded bg-zinc-950 hover:bg-pink-950/60 border border-zinc-800 text-[10px] text-zinc-300 cursor-pointer">
                     + রিডিম কোড নিয়ম
                   </button>
@@ -1705,31 +1707,31 @@
               <div>
                 <div class="flex flex-wrap items-center justify-between gap-1 mb-1">
                   <label class="block text-[11px] font-bold text-zinc-200">
-                    📝 Custom Prompt &amp; Topic Instructions (এখানে যেকোনো কাস্টম প্রম্পট বা বিষয়ের তথ্য লিখে রাখুন):
+                    📝 Bot Character &amp; Custom Instructions (এখানে বটের ক্যারেক্টার ও যেকোনো বিষয়ের নির্দেশনা লিখুন):
                   </label>
-                  <span class="text-[10px] font-mono text-pink-300">প্রতি লাইনে `বিষয় => উত্তর` অথবা যেকোনো নির্দেশনা লিখুন</span>
+                  <span class="text-[10px] font-mono text-pink-300">যেভাবে নির্দেশনা দিবেন বট ঠিক সেভাবেই কাজ করবে</span>
                 </div>
-                <textarea id="riya-custom-prompt-input" rows="4"
-                  placeholder="যেমন:&#10;ভিডিও ডাউনলোড => জানু, আমাদের অ্যাপের ভেতর সব ভিডিও ফুল HD-তে সরাসরি স্ট্রিমিং করে দেখতে পারবে সোনা! 😘🔥&#10;পেমেন্ট সমস্যা => সোনা, বিকাশ বা নগদে Send Money করার পর সঠিক TrxID দিলে অ্যাডমিন চেক করে সাথে সাথে VIP কোড পাঠিয়ে দিবে জানু! 💋"
+                <textarea id="riya-custom-prompt-input" rows="5"
+                  placeholder="এখানে লিখুন বট কোন ক্যারেক্টারে ও কিভাবে কথা বলবে। যেমন:&#10;ক্যারেক্টার নির্দেশনা: তুমি একজন ভদ্র, স্মার্ট ও বন্ধুসুলভ অ্যাসিস্ট্যান্ট। কোনো অ্যাডাল্ট কথা বলবে না, ইউজারের সব প্রশ্নের সুন্দর ও সাজানো উত্তর দেবে।&#10;ভিডিও ডাউনলোড => আমাদের অ্যাপের ভেতর সব ভিডিও ফুল HD-তে সরাসরি স্ট্রিমিং করে দেখতে পারবেন!&#10;পেমেন্ট সমস্যা => বিকাশ বা নগদে Send Money করার পর সঠিক TrxID দিলে অ্যাডমিন চেক করে সাথে সাথে VIP কোড পাঠিয়ে দিবে!"
                   class="w-full px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-pink-500 leading-relaxed"></textarea>
                 <div class="flex flex-wrap items-center justify-between gap-2 mt-2">
                   <span class="text-[10px] text-zinc-400">
-                    💡 ইউজার এই কাস্টম প্রম্পটের যেকোনো বিষয়ে প্রশ্ন করলে বট স্বাভাবিক রানিং থেকেই ওই বিষয়টা সুন্দর করে সাজিয়ে গুছিয়ে বলবে।
+                    💡 আপনি এখানে যে ক্যারেক্টার ও নিয়ম লিখে সেভ করবেন, টেলিগ্রাম বট ঠিক সেই ক্যারেক্টার অনুযায়ী কথা বলবে।
                   </span>
                   <button id="save-riya-config-btn" type="button"
                     class="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-extrabold cursor-pointer shrink-0 shadow-lg shadow-pink-600/20">
-                    💾 Save Custom Instructions to Firebase
+                    💾 Save Character &amp; Instructions
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- Right 6 Cols: Live Test Chat with Riya Aktar -->
+            <!-- Right 6 Cols: Live Test Chat with Bot Character -->
             <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 flex flex-col justify-between space-y-3">
               <div class="space-y-2.5">
                 <div class="flex items-center justify-between">
-                  <h3 class="text-xs sm:text-sm font-bold text-white">💬 Live Test Chat with Riya Aktar</h3>
-                  <span class="text-[10px] font-mono text-pink-300">Instant Preview</span>
+                  <h3 class="text-xs sm:text-sm font-bold text-white">💬 Live Test Chat (বটের নতুন ক্যারেক্টার টেস্ট করুন)</h3>
+                  <span class="text-[10px] font-mono text-pink-300">Instant Character Preview</span>
                 </div>
 
                 <!-- 1-Click Quick Test Prompts -->
@@ -1738,31 +1740,31 @@
                     class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-pink-300 cursor-pointer">
                     তোমার নাম কি?
                   </button>
-                  <button type="button" data-riya-test-msg="তোমার ডেভেলপার কে?"
+                  <button type="button" data-riya-test-msg="ভিডিও চলে না কেন?"
                     class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-emerald-300 cursor-pointer">
-                    তোমার ডেভেলপার কে?
+                    ভিডিও চলে না কেন?
                   </button>
-                  <button type="button" data-riya-test-msg="তোমার বাসা কোথায়?"
+                  <button type="button" data-riya-test-msg="কিভাবে ভিডিও দেখব?"
                     class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-amber-300 cursor-pointer">
-                    তোমার বাসা কোথায়?
+                    কিভাবে ভিডিও দেখব?
                   </button>
                   <button type="button" data-riya-test-msg="VIP প্যাকেজ কত টাকা?"
                     class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-sky-300 cursor-pointer">
                     VIP প্যাকেজ কত টাকা?
                   </button>
-                  <button type="button" data-riya-test-msg="হাই জানু কি করো?"
+                  <button type="button" data-riya-test-msg="হাই কেমন আছো?"
                     class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-pink-950/60 border border-zinc-800 text-[11px] text-purple-300 cursor-pointer">
-                    হাই জানু কি করো?
+                    হাই কেমন আছো?
                   </button>
                 </div>
 
-                <div id="riya-test-reply-box" class="p-3 rounded-xl bg-zinc-900/90 border border-pink-500/30 text-xs text-zinc-100 whitespace-pre-wrap leading-relaxed min-h-[76px]">
-                  💖 উপরে যেকোনো বাটনে ক্লিক করুন অথবা নিচে মেসেজ লিখে Riya Aktar-এর রিপ্লাই টেস্ট করুন!
+                <div id="riya-test-reply-box" class="p-3 rounded-xl bg-zinc-900/90 border border-pink-500/30 text-xs text-zinc-100 whitespace-pre-wrap leading-relaxed min-h-[96px]">
+                  🎭 বাম পাশে আপনার পছন্দের ক্যারেক্টার বা ইনস্ট্রাকশন লিখে সেভ করুন, তারপর উপরে যেকোনো বাটনে ক্লিক করে বটের রিপ্লাই টেস্ট করুন!
                 </div>
               </div>
 
               <div class="flex gap-2">
-                <input id="riya-test-msg-input" type="text" placeholder="Riya Aktar-কে মেসেজ লিখুন..."
+                <input id="riya-test-msg-input" type="text" placeholder="বটকে যেকোনো প্রশ্ন লিখে টেস্ট করুন..."
                   class="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-pink-500" />
                 <button id="riya-test-send-btn" type="button"
                   class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold cursor-pointer shrink-0">
@@ -1930,67 +1932,152 @@
       <!-- TAB PANEL: UPLOAD & STORAGE (DEFAULT ACTIVE TAB)                      -->
       <!-- ===================================================================== -->
       <div id="admin-panel-upload" data-admin-panel="upload" class="space-y-6">
-        <!-- SECTION 1: LIVE STORAGE MONITOR (USED %, USED GB, FREE GB PER SERVER) -->
-        <section class="space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div class="flex items-center gap-2.5">
-                <h2 class="text-lg font-bold text-white">Live Server Storage Usage &amp; Capacity</h2>
-                <span id="firebase-storage-sync-badge" class="px-2.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/70 text-[11px] font-mono text-emerald-300">
-                  🔒 Saved in Firestore &amp; Firebase (Admin Only)
+        <!-- SECTION 1A: WEBSITE MAINTENANCE SYSTEM ON/OFF CONTROL (ADMIN ONLY) -->
+        <section class="p-4 sm:p-5 rounded-2xl border border-red-700/60 bg-gradient-to-r from-red-950/35 via-zinc-900/90 to-zinc-950 space-y-4 shadow-xl">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="maintenance-status-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-500 text-zinc-950 text-[11px] font-extrabold">
+                  🟢 WEBSITE NORMAL (MAINTENANCE OFF)
                 </span>
+                <h2 class="text-sm sm:text-base font-bold text-white">
+                  🛠️ Website Maintenance System (ON / OFF Switch — Admin Only)
+                </h2>
               </div>
-              <p class="text-xs text-zinc-400">কোন সার্ভারে কত পার্সেন্ট (% Used) ব্যবহার হয়েছে এবং কতটুকু জায়গা খালি (% Free / GB Free) আছে তার লাইভ স্ট্যাটাস</p>
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                <strong>Maintenance ON</strong> করলে কোনো ইউজার ওয়েবসাইটের কোনো ভিডিও বা ভিডিও লিংকের ওপর ক্লিক করলেই <strong>Maintenance Pop-Up</strong> আসবে (কেউ কোনো ভিডিও দেখতে পারবে না)। আর <strong>OFF</strong> করলে সব আগের মতো নরমালি কাজ করবে!
+              </p>
             </div>
-            <button id="open-add-server-btn" type="button"
-              class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
-              + Add Storage Server
-            </button>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <button id="copy-maintenance-rules-btn" type="button"
+                class="px-3 py-2 rounded-xl bg-amber-600/25 hover:bg-amber-600 border border-amber-500/50 text-amber-300 hover:text-white text-xs font-bold transition-colors cursor-pointer">
+                📋 Copy Updated Firebase Rules
+              </button>
+              <button id="toggle-maintenance-mode-btn" type="button"
+                class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-extrabold transition-all cursor-pointer shadow-lg shadow-red-600/25">
+                🛠️ Turn ON Maintenance Mode
+              </button>
+            </div>
           </div>
 
-          <!-- Add Server Modal/Drawer -->
-          <div id="add-server-card" class="hidden p-5 rounded-xl border border-zinc-800 bg-zinc-900/70 space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="text-sm font-semibold text-white">Add New Cloudflare R2 Storage Server (Saves to Firestore &amp; Firebase)</h3>
-              <button id="close-add-server-btn" type="button" class="text-xs text-zinc-400 hover:text-white">✕ Close</button>
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end text-xs">
+            <div class="md:col-span-4">
+              <label class="block text-[11px] text-zinc-400 mb-1">Maintenance Pop-Up Title (পপ-আপের হেডলাইন)</label>
+              <input id="maintenance-title-input" type="text"
+                value="🛠️ ওয়েবসাইট মেইনটেন্যান্স চলছে! (Maintenance Mode)"
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
             </div>
-            <form id="add-server-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div>
-                <label class="block text-[11px] text-zinc-400 mb-1">Server Name</label>
-                <input id="srv-name" type="text" required placeholder="Server 1 (Cloudflare R2)"
-                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+            <div class="md:col-span-6">
+              <label class="block text-[11px] text-zinc-400 mb-1">Maintenance Pop-Up Message (ভিডিওতে ক্লিক করলে ইউজারকে যা দেখাবে)</label>
+              <input id="maintenance-msg-input" type="text"
+                value="বর্তমানে আমাদের ভিডিও সার্ভার আপগ্রেড ও মেইনটেন্যান্সের কাজ চলছে। এই মুহূর্তে কোনো ভিডিও প্লে করা যাবে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।"
+                class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+            </div>
+            <div class="md:col-span-2">
+              <button id="save-maintenance-config-btn" type="button"
+                class="w-full px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-xs font-bold cursor-pointer transition-colors">
+                💾 Save Text
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 1B: FAKE POP-UP LINK GENERATOR (VIDEO LINK FINDER POPUP — 100% ALL ADS, NO VIDEO) -->
+        <section class="p-4 sm:p-6 rounded-2xl border border-amber-500/60 bg-gradient-to-br from-amber-950/30 via-zinc-900/90 to-zinc-950 space-y-4 shadow-xl">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-red-600 text-zinc-950 text-[11px] font-extrabold">
+                  🎯 FAKE POP-UP LINK (100% ALL ADS)
+                </span>
+                <h2 class="text-base sm:text-lg font-bold text-white">
+                  Fake Video Link Finder Pop-Up Generator (সবগুলো বাটনেই শুধু Ads থাকবে, কোনো ভিডিও থাকবে না)
+                </h2>
               </div>
-              <div>
-                <label class="block text-[11px] text-zinc-400 mb-1">Worker API URL</label>
-                <input id="srv-url" type="url" required placeholder="https://your-worker.workers.dev"
-                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                অরিজিনাল ভিডিওর মতোই লিংক জেনারেট হবে — ইউজার ওই লিংকে ক্লিক করলে ওয়েবসাইটের <strong>Video Link Finder (3 Download Buttons)</strong> পপ-আপটি হুবহু আসবে, কিন্তু ভেতরে কোনো ভিডিওর লিংক থাকবে না; <strong>৩টি বাটনের সবগুলোতেই আপনার Ads Link ওপেন হবে!</strong>
+              </p>
+            </div>
+            <span id="fake-popup-count-badge" class="px-3 py-1 rounded-full bg-zinc-950 border border-amber-500/50 text-xs font-mono font-bold text-amber-300 shrink-0">
+              🎯 0 Fake Links
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <!-- Left 6 Cols: Fake Pop-Up Link Builder -->
+            <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label class="block text-xs font-bold text-amber-300">১. Fake Pop-Up Viral Title (পপ-আপের উপরে যে টাইটেল দেখাবে) *</label>
+                <button id="fake-popup-auto-title-btn" type="button"
+                  class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-[11px] font-bold cursor-pointer">
+                  🎲 Auto Viral Title
+                </button>
               </div>
+              <input id="fake-popup-title-input" type="text"
+                value="🔥 সাদিয়া ও তার বয়ফ্রেন্ডের রুম ডেটের গোপন ফুল ভিডিও ফাঁস 🥵💋 #BdViral #18Plus #FullVideo"
+                placeholder="ভাইরাল ভিডিওর টাইটেল লিখুন..."
+                class="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500" />
+
               <div>
-                <label class="block text-[11px] text-zinc-400 mb-1">Public R2 Stream URL</label>
-                <input id="srv-public" type="url" required placeholder="https://pub-xxxx.r2.dev"
-                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                <label class="block text-[11px] font-semibold text-zinc-300 mb-1">
+                  ২. Ad Smartlinks for All 3 Buttons (প্রতি লাইনে ১টি করে Ad Link — খালি রাখলে ডিফল্ট ৩টি হাই-CPM Smartlink কাজ করবে)
+                </label>
+                <textarea id="fake-popup-ads-input" rows="3"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-emerald-300 focus:outline-none focus:border-amber-500">https://auctionr.org/4/80cdada28d438b51a0e96e917763f683
+https://auctionr.org/4/5ad4cd88923c063b5b21a813a4822ed8
+https://auctionr.org/4/8746da2e2590f7ab0f808a8e3d2568c0</textarea>
               </div>
-              <div>
-                <label class="block text-[11px] text-zinc-400 mb-1">X-Admin-Key Secret</label>
-                <input id="srv-key" type="password" required placeholder="Enter ADMIN_KEY"
-                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+
+              <button id="generate-fake-popup-btn" type="button"
+                class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-zinc-950 font-extrabold text-xs sm:text-sm tracking-wide transition-all cursor-pointer shadow-lg shadow-amber-500/20">
+                ⚡ Generate Fake Pop-Up Link (100% All Ads)
+              </button>
+
+              <!-- Newly Generated Fake Pop-Up Link Box -->
+              <div id="newly-generated-fake-popup-box" class="hidden p-3.5 rounded-xl bg-emerald-950/60 border-2 border-emerald-500/80 space-y-2.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="text-xs font-extrabold text-emerald-300">✅ Fake Pop-Up Link Ready (100% Ads):</span>
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <button id="copy-fake-web-link-btn" type="button"
+                      class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer">
+                      📋 Copy Web Link
+                    </button>
+                    <button id="copy-fake-tg-link-btn" type="button"
+                      class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold cursor-pointer">
+                      ✈️ Copy TG Bot Link
+                    </button>
+                    <button id="copy-fake-step-link-btn" type="button"
+                      class="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold cursor-pointer">
+                      🔗 Copy Step Link
+                    </button>
+                    <button id="copy-fake-caption-btn" type="button"
+                      class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer">
+                      📝 Copy Title + Link
+                    </button>
+                    <a id="open-fake-popup-test-link" href="/" target="_blank" rel="noopener noreferrer"
+                      class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-[11px] font-bold">
+                      ↗ Test Pop-Up
+                    </a>
+                  </div>
+                </div>
+                <input id="newly-generated-fake-link-input" type="text" readonly
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-emerald-700 text-xs font-mono text-emerald-300 select-all focus:outline-none" />
               </div>
-              <div>
-                <label class="block text-[11px] text-zinc-400 mb-1">Storage Quota (GB)</label>
-                <div class="flex gap-2">
-                  <input id="srv-quota" type="number" step="0.5" min="1" value="10" required
-                    class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
-                  <button type="submit"
-                    class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shrink-0 cursor-pointer">
-                    Save
-                  </button>
+            </div>
+
+            <!-- Right 6 Cols: Active Fake Pop-Up Links List -->
+            <div class="lg:col-span-6 p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3">
+              <div class="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                <div>
+                  <h3 class="text-xs sm:text-sm font-bold text-white">📂 Generated Fake Pop-Up Links (Live Ad Clicks)</h3>
+                  <p class="text-[11px] text-zinc-400">যেকোনো লিংকে ইউজার ক্লিক করলেই ৩টি বাটনের পপ-আপ আসবে এবং সব বাটনেই Ads ওপেন হবে</p>
                 </div>
               </div>
-            </form>
+              <div id="fake-popup-links-list" class="space-y-2 max-h-[290px] overflow-y-auto pr-1">
+                <p class="text-xs text-zinc-500 py-6 text-center">এখনো কোনো Fake Pop-Up Link তৈরি করা হয়নি। বাম পাশ থেকে ১ ক্লিকে তৈরি করুন!</p>
+              </div>
+            </div>
           </div>
-
-          <!-- Live Storage Cards Grid -->
-          <div id="storage-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </section>
 
         <!-- SECTION 2: UNIFIED VIDEO & SHORTS UPLOAD STUDIO (FULL WIDTH · ZERO SERVER FILE AUTO-LOAD LAG) -->
@@ -2305,9 +2392,101 @@
       </div>
 
       <!-- ===================================================================== -->
-      <!-- TAB PANEL: SERVER FILES EXPLORER (ON-DEMAND LOAD ONLY WHEN CLICKED)   -->
+      <!-- TAB PANEL: SERVER FILES EXPLORER (REAL-TIME STORAGE & FILES ON CLICK) -->
       <!-- ===================================================================== -->
       <div id="admin-panel-server-files" data-admin-panel="server-files" class="hidden space-y-6">
+        <!-- SECTION 1: LIVE STORAGE MONITOR (SHIFTED HERE — REAL-TIME USED & FREE STORAGE ON CLICK) -->
+        <section class="p-4 sm:p-6 rounded-2xl border border-sky-900/60 bg-zinc-900/50 space-y-4 shadow-xl">
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-3.5">
+            <div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <span class="px-2.5 py-0.5 rounded-md bg-sky-600 text-white text-xs font-bold">📊 REAL-TIME R2 STORAGE</span>
+                <h2 class="text-base sm:text-lg font-bold text-white">Live Server Storage Usage &amp; Remaining Capacity</h2>
+                <span id="firebase-storage-sync-badge" class="px-2.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-800/70 text-[11px] font-mono text-emerald-300">
+                  🔒 Saved in Firestore &amp; Firebase (Admin Only)
+                </span>
+              </div>
+              <p class="text-xs text-zinc-400 mt-1">
+                এই সেকশনে ক্লিক করলেই রিয়েল-টাইমে কোন সার্ভারে কতটুকু স্টোরেজ ব্যবহার হয়েছে (<strong>Used Space</strong>) এবং আর কতটুকু বাকি আছে (<strong>Remaining / Free Space</strong>) তা লাইভ দেখাবে
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="refresh-all-storage-btn" type="button"
+                class="px-3.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer shadow">
+                ↻ Refresh Real-Time Storage
+              </button>
+              <button id="open-add-server-btn" type="button"
+                class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors cursor-pointer">
+                + Add Storage Server
+              </button>
+            </div>
+          </div>
+
+          <!-- Real-Time Total Storage Summary Bar across all R2 servers -->
+          <div id="realtime-storage-summary-bar" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3 rounded-xl bg-zinc-950/90 border border-zinc-800">
+              <span class="text-[10px] font-mono uppercase text-zinc-400 block">Total R2 Servers</span>
+              <strong id="summary-total-servers" class="text-sm sm:text-base font-mono font-extrabold text-white">0 Servers</strong>
+            </div>
+            <div class="p-3 rounded-xl bg-zinc-950/90 border border-sky-500/40">
+              <span class="text-[10px] font-mono uppercase text-sky-300 block">Real-Time Storage Used (ব্যবহৃত)</span>
+              <strong id="summary-total-used" class="text-sm sm:text-base font-mono font-extrabold text-sky-400">Calculating...</strong>
+            </div>
+            <div class="p-3 rounded-xl bg-zinc-950/90 border border-emerald-500/40">
+              <span class="text-[10px] font-mono uppercase text-emerald-300 block">Remaining Free Space (বাকি আছে)</span>
+              <strong id="summary-total-free" class="text-sm sm:text-base font-mono font-extrabold text-emerald-400">Calculating...</strong>
+            </div>
+            <div class="p-3 rounded-xl bg-zinc-950/90 border border-amber-500/40">
+              <span class="text-[10px] font-mono uppercase text-amber-300 block">Total Stored Files</span>
+              <strong id="summary-total-files" class="text-sm sm:text-base font-mono font-extrabold text-amber-300">0 files</strong>
+            </div>
+          </div>
+
+          <!-- Add Server Modal/Drawer -->
+          <div id="add-server-card" class="hidden p-5 rounded-xl border border-zinc-800 bg-zinc-900/70 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-white">Add New Cloudflare R2 Storage Server (Saves to Firestore &amp; Firebase)</h3>
+              <button id="close-add-server-btn" type="button" class="text-xs text-zinc-400 hover:text-white">✕ Close</button>
+            </div>
+            <form id="add-server-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Server Name</label>
+                <input id="srv-name" type="text" required placeholder="Server 1 (Cloudflare R2)"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Worker API URL</label>
+                <input id="srv-url" type="url" required placeholder="https://your-worker.workers.dev"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Public R2 Stream URL</label>
+                <input id="srv-public" type="url" required placeholder="https://pub-xxxx.r2.dev"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">X-Admin-Key Secret</label>
+                <input id="srv-key" type="password" required placeholder="Enter ADMIN_KEY"
+                  class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-zinc-400 mb-1">Storage Quota (GB)</label>
+                <div class="flex gap-2">
+                  <input id="srv-quota" type="number" step="0.5" min="1" value="10" required
+                    class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-white focus:outline-none focus:border-red-500" />
+                  <button type="submit"
+                    class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shrink-0 cursor-pointer">
+                    Save
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Live Storage Cards Grid -->
+          <div id="storage-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
         <section id="server-explorer-panel" class="p-4 sm:p-6 rounded-2xl border border-sky-900/60 bg-zinc-900/40 flex flex-col justify-between space-y-4 shadow-xl">
           <div class="space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
