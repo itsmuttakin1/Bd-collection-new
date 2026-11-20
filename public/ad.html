@@ -492,6 +492,12 @@
           <span id="tab-badge-notices" class="px-1.5 py-0.5 rounded-md bg-zinc-800 text-[10px] font-mono text-emerald-400">0</span>
         </button>
 
+        <button type="button" data-admin-tab="leaderboard"
+          class="admin-tab-btn px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 flex items-center gap-2">
+          <span>🏆 Leaderboard</span>
+          <span id="tab-badge-leaderboard" class="px-1.5 py-0.5 rounded-md bg-zinc-800 text-[10px] font-mono text-amber-400">0</span>
+        </button>
+
         <button type="button" data-admin-tab="guides"
           class="admin-tab-btn px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 flex items-center gap-2">
           <span>📖 Setup Steps &amp; Rules</span>
@@ -520,6 +526,11 @@
             </span>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <button id="clean-offline-presence-btn" type="button"
+              class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+              title="পুরনো বা ডিসকানেক্টেড অফলাইন ভিজিটর ডাটা মুছে ফেলে ফায়ারবেজ ডাটাবেজ ফাস্ট রাখুন">
+              🧹 Clean Offline Data (ডাটাবেজ হালকা করুন)
+            </button>
             <button id="quick-copy-rtdb-rules-btn" type="button"
               class="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors cursor-pointer">
               📋 Copy Updated Firebase Rules (Anti-Hack)
@@ -724,6 +735,62 @@
 
             <div id="crm-modal-watched-list" class="max-h-36 overflow-y-auto space-y-1.5 pr-1 pt-1 border-t border-zinc-800/80 text-xs">
               <p class="text-zinc-500 text-xs py-2 text-center">এখনো কোনো ভিডিও দেখার হিস্ট্রি পাওয়া যায়নি।</p>
+            </div>
+
+            <!-- ADMIN WATCHED VIDEO COUNT +/- CONTROL (কমান / বাড়ান) -->
+            <div class="p-3.5 rounded-xl bg-zinc-950/90 border border-amber-500/60 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-extrabold text-amber-300">🎬 ভিডিও দেখার সংখ্যা বাড়ান বা কমান (Only Admin):</span>
+                <span class="text-[11px] text-zinc-400 font-mono">Leaderboard &amp; Top Sync</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <input id="crm-watched-count-input" type="number" min="0" value="0"
+                  class="w-24 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-500" />
+                <button type="button" data-delta-watch="-50" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-300 text-[11px] font-bold cursor-pointer">-50</button>
+                <button type="button" data-delta-watch="-10" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-300 text-[11px] font-bold cursor-pointer">-10</button>
+                <button type="button" data-delta-watch="-1" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-300 text-[11px] font-bold cursor-pointer">-1</button>
+                <button type="button" data-delta-watch="1" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+1</button>
+                <button type="button" data-delta-watch="5" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+5</button>
+                <button type="button" data-delta-watch="10" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+10</button>
+                <button type="button" data-delta-watch="50" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+50</button>
+                <button id="crm-save-watched-count-btn" type="button"
+                  class="ml-auto px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 text-xs font-extrabold cursor-pointer shadow-md">
+                  💾 Save Count
+                </button>
+              </div>
+            </div>
+
+            <!-- ADMIN PROFILE FRAME SELECTOR (ইউজারকে ফ্রেম দিন) -->
+            <div class="p-3.5 rounded-xl bg-zinc-950/90 border border-purple-500/60 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-extrabold text-purple-300">✨ প্রোফাইল ফ্রেম দিন (Special Profile Frame):</span>
+                <span id="crm-current-frame-badge" class="px-2 py-0.5 rounded bg-purple-950 border border-purple-800 text-[10px] font-bold text-purple-300">
+                  ফ্রেম: সাধারণ
+                </span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <button type="button" data-assign-frame="none" class="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-left font-bold cursor-pointer">
+                  🚫 সাধারণ (None)
+                </button>
+                <button type="button" data-assign-frame="royal_gold" class="p-2 rounded-xl bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/60 text-amber-300 text-left font-bold cursor-pointer">
+                  👑 Royal Gold
+                </button>
+                <button type="button" data-assign-frame="diamond_crystal" class="p-2 rounded-xl bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-500/60 text-cyan-300 text-left font-bold cursor-pointer">
+                  💎 Diamond Ice
+                </button>
+                <button type="button" data-assign-frame="dragon_fire" class="p-2 rounded-xl bg-orange-950/40 hover:bg-orange-950/70 border border-orange-500/60 text-orange-300 text-left font-bold cursor-pointer">
+                  🔥 Dragon Fire
+                </button>
+                <button type="button" data-assign-frame="cyber_neon" class="p-2 rounded-xl bg-purple-950/40 hover:bg-purple-950/70 border border-purple-500/60 text-purple-300 text-left font-bold cursor-pointer">
+                  ⚡ Cyber Neon
+                </button>
+                <button type="button" data-assign-frame="emerald_king" class="p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-500/60 text-emerald-300 text-left font-bold cursor-pointer">
+                  🐉 Emerald King
+                </button>
+                <button type="button" data-assign-frame="ruby_empress" class="p-2 rounded-xl bg-rose-950/40 hover:bg-rose-950/70 border border-rose-500/60 text-rose-300 text-left font-bold cursor-pointer">
+                  ❤️‍🔥 Ruby Empress
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1834,6 +1901,38 @@
               </p>
             </div>
           </form>
+        </section>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- TAB PANEL: LEADERBOARD & TOP USERS (HIDDEN UNLESS CLICKED)             -->
+      <!-- ===================================================================== -->
+      <div id="admin-panel-leaderboard" data-admin-panel="leaderboard" class="hidden space-y-6">
+        <section class="p-3.5 sm:p-5 rounded-2xl border border-amber-500/60 bg-zinc-900/60 space-y-4 w-full max-w-full overflow-hidden shadow-xl">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3.5">
+            <div class="min-w-0 space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-yellow-600 text-zinc-950 text-[11px] font-extrabold shrink-0">
+                  🏆 LEADERBOARD &amp; TOP USERS
+                </span>
+                <h2 class="text-sm sm:text-base font-bold text-white leading-snug">
+                  শীর্ষ দর্শক লিডারবোর্ড ও ইউজার কন্ট্রোল (Watched Videos ± / Frames)
+                </h2>
+              </div>
+              <p class="text-[11px] sm:text-xs text-zinc-400 leading-relaxed">
+                যে ইউজার সবচেয়ে বেশি ভিডিও দেখবে সে তালিকার সবার উপরে থাকবে। যেকোনো ইউজারের উপর ক্লিক করে তার ভিডিও দেখার সংখ্যা বাড়াতে/কমাতে পারবেন এবং স্পেশাল ফ্রেম দিতে পারবেন।
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="admin-lb-search-input" type="text" placeholder="নাম বা Telegram ID দিয়ে খুঁজুন..."
+                class="px-3 py-1.5 rounded-xl bg-zinc-950 border border-zinc-700 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500 w-52 sm:w-64" />
+            </div>
+          </div>
+
+          <!-- Leaderboard List in Admin Panel -->
+          <div id="admin-leaderboard-list" class="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+            <p class="text-xs text-zinc-500 py-8 text-center">লিডারবোর্ড লোড হচ্ছে...</p>
+          </div>
         </section>
       </div>
 
@@ -3018,6 +3117,18 @@ export default {
               "maintenance": {
                 ".read": true,
                 ".write": true
+              }
+            },
+            leaderboard: {
+              ".read": true,
+              ".indexOn": ["videosWatchedCount", "lastSeen"],
+              ".write": adminOnly,
+              "$userId": {
+                ".read": true,
+                ".write": `${adminOnly} || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'`,
+                "videosWatchedCount": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0"
+                }
               }
             }
           }
@@ -7969,6 +8080,9 @@ service cloud.firestore {
         } else if (tabName === 'redeem') {
           btn.className =
             'admin-tab-btn px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-amber-500/40 text-amber-300 text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 flex items-center gap-2';
+        } else if (tabName === 'leaderboard') {
+          btn.className =
+            'admin-tab-btn px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-amber-500/60 text-amber-300 text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 flex items-center gap-2';
         } else if (tabName === 'server-files') {
           btn.className =
             'admin-tab-btn px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-sky-500/40 text-sky-300 text-xs font-bold tracking-tight transition-all cursor-pointer shrink-0 flex items-center gap-2';
@@ -7991,6 +8105,8 @@ service cloud.firestore {
         renderPublishedVideosTable();
       } else if (targetTab === 'shorts') {
         renderPublishedShortsTable();
+      } else if (targetTab === 'leaderboard') {
+        renderAdminLeaderboard();
       } else if (targetTab === 'server-files') {
         renderServerSelect();
         const activeSrv = servers.find((s) => s.id === activeServerId) || servers[0];
@@ -10660,6 +10776,15 @@ service cloud.firestore {
       if (crmWatchedCountEl) {
         crmWatchedCountEl.textContent = String(userObj.videosWatchedCount || 0);
       }
+      const crmWatchedInpEl = document.getElementById('crm-watched-count-input');
+      if (crmWatchedInpEl && document.activeElement !== crmWatchedInpEl) {
+        crmWatchedInpEl.value = String(userObj.videosWatchedCount || 0);
+      }
+      const crmCurFrameBadge = document.getElementById('crm-current-frame-badge');
+      if (crmCurFrameBadge) {
+        const frm = userObj.profileFrame || 'none';
+        crmCurFrameBadge.textContent = frm === 'none' ? 'ফ্রেম: সাধারণ' : `ফ্রেম: ${frm.replace(/_/g, ' ').toUpperCase()}`;
+      }
 
       // Update VIP Status & Expiry in Modal
       const isVipNow = Boolean(userObj.vipActive && userObj.vipExpiresAt > now);
@@ -10838,6 +10963,11 @@ service cloud.firestore {
           profileFrame: currentFrame || 'none',
           botAuthToken: 'xtube_tg_bot_2026',
         }).catch(() => {}),
+        update(ref(db, `leaderboard/${activeCrmUserKey}`), {
+          profileFrame: currentFrame || 'none',
+          lastSeen: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
       ];
 
       // Also sync with any linked Redeem Code if present
@@ -10861,6 +10991,69 @@ service cloud.firestore {
       window.refreshActiveCrmModalData();
       return payload;
     };
+
+    // Admin Watched Videos Count Control: Increase/Decrease or Set Count directly
+    const applyAdminWatchedCountControl = async ({ deltaCount = 0, setCount = null }) => {
+      if (!activeCrmUserKey) return;
+      buildMergedCrmUsersList();
+      const userObj = crmUsersMap.get(activeCrmUserKey) || {};
+      let currentCount = Number(userObj.videosWatchedCount || 0);
+      if (setCount !== null) {
+        currentCount = Math.max(0, Math.floor(Number(setCount) || 0));
+      } else if (deltaCount !== 0) {
+        currentCount = Math.max(0, currentCount + deltaCount);
+      }
+      userObj.videosWatchedCount = currentCount;
+      const now = Date.now();
+      await Promise.all([
+        update(ref(db, `leaderboard/${activeCrmUserKey}`), {
+          videosWatchedCount: currentCount,
+          lastSeen: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
+        update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+          videosWatchedCount: currentCount,
+          updatedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
+      ]);
+      const watchedInput = document.getElementById('crm-watched-count-input');
+      if (watchedInput) watchedInput.value = String(currentCount);
+      const watchedCountBadge = document.getElementById('crm-modal-watched-count');
+      if (watchedCountBadge) watchedCountBadge.textContent = String(currentCount);
+      window.refreshActiveCrmModalData();
+      showStatus(`✅ ভিডিও দেখার সংখ্যা আপডেট হয়েছে: ${currentCount} টি!`, 'success');
+    };
+    window.applyAdminWatchedCountControl = applyAdminWatchedCountControl;
+
+    // Attach frame assign buttons
+    document.querySelectorAll('[data-assign-frame]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const frameId = btn.getAttribute('data-assign-frame') || 'none';
+        try {
+          await applyAdminVipUserControl({ setProfileFrame: frameId });
+          showStatus(`✨ ইউজারের প্রোফাইল ফ্রেম সেট হয়েছে: ${frameId.toUpperCase()}`, 'success');
+        } catch (err) {
+          showStatus(`Frame Error: ${err.message}`, 'error');
+        }
+      });
+    });
+
+    // Attach watched count +/- buttons & save button
+    const crmSaveWatchedBtn = document.getElementById('crm-save-watched-count-btn');
+    const crmWatchedInp = document.getElementById('crm-watched-count-input');
+    if (crmSaveWatchedBtn) {
+      crmSaveWatchedBtn.addEventListener('click', async () => {
+        const cnt = Math.max(0, Math.floor(Number(crmWatchedInp?.value || 0)));
+        await applyAdminWatchedCountControl({ setCount: cnt });
+      });
+    }
+    document.querySelectorAll('[data-delta-watch]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const delta = parseInt(btn.getAttribute('data-delta-watch')) || 0;
+        await applyAdminWatchedCountControl({ deltaCount: delta });
+      });
+    });
 
     document.querySelectorAll('.crm-frame-select-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -11369,6 +11562,139 @@ service cloud.firestore {
           showStatus(`Clear Error: ${err.message}`, 'error');
         }
       });
+    }
+
+    // Clean Stale / Offline Presence Entries (Cleans database to eliminate Firebase Performance Warning)
+    const cleanOfflinePresenceBtn = document.getElementById('clean-offline-presence-btn');
+    if (cleanOfflinePresenceBtn) {
+      cleanOfflinePresenceBtn.addEventListener('click', async () => {
+        if (!confirm('আপনি কি সত্যিই ডেটাবেজের অফলাইন ও পুরনো ভিজিটর ডেটা মুছে ফেলে ডেটাবেজ হালকা করতে চান? (অনলাইন ইউজার অক্ষত থাকবে)')) return;
+        try {
+          cleanOfflinePresenceBtn.disabled = true;
+          cleanOfflinePresenceBtn.textContent = '🧹 Cleaning...';
+          const now = Date.now();
+          const snap = await get(ref(db, 'presence'));
+          const data = snap.val();
+          let cleaned = 0;
+          if (data && typeof data === 'object') {
+            const removes = [];
+            for (const [vid, info] of Object.entries(data)) {
+              if (!info || typeof info !== 'object') continue;
+              const lastSeen = Number(info.lastSeen) || 0;
+              if (info.online === false || (now - lastSeen > 90000)) {
+                removes.push(remove(ref(db, `presence/${vid}`)).catch(() => {}));
+                cleaned++;
+              }
+            }
+            await Promise.all(removes);
+          }
+          showStatus(`✅ মোট ${cleaned} টি অফলাইন রেকর্ড মুছে ফেলা হয়েছে! Firebase Database এখন সম্পূর্ণ হালকা ও দ্রুত।`, 'success');
+        } catch (err) {
+          showStatus(`Clean Error: ${err.message}`, 'error');
+        } finally {
+          cleanOfflinePresenceBtn.disabled = false;
+          cleanOfflinePresenceBtn.textContent = '🧹 Clean Offline Data (ডাটাবেজ হালকা করুন)';
+        }
+      });
+    }
+
+    // Admin Leaderboard Real-time Management
+    let adminLeaderboardRaw = {};
+    const renderAdminLeaderboard = () => {
+      const listEl = document.getElementById('admin-leaderboard-list');
+      if (!listEl) return;
+      const query = (document.getElementById('admin-lb-search-input')?.value || '').trim().toLowerCase();
+      const now = Date.now();
+      let entries = Object.entries(adminLeaderboardRaw || {}).map(([k, item]) => {
+        const lastSeen = Number(item?.lastSeen) || 0;
+        const isOnline = Boolean(item?.online === true || (now - lastSeen <= 90000 && lastSeen > 0));
+        return {
+          userId: k,
+          name: String(
+            item?.name ||
+              item?.fullName ||
+              (item?.isTelegram ? `Telegram User (${item?.tgId || k})` : `Visitor (${k.slice(-6)})`)
+          ),
+          isTelegram: Boolean(item?.isTelegram || item?.tgId),
+          tgId: item?.tgId ? String(item.tgId) : null,
+          username: item?.username || null,
+          videosWatchedCount: Math.max(0, Number(item?.videosWatchedCount) || 0),
+          profileFrame: item?.profileFrame || 'none',
+          lastSeen,
+          isOnline,
+        };
+      });
+
+      entries.sort((a, b) => b.videosWatchedCount - a.videosWatchedCount);
+
+      if (query) {
+        entries = entries.filter((u) =>
+          u.name.toLowerCase().includes(query) ||
+          (u.tgId && u.tgId.toLowerCase().includes(query)) ||
+          (u.username && u.username.toLowerCase().includes(query)) ||
+          u.userId.toLowerCase().includes(query)
+        );
+      }
+
+      if (entries.length === 0) {
+        listEl.innerHTML = '<p class="text-xs text-zinc-500 py-8 text-center">কোনো লিডারবোর্ড ইউজার পাওয়া যায়নি।</p>';
+        return;
+      }
+
+      listEl.innerHTML = entries.map((item, idx) => {
+        const rank = idx + 1;
+        const rankBadge = rank === 1 ? '👑 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`;
+        const onlineBadge = item.isOnline
+          ? '<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 font-mono text-[10px] font-bold">● Online</span>'
+          : '<span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 font-mono text-[10px]">Offline</span>';
+        const frameLabel = item.profileFrame && item.profileFrame !== 'none'
+          ? `<span class="px-2 py-0.5 rounded bg-purple-950/80 border border-purple-700/60 text-purple-300 text-[10px] font-bold font-mono">✨ ${item.profileFrame.replace(/_/g, ' ').toUpperCase()}</span>`
+          : '';
+        return `
+          <div class="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800 hover:border-amber-500/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="w-10 text-center font-mono font-black text-sm ${rank <= 3 ? 'text-amber-400 font-extrabold text-base' : 'text-zinc-500'} shrink-0">${rankBadge}</span>
+              <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lg shrink-0">
+                ${item.isTelegram ? '📱' : '🌐'}
+              </div>
+              <div class="min-w-0 space-y-0.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-extrabold text-white text-xs sm:text-sm truncate">${escSafeHtml(item.name)}</span>
+                  ${onlineBadge}
+                  ${frameLabel}
+                </div>
+                <p class="text-[11px] font-mono text-zinc-400 truncate">
+                  ${item.isTelegram ? `TG ID: <strong class="text-sky-300 select-all">${escSafeHtml(item.tgId || item.userId)}</strong>${item.username ? ` · @${escSafeHtml(item.username)}` : ''}` : `Visitor Key: <strong class="text-zinc-300 select-all">${escSafeHtml(item.userId)}</strong>`}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <div class="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-right">
+                <span class="font-mono font-extrabold text-amber-400 text-xs sm:text-sm">${item.videosWatchedCount}</span>
+                <span class="text-[10px] font-bold text-amber-300/80 ml-1">ভিডিও</span>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); window.openUserCrmModal('${item.userId}')"
+                class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-zinc-950 font-black text-xs cursor-pointer shadow-md">
+                ✏️ Manage Count &amp; Frame
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+    window.renderAdminLeaderboard = renderAdminLeaderboard;
+
+    onValue(ref(db, 'leaderboard'), (snap) => {
+      adminLeaderboardRaw = snap.val() || {};
+      const count = Object.keys(adminLeaderboardRaw).length;
+      const badge = document.getElementById('tab-badge-leaderboard');
+      if (badge) badge.textContent = String(count);
+      renderAdminLeaderboard();
+    });
+
+    const lbSearchInput = document.getElementById('admin-lb-search-input');
+    if (lbSearchInput) {
+      lbSearchInput.addEventListener('input', renderAdminLeaderboard);
     }
 
     if (tgBroadcastForm) {

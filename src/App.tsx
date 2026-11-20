@@ -85,9 +85,24 @@ import {
   Lock,
   CheckCircle2,
   ArrowLeft,
+  Trophy,
+  Medal,
+  Crown,
 } from 'lucide-react';
 
-type ViewMode = 'home' | 'watch' | 'shorts' | 'profile';
+type ViewMode = 'home' | 'watch' | 'shorts' | 'profile' | 'leaderboard';
+
+export interface LeaderboardUserItem {
+  userId: string;
+  name: string;
+  isTelegram: boolean;
+  tgId?: string | null;
+  username?: string | null;
+  videosWatchedCount: number;
+  profileFrame?: string | null;
+  lastSeen?: number;
+  isOnline?: boolean;
+}
 
 export interface TelegramUserProfile {
   id: string;
@@ -853,6 +868,11 @@ export default function App() {
   const [maintenancePopupOpen, setMaintenancePopupOpen] = useState<boolean>(false);
   const maintenanceEnabledRef = useRef<boolean>(false);
 
+  // Leaderboard State (Real-time synced from `leaderboard` & `presence`)
+  const [leaderboardUsers, setLeaderboardUsers] = useState<LeaderboardUserItem[]>([]);
+  const [selectedLeaderboardUser, setSelectedLeaderboardUser] = useState<LeaderboardUserItem | null>(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState<boolean>(true);
+
   useEffect(() => {
     if (initialUrlVidId && initialUrlVidId.startsWith('fake_') && !activeVideo) {
       const fakeObj = buildFakePopupVideoObject(initialUrlVidId);
@@ -965,6 +985,54 @@ export default function App() {
       unsubMaint();
       unsubFake();
     };
+  }, []);
+
+  // Real-time Leaderboard Listener (merged with presence online status)
+  useEffect(() => {
+    const lbRef = ref(db, 'leaderboard');
+    const unsubLb = onValue(
+      lbRef,
+      (snap) => {
+        const val = snap.val();
+        if (!val || typeof val !== 'object') {
+          setLeaderboardUsers([]);
+          setLeaderboardLoading(false);
+          return;
+        }
+        const now = Date.now();
+        const list: LeaderboardUserItem[] = Object.entries(val)
+          .map(([k, item]: [string, any]) => {
+            const lastSeen = Number(item?.lastSeen) || 0;
+            const isOnline = Boolean(
+              item?.online === true || (now - lastSeen <= 90000 && lastSeen > 0)
+            );
+            return {
+              userId: k,
+              name: String(
+                item?.name ||
+                  item?.fullName ||
+                  (item?.isTelegram ? `Telegram User (${item?.tgId || k})` : `Visitor (${k.slice(-6)})`)
+              ),
+              isTelegram: Boolean(item?.isTelegram || item?.tgId),
+              tgId: item?.tgId ? String(item.tgId) : null,
+              username: item?.username || null,
+              videosWatchedCount: Math.max(0, Number(item?.videosWatchedCount) || 0),
+              profileFrame: item?.profileFrame || 'none',
+              lastSeen,
+              isOnline,
+            };
+          })
+          .sort((a, b) => b.videosWatchedCount - a.videosWatchedCount);
+
+        setLeaderboardUsers(list);
+        setLeaderboardLoading(false);
+      },
+      () => {
+        setLeaderboardLoading(false);
+      }
+    );
+
+    return () => unsubLb();
   }, []);
 
   // When Maintenance Mode is turned ON, immediately block any active video/short playback and show Maintenance Popup
@@ -1087,6 +1155,7 @@ export default function App() {
         viewMode === 'watch' ||
         viewMode === 'shorts' ||
         viewMode === 'profile' ||
+        viewMode === 'leaderboard' ||
         Boolean(stepGateVideo || stepGatePendingId)
       ) {
         backButton.show();
@@ -2202,6 +2271,21 @@ export default function App() {
           updatedAt: now,
           botAuthToken: 'xtube_tg_bot_2026',
         }).catch(() => {});
+
+        // Real-time Leaderboard Entry Sync
+        update(ref(db, `leaderboard/${crmKey}`), {
+          userId: crmKey,
+          name: isTg
+            ? tgProfile.fullName || tgProfile.username || `Telegram User (${tgProfile.id})`
+            : `Web Visitor (${tgProfile.id})`,
+          isTelegram: isTg,
+          tgId: isTg ? String(tgProfile.id) : '',
+          username: tgProfile.username || '',
+          videosWatchedCount: totalWatched,
+          profileFrame: profileFrame || 'none',
+          lastSeen: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
       }
 
       fetch('/api/visitor-ping', {
@@ -2250,8 +2334,11 @@ export default function App() {
       (snap) => {
         const val = snap.val();
         if (!val || typeof val !== 'object') return;
-        if (typeof val.videosWatchedCount === 'number' && val.videosWatchedCount > 0) {
-          setRemoteWatchedCount((prev) => Math.max(prev, val.videosWatchedCount));
+        if (typeof val.videosWatchedCount === 'number' && val.videosWatchedCount >= 0) {
+          setRemoteWatchedCount(val.videosWatchedCount);
+        }
+        if (val.profileFrame && typeof val.profileFrame === 'string') {
+          setProfileFrame(val.profileFrame);
         }
         if (val.dailyWatchedDate === todayKey && typeof val.dailyWatchedCount === 'number') {
           setDailyWatchedCount((prev) => Math.max(prev, val.dailyWatchedCount));
@@ -2271,6 +2358,23 @@ export default function App() {
         } else {
           setPersonalNotice(null);
           setPersonalNoticePopupOpen(false);
+        }
+      },
+      () => {}
+    );
+
+    const userLbSingleRef = ref(db, `leaderboard/${crmKeyForNotice}`);
+    const unsubUserLbSingle = onValue(
+      userLbSingleRef,
+      (snap) => {
+        const lbVal = snap.val();
+        if (lbVal && typeof lbVal === 'object') {
+          if (typeof lbVal.videosWatchedCount === 'number' && lbVal.videosWatchedCount >= 0) {
+            setRemoteWatchedCount(lbVal.videosWatchedCount);
+          }
+          if (lbVal.profileFrame && typeof lbVal.profileFrame === 'string') {
+            setProfileFrame(lbVal.profileFrame);
+          }
         }
       },
       () => {}
@@ -2375,6 +2479,7 @@ export default function App() {
     return () => {
       unsubDailyUsage();
       unsubUserCrm();
+      unsubUserLbSingle();
       unsubConnected();
       unsubAllPresence();
       unsubFallbackOnline();
@@ -3752,6 +3857,24 @@ export default function App() {
             </button>
           )}
 
+          {/* Leaderboard Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('leaderboard');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
+              viewMode === 'leaderboard'
+                ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
+                : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-300'
+            }`}
+            title="🏆 লিডারবোর্ড - শীর্ষ ইউজার তালিকা"
+          >
+            <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+            <span className="hidden sm:inline font-bold">লিডারবোর্ড</span>
+          </button>
+
           {/* Telegram User Profile & Live Online Trigger */}
           <button
             type="button"
@@ -4074,6 +4197,22 @@ export default function App() {
             >
               <Flame className="w-5 h-5 text-red-500" />
               <span>{t.trending}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('leaderboard');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                viewMode === 'leaderboard'
+                  ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30'
+                  : 'text-slate-300 hover:bg-slate-900'
+              }`}
+            >
+              <Trophy className="w-5 h-5 text-amber-400" />
+              <span>লিডারবোর্ড</span>
             </button>
 
             <button
@@ -4495,6 +4634,342 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================================
+              LEADERBOARD VIEW: TOP VIDEO WATCHERS RANKED (REAL-TIME LIVE PRESENCE & MODAL)
+              ============================================================================ */}
+          {viewMode === 'leaderboard' && (
+            <div className="max-w-3xl mx-auto px-3 sm:px-6 py-5 sm:py-7 space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 text-zinc-950 font-black text-base shadow-lg shadow-amber-500/20">
+                      🏆
+                    </span>
+                    <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                      শীর্ষ দর্শক লিডারবোর্ড
+                    </h1>
+                  </div>
+                  <p className="text-xs sm:text-sm text-zinc-400">
+                    যে যত বেশি ভিডিও দেখবে, সে সবার শীর্ষে থাকবে! লাইভ আপডেট হচ্ছে।
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={goHome}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#161b26] hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-200 flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>{ui.backToVideos}</span>
+                </button>
+              </div>
+
+              {leaderboardLoading ? (
+                <div className="py-16 text-center space-y-3">
+                  <div className="w-10 h-10 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto" />
+                  <p className="text-xs text-zinc-400 font-mono">লিডারবোর্ড লোড হচ্ছে...</p>
+                </div>
+              ) : leaderboardUsers.length === 0 ? (
+                <div className="p-8 rounded-3xl bg-[#141822] border border-slate-800 text-center space-y-3">
+                  <span className="text-4xl">🎬</span>
+                  <h3 className="text-base font-bold text-white">এখনো কেউ ভিডিও দেখেনি!</h3>
+                  <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                    আপনি ভিডিও দেখা শুরু করে লিডারবোর্ডের #১ স্থান অধিকার করুন।
+                  </p>
+                  <button
+                    type="button"
+                    onClick={goHome}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 text-zinc-950 font-extrabold text-xs cursor-pointer shadow-lg"
+                  >
+                    ভিডিও দেখুন 🚀
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* TOP 3 PODIUM (Gold #1, Silver #2, Bronze #3) */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end pt-6 pb-2">
+                    {/* Rank 2 (Silver) */}
+                    {leaderboardUsers[1] ? (
+                      <div
+                        onClick={() => setSelectedLeaderboardUser(leaderboardUsers[1])}
+                        className="cursor-pointer group flex flex-col items-center text-center p-3 sm:p-4 rounded-2xl bg-gradient-to-t from-slate-900/90 via-[#182030] to-slate-800/60 border border-slate-400/40 shadow-lg hover:border-slate-300 transition-all transform hover:-translate-y-1"
+                      >
+                        <div className="relative mb-2">
+                          <span className="absolute -top-3.5 -right-1 text-xl">🥈</span>
+                          <VipFramedAvatar
+                            fullName={leaderboardUsers[1].name}
+                            frameId={leaderboardUsers[1].profileFrame}
+                            size="lg"
+                          />
+                          {leaderboardUsers[1].isOnline && (
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-slate-900 ring-2 ring-emerald-500/50 animate-pulse" />
+                          )}
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-slate-700/80 text-[10px] font-black text-slate-200 uppercase tracking-wider mb-1">
+                          #2 RANK
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
+                          {leaderboardUsers[1].name}
+                        </h4>
+                        {leaderboardUsers[1].isTelegram && leaderboardUsers[1].tgId && (
+                          <span className="text-[10px] text-sky-400 font-mono truncate max-w-full">
+                            ✈️ {leaderboardUsers[1].tgId}
+                          </span>
+                        )}
+                        <div className="mt-2 px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/70 text-emerald-400 font-mono text-[11px] font-extrabold">
+                          🎬 {leaderboardUsers[1].videosWatchedCount} টি
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-28" />
+                    )}
+
+                    {/* Rank 1 (Gold - Center, elevated) */}
+                    {leaderboardUsers[0] && (
+                      <div
+                        onClick={() => setSelectedLeaderboardUser(leaderboardUsers[0])}
+                        className="cursor-pointer group flex flex-col items-center text-center p-3.5 sm:p-5 rounded-3xl bg-gradient-to-t from-amber-950/80 via-[#231b14] to-amber-900/40 border-2 border-amber-500/80 shadow-2xl shadow-amber-500/20 hover:border-amber-400 transition-all transform hover:-translate-y-1.5"
+                      >
+                        <div className="relative mb-2">
+                          <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-2xl animate-bounce">👑</span>
+                          <VipFramedAvatar
+                            fullName={leaderboardUsers[0].name}
+                            frameId={leaderboardUsers[0].profileFrame}
+                            size="lg"
+                          />
+                          {leaderboardUsers[0].isOnline && (
+                            <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-zinc-950 ring-2 ring-emerald-500/50 animate-pulse" />
+                          )}
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-[10px] font-black text-zinc-950 uppercase tracking-wider mb-1 shadow">
+                          #1 CHAMPION
+                        </span>
+                        <h4 className="text-xs sm:text-base font-extrabold text-white truncate max-w-full">
+                          {leaderboardUsers[0].name}
+                        </h4>
+                        {leaderboardUsers[0].isTelegram && leaderboardUsers[0].tgId && (
+                          <span className="text-[10px] sm:text-xs text-sky-400 font-mono truncate max-w-full">
+                            ✈️ TG: {leaderboardUsers[0].tgId}
+                          </span>
+                        )}
+                        <div className="mt-2.5 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 font-mono text-xs sm:text-sm font-black shadow-inner">
+                          🎬 {leaderboardUsers[0].videosWatchedCount} টি ভিডিও
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rank 3 (Bronze) */}
+                    {leaderboardUsers[2] ? (
+                      <div
+                        onClick={() => setSelectedLeaderboardUser(leaderboardUsers[2])}
+                        className="cursor-pointer group flex flex-col items-center text-center p-3 sm:p-4 rounded-2xl bg-gradient-to-t from-orange-950/80 via-[#201815] to-amber-950/40 border border-amber-700/50 shadow-lg hover:border-amber-600 transition-all transform hover:-translate-y-1"
+                      >
+                        <div className="relative mb-2">
+                          <span className="absolute -top-3.5 -right-1 text-xl">🥉</span>
+                          <VipFramedAvatar
+                            fullName={leaderboardUsers[2].name}
+                            frameId={leaderboardUsers[2].profileFrame}
+                            size="lg"
+                          />
+                          {leaderboardUsers[2].isOnline && (
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-slate-900 ring-2 ring-emerald-500/50 animate-pulse" />
+                          )}
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-800/80 text-[10px] font-black text-amber-200 uppercase tracking-wider mb-1">
+                          #3 RANK
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
+                          {leaderboardUsers[2].name}
+                        </h4>
+                        {leaderboardUsers[2].isTelegram && leaderboardUsers[2].tgId && (
+                          <span className="text-[10px] text-sky-400 font-mono truncate max-w-full">
+                            ✈️ {leaderboardUsers[2].tgId}
+                          </span>
+                        )}
+                        <div className="mt-2 px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-amber-400 font-mono text-[11px] font-extrabold">
+                          🎬 {leaderboardUsers[2].videosWatchedCount} টি
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-28" />
+                    )}
+                  </div>
+
+                  {/* RANKS #4 to #100 LIST */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1">
+                      সম্পূর্ণ র‍্যাংকিং তালিকা (Rank #4 - #{leaderboardUsers.length})
+                    </h3>
+                    <div className="space-y-1.5">
+                      {leaderboardUsers.slice(3).map((item, idx) => {
+                        const rankNumber = idx + 4;
+                        return (
+                          <div
+                            key={item.userId}
+                            onClick={() => setSelectedLeaderboardUser(item)}
+                            className="p-3 sm:p-3.5 rounded-2xl bg-[#141822] hover:bg-[#1a2030] border border-slate-800/90 hover:border-slate-700 transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-8 text-center font-mono font-extrabold text-sm text-zinc-400 group-hover:text-amber-400 shrink-0">
+                                #{rankNumber}
+                              </span>
+                              <div className="relative shrink-0">
+                                <VipFramedAvatar
+                                  fullName={item.name}
+                                  frameId={item.profileFrame}
+                                  size="sm"
+                                />
+                                {item.isOnline && (
+                                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-zinc-900 animate-pulse" />
+                                )}
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                                    {item.name}
+                                  </h4>
+                                  {item.isOnline ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/90 border border-emerald-800/80 text-[9px] font-mono font-bold text-emerald-400">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+                                      Online
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono text-zinc-500">Offline</span>
+                                  )}
+                                </div>
+                                {item.isTelegram && item.tgId && (
+                                  <p className="text-[11px] font-mono text-sky-400 truncate">
+                                    ✈️ TG ID: {item.tgId} {item.username ? `· @${item.username}` : ''}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="px-3 py-1.5 rounded-xl bg-[#1b2230] border border-slate-700/60 text-right shrink-0">
+                              <span className="font-mono font-extrabold text-emerald-400 text-xs sm:text-sm">
+                                {item.videosWatchedCount}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 ml-1">ভিডিও</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* USER PROFILE DETAILS MODAL (OPENED FROM LEADERBOARD CLICK) */}
+          {selectedLeaderboardUser && (
+            <div
+              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+              onClick={() => setSelectedLeaderboardUser(null)}
+            >
+              <div
+                className="w-full max-w-md rounded-3xl bg-[#141923] border border-amber-500/50 p-5 sm:p-6 shadow-2xl space-y-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">👤</span>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-extrabold text-white">ইউজার প্রোফাইল ও বিবরণ</h3>
+                      <p className="text-[11px] text-zinc-400 font-mono">Leaderboard Profile Info</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLeaderboardUser(null)}
+                    className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-2 py-2">
+                  <VipFramedAvatar
+                    fullName={selectedLeaderboardUser.name}
+                    frameId={selectedLeaderboardUser.profileFrame}
+                    size="lg"
+                  />
+                  <h4 className="text-base sm:text-lg font-black text-white mt-2">
+                    {selectedLeaderboardUser.name}
+                  </h4>
+                  {selectedLeaderboardUser.isOnline ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950 border border-emerald-700 text-xs font-mono font-bold text-emerald-300">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                      🟢 বর্তমানে অনলাইনে আছে (Active Now)
+                    </span>
+                  ) : (
+                    <span className="px-3 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400">
+                      ⚪ শেষ সক্রিয়: {selectedLeaderboardUser.lastSeen ? new Date(selectedLeaderboardUser.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'অজানা'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800/80 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between py-1 border-b border-zinc-800/60">
+                    <span className="text-zinc-400">🎬 মোট ভিডিও দেখা হয়েছে:</span>
+                    <strong className="font-mono text-emerald-400 font-extrabold text-sm">
+                      {selectedLeaderboardUser.videosWatchedCount} টি
+                    </strong>
+                  </div>
+
+                  {selectedLeaderboardUser.isTelegram && selectedLeaderboardUser.tgId ? (
+                    <div className="flex items-center justify-between py-1 border-b border-zinc-800/60">
+                      <span className="text-zinc-400">✈️ Telegram ID:</span>
+                      <div className="flex items-center gap-1.5 font-mono text-sky-400 font-bold">
+                        <span>{selectedLeaderboardUser.tgId}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedLeaderboardUser.tgId) {
+                              navigator.clipboard.writeText(selectedLeaderboardUser.tgId).catch(() => {});
+                              alert('Telegram ID কপি হয়েছে!');
+                            }
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-sky-950 hover:bg-sky-900 border border-sky-800 text-[10px] text-sky-300 cursor-pointer"
+                        >
+                          কপি
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between py-1 border-b border-zinc-800/60">
+                      <span className="text-zinc-400">🌐 ইউজার টাইপ:</span>
+                      <span className="font-mono text-zinc-300 font-bold">Web Visitor</span>
+                    </div>
+                  )}
+
+                  {selectedLeaderboardUser.username && (
+                    <div className="flex items-center justify-between py-1 border-b border-zinc-800/60">
+                      <span className="text-zinc-400">🔗 Username:</span>
+                      <span className="font-mono text-sky-300 font-bold">@{selectedLeaderboardUser.username}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-zinc-400">✨ প্রোফাইল ফ্রেম:</span>
+                    <span className="font-bold text-amber-300">
+                      {selectedLeaderboardUser.profileFrame && selectedLeaderboardUser.profileFrame !== 'none'
+                        ? selectedLeaderboardUser.profileFrame.replace(/_/g, ' ').toUpperCase()
+                        : 'সাধারণ (None)'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeaderboardUser(null)}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-zinc-950 font-black text-xs cursor-pointer shadow-lg transition-all"
+                >
+                  ঠিক আছে (Close)
+                </button>
               </div>
             </div>
           )}
@@ -4994,6 +5469,20 @@ export default function App() {
           >
             <Flame className="w-5 h-5" />
             <span className="text-[10px] font-semibold mt-0.5">{t.trending}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('leaderboard');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
+              viewMode === 'leaderboard' ? 'text-amber-400' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Trophy className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">লিডারবোর্ড</span>
           </button>
 
           <button

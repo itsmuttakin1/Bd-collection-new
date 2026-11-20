@@ -129,6 +129,18 @@
         ".read": true,
         ".write": "!newData.exists() || (newData.hasChildren(['online', 'lastSeen']) && newData.child('online').isBoolean()) || (auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603')"
       }
+    },
+    "leaderboard": {
+      ".read": true,
+      ".indexOn": ["videosWatchedCount", "lastSeen"],
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$userId": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'",
+        "videosWatchedCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
     }
   }
 }
