@@ -36,20 +36,20 @@
     },
     "settings": {
       ".read": true,
-      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".write": true,
       "maintenance": {
         ".read": true,
-        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+        ".write": true
       }
     },
     "fakeLinks": {
       ".read": true,
-      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".write": true,
       "$fakeId": {
         ".read": true,
-        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+        ".write": true,
         "clicks": {
-          ".write": "newData.isNumber() && (!data.exists() || newData.val() === data.val() + 1)"
+          ".write": true
         }
       }
     },

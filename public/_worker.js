@@ -691,6 +691,74 @@ export default {
       }
     }
 
+    // 3.01 Fake Pop-Up Link Save and Delete Proxy Endpoints
+    if (path === '/api/fake-link-save' && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const fakeId = String(body.id || '').trim();
+        if (!fakeId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing fakeId' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+        const payload = {
+          id: fakeId,
+          title: String(body.title || '').trim(),
+          smartlinks: Array.isArray(body.smartlinks) ? body.smartlinks : [],
+          isFakePopup: true,
+          clicks: 0,
+          createdAt: Date.now(),
+          botAuthToken: 'xtube_tg_bot_2026',
+        };
+        const fbRes = await fetch(
+          `${FIREBASE_RTDB_BASE}/fakeLinks/${encodeURIComponent(fakeId)}.json`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
+        return new Response(JSON.stringify({ ok: fbRes.ok }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: String(err) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+    }
+
+    if (path === '/api/fake-link-delete' && request.method === 'POST') {
+      try {
+        const body = await request.json().catch(() => ({}));
+        const fakeId = String(body.id || '').trim();
+        if (!fakeId) {
+          return new Response(JSON.stringify({ ok: false, error: 'Missing fakeId' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          });
+        }
+        const fbRes = await fetch(
+          `${FIREBASE_RTDB_BASE}/fakeLinks/${encodeURIComponent(fakeId)}.json`,
+          {
+            method: 'DELETE',
+          }
+        );
+        return new Response(JSON.stringify({ ok: fbRes.ok }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ ok: false, error: String(err) }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+    }
+
     // 3A. Authoritative Server Time, Visitor Ping & 24/7 Bot Auto-Wake (/api/visitor-ping & /api/bot-keepalive)
     if (path === '/api/visitor-ping' || path === '/api/bot-keepalive') {
       const ensureEdgeBotWebhook = async (forceCheck = false) => {

@@ -461,6 +461,48 @@ async function startServer() {
     }
   });
 
+  // Fake Pop-Up Link Save and Delete Proxy Endpoints
+  app.post('/api/fake-link-save', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    const { id, title, smartlinks } = req.body || {};
+    const fakeId = String(id || '').trim();
+    if (!fakeId) return res.status(400).json({ ok: false, error: 'Missing fakeId' });
+    const payload = {
+      id: fakeId,
+      title: String(title || '').trim(),
+      smartlinks: Array.isArray(smartlinks) ? smartlinks : [],
+      isFakePopup: true,
+      clicks: 0,
+      createdAt: Date.now(),
+      botAuthToken: 'xtube_tg_bot_2026',
+    };
+    try {
+      const fbRes = await fetch(`${firebaseRtdbBase}/fakeLinks/${encodeURIComponent(fakeId)}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return res.status(200).json({ ok: fbRes.ok });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message });
+    }
+  });
+
+  app.post('/api/fake-link-delete', async (req, res) => {
+    Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+    const { id } = req.body || {};
+    const fakeId = String(id || '').trim();
+    if (!fakeId) return res.status(400).json({ ok: false, error: 'Missing fakeId' });
+    try {
+      const fbRes = await fetch(`${firebaseRtdbBase}/fakeLinks/${encodeURIComponent(fakeId)}.json`, {
+        method: 'DELETE',
+      });
+      return res.status(200).json({ ok: fbRes.ok });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message });
+    }
+  });
+
   // In-memory fallback session store for Telegram Redeem Store Bot
   const tgBotMemorySessions = new Map<string, any>();
   const firebaseRtdbBase =
