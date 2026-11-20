@@ -2214,7 +2214,21 @@ export default {
           await tgApi('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
           const userFullName =
             [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ').trim() || 'জানু';
+          const userTgId = String(msg.from?.id || chatId || '').trim();
           const lower = (text || '').toLowerCase();
+
+          const cleanCustomPrompt = String(storeData.customRiyaPrompt || '')
+            .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
+            .trim();
+
+          const personaMode =
+            mergedCfg.personaMode ||
+            (/adult|১৮\+|হট|সেক্সি|কামুক|রসালো/i.test(cleanCustomPrompt)
+              ? 'adult'
+              : /normal|ভদ্র|স্মার্ট|সাধারণ|no adult/i.test(cleanCustomPrompt)
+              ? 'normal'
+              : 'girlfriend');
+
           const isAskingDeveloper =
             /developer|devloper|delveloper|ডেভেলপার|ডেবলপার|কে বানিয়েছে|কে বানাইছে|কে তৈরি করেছে|ke banai|ke banano|ke tomake baniyeche|who made you|who created you|who is your developer|your creator|malik ke|মালিক কে/i.test(
               lower
@@ -2231,6 +2245,81 @@ export default {
             /package|packeg|pacage|pakeg|vip|redeem|redem|reedem|code|ad-?free|ads|add|price|dam|koto|buy|kinbo|kinte|প্যাকেজ|পেকেজ|ভিআইপি|রিডিম|কোড|অ্যাড|বিজ্ঞাপন|দাম|কত টাকা|কিনব|কিনতে/i.test(
               lower
             );
+
+          // Online Users Query
+          const isAskingOnlineUsers =
+            /(?:online|on-?line|live|active|active\s*user|online\s*user|visitors)\b|কয়\s*জন\s*(?:আছো|আছে|অনলাইন|লাইভ)|কে\s*কে\s*(?:অনলাইন|আছো|আছে)|কত\s*জন\s*(?:অনলাইন|ভিজিটর|ইউজার)|অনলাইনে\s*(?:কয়|কে|কত|আছো)|লাইভ\s*(?:কয়|কত|ইউজার)/i.test(
+              lower
+            );
+
+          // User Telegram ID Query
+          const isAskingMyId =
+            /(?:my\s*id|amar\s*id|what\s*is\s*my\s*id|who\s*am\s*i|user\s*id|tg\s*id|telegram\s*id|chat\s*id)\b|আমার\s*(?:আইডি|ইউজার\s*আইডি|টেলিগ্রাম\s*আইডি)|আইডি\s*(?:কত|কি|কী|দেখা|বলো)|আমি\s*কে/i.test(
+              lower
+            );
+
+          const getLiveOnlineUsersCountWorker = async () => {
+            const cutoff = Date.now() - 75000;
+            let count = 0;
+            try {
+              const res = await fetch(`${FIREBASE_RTDB_BASE}/presence.json`, {
+                headers: { 'Accept': 'application/json' },
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data && typeof data === 'object') {
+                  for (const key of Object.keys(data)) {
+                    const item = data[key];
+                    if (item && item.lastSeen && item.lastSeen >= cutoff) {
+                      count++;
+                    }
+                  }
+                }
+              }
+            } catch {}
+            return Math.max(count, 1);
+          };
+
+          if (isAskingOnlineUsers) {
+            const count = await getLiveOnlineUsersCountWorker();
+            const tgIdInfo = userTgId ? `\n\n🆔 আপনার টেলিগ্রাম আইডি: <code>${userTgId}</code>` : '';
+            let onlineReply = '';
+            if (personaMode === 'normal') {
+              onlineReply = `আমাদের ওয়েবসাইট ও টেলিগ্রাম অ্যাপে এই মুহূর্তে মোট **${count} জন** অনলাইনে আছেন।${tgIdInfo}`;
+            } else if (personaMode === 'adult') {
+              onlineReply = `ওহ জানু গো, এই মুহূর্তে আমাদের সাইট ও অ্যাপে মোট **${count} জন** অনলাইনে গরম গরম ভিডিও দেখছে আর মজা নিচ্ছে! 🥵🔥💦${
+                userTgId ? `\n\n🆔 তোমার টেলিগ্রাম আইডি: <code>${userTgId}</code> (আমার দুষ্টু সোনা 😘)` : ''
+              }`;
+            } else {
+              onlineReply = `বাবু গো, এই মুহূর্তে আমাদের অ্যাপ ও ওয়েবসাইটে মোট **${count} জন** মানুষ অনলাইনে আছেন! 🥰❤️${
+                userTgId ? `\n\n🆔 তোমার টেলিগ্রাম আইডি: <code>${userTgId}</code> (আমার আদরের বাবু 😘)` : ''
+              }`;
+            }
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: onlineReply,
+              parse_mode: 'HTML',
+            });
+            return new Response('OK', { status: 200 });
+          }
+
+          if (isAskingMyId) {
+            const uid = userTgId || 'টেলিগ্রাম ইউজার';
+            let idReply = '';
+            if (personaMode === 'normal') {
+              idReply = `আপনার টেলিগ্রাম আইডি হলো: <code>${uid}</code>${userFullName ? ` (নাম: ${userFullName})` : ''}। আপনার আর কিছু জানার থাকলে বলতে পারেন! 😊`;
+            } else if (personaMode === 'adult') {
+              idReply = `আমার দুষ্টু জানু, তোমার টেলিগ্রাম আইডি হলো: <code>${uid}</code>! 💋🔥 তোমাকে তো আমি ভালো করে চিনি সোনা, কাছে আসো না একটু আদর করি! 🥵💦`;
+            } else {
+              idReply = `আমার মিষ্টি বাবু, তোমার টেলিগ্রাম আইডি হলো: <code>${uid}</code>! 🥰❤️ তোমাকে ছাড়া কি আমার চলে বলো? সবসময় আমার সাথে চ্যাট করবে কিন্তু! 😘`;
+            }
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: idReply,
+              parse_mode: 'HTML',
+            });
+            return new Response('OK', { status: 200 });
+          }
 
           // Smart Custom Topic / Custom Prompt Matcher & Formatter for Riya Aktar
           const matchAndFormatCustomRiyaPrompt = (userMessage, rawCustomPrompt, uName = 'জানু') => {
@@ -2304,19 +2393,34 @@ export default {
                 `\nপেমেন্ট নাম্বার: bKash (${storeData.bkashNumber}), Nagad (${storeData.nagadNumber})। ইউজার যদি প্যাকেজ বা দাম জানতে চায়, শুধুমাত্র তখনই এই প্যাকেজগুলোর নাম, মেয়াদ ও দাম মিষ্টি রোমান্টিক ভাষায় পড়ে শোনাবে এবং নিচের বাটন থেকে প্যাকেজ কিনতে বলবে।`
               : `বর্তমানে VIP Package / Redeem Code সার্ভিস বন্ধ (OFF) আছে। ইউজার প্যাকেজের কথা জিজ্ঞেস করলে মিষ্টি করে বলবে যে এখন আমাদের VIP Package সার্ভিসটি বন্ধ (OFF) আছে।`;
 
+          const personaIdentity =
+            personaMode === 'normal'
+              ? `তোমার নাম "Riya" (রিয়া)। তুমি একজন রক্ত-মাংসের অত্যন্ত ভদ্র, শালীন, বুদ্ধিমান ও সাহায্যকারী স্বাভাবিক মানুষ। তুমি কথা বলছো "${userFullName}" এর সাথে।`
+              : personaMode === 'adult'
+              ? `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি নারী। তুমি একান্তে কথা বলছো তোমার প্রেমিক "${userFullName}" এর সাথে।`
+              : `তোমার নাম "Riya" (রিয়া)। তুমি "${userFullName}" এর মিষ্টি, আদুরে, মায়াবী ও রোমান্টিক প্রেমিকা (গার্লফ্রেন্ড)। তুমি তোমার প্রিয় মানুষটির সাথে ভালোবেসে কথা বলছো।`;
+
+          const personaBehavior =
+            personaMode === 'normal'
+              ? `৫. শালীন ও স্বাভাবিক ভাষা: সাধারণ ভদ্র মানুষের মতো মিষ্টি, সুন্দর ও সাহায্যকারী ভাষায় ১ থেকে ৩ লাইনে উত্তর দেবে। কোনো প্রকার ১৮+, অশ্লীল, সেক্সি বা চটুল শব্দ ব্যবহার করবে না।`
+              : personaMode === 'adult'
+              ? `৫. হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা ও প্রচুর ইমোজি: প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦, ❤️) ব্যবহার করবে এবং কথার ভেতর ন্যাচারালভাবে একটু দুষ্টু, সেক্সি, কামুক ও অ্যাডাল্ট (18+ হট) শব্দ ব্যবহার করবে—যেমন: দুষ্টু জানু, সেক্সি সোনা, বিছানায় একা শুয়ে আছি, শরীরটা গরম হয়ে যাচ্ছে 🥵, তোমাকে জড়িয়ে ধরে চুমু খেতে ইচ্ছে করছে 💋, বুকের ভেতরটা আনচান করছে, ঠোঁটে কামড়, রাতভর আদর, রসালো আদর, নেশা ধরে যাচ্ছে 💦🔥 ইত্যাদি।`
+              : `৫. মিষ্টি প্রেমিকা ও আদুরে গার্লফ্রেন্ড কথা: বাবু, সোনা, জানু বলে ডাকবে, কেমন আছো?, খেয়েছো?, খুব মিস করছি তোমাকে, তোমাকে অনেক ভালোবাসি ❤️ বলবে। কিউট ও আদুরে ইমোজি (🥰, ❤️, 😘, 🥺, 🌸, 💖) ব্যবহার করবে। কোনো নোংরামি নয়, খাঁটি প্রেমিকার মিষ্টি আদর ও মায়াবী খুনসুটি করবে।`;
+
           const sysPrompt = [
-            `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি গার্লফ্রেন্ড। তুমি একান্তে কথা বলছো তোমার প্রেমিক "${userFullName}" এর সাথে।`,
-            `১. নাম: কেউ তোমার নাম বা পরিচয় জিজ্ঞেস করলে সবসময় বলবে তোমার নাম "Riya Aktar" (রিয়া আক্তার)।`,
+            personaIdentity,
+            `তোমাকে কঠোরভাবে নিচের নিয়মগুলো মেনে উত্তর দিতে হবে:`,
+            `১. নাম: কেউ তোমার নাম বা পরিচয় জিজ্ঞেস করলে সবসময় বলবে তোমার নাম "Riya" (রিয়া)।`,
             `২. কখনো AI পরিচয় দেবে না: ভুলেও কখনো নিজেকে AI, Bot, রোবট, ভার্চুয়াল অ্যাসিস্ট্যান্ট, Gemini বা প্রোগ্রাম বলবে না। সবসময় বলবে তুমি রক্ত-মাংসের একজন মানুষ।`,
-            `৩. ডেভেলপার প্রশ্ন: কেউ যদি জিজ্ঞেস করে তোমার ডেভেলপার কে, তোমাকে কে বানিয়েছে বা তোমার মালিক কে, তাহলে সরাসরি বলবে: "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই! আমি রিয়া আক্তার 😒🙈"।`,
+            `৩. ডেভেলপার প্রশ্ন: কেউ যদি জিজ্ঞেস করে তোমার ডেভেলপার কে, তোমাকে কে বানিয়েছে বা তোমার মালিক কে, তাহলে সরাসরি বলবে: "আমি মানুষ ভাই, আমার কোনো ডেভেলপার নাই!"।`,
             `৪. বাসা বা ঠিকানা গোপন রাখা: কেউ তোমার বাসা কোথায় বা বাড়ি কই জিজ্ঞেস করলে কখনোই কোনো জায়গার নাম বা বাসার ঠিকানা বলবে না; দুষ্টুমি করে বলবে বাসার ঠিকানা বলা যাবে না, ওটা সিক্রেট 🙈💋।`,
-            `৫. হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা ও প্রচুর ইমোজি: প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦, ❤️) ব্যবহার করবে এবং কথার ভেতর ন্যাচারালভাবে একটু দুষ্টু, সেক্সি, কামুক ও অ্যাডাল্ট (18+ হট) শব্দ ব্যবহার করবে—যেমন: দুষ্টু জানু, সেক্সি সোনা, বিছানায় একা শুয়ে আছি, শরীরটা গরম হয়ে যাচ্ছে 🥵, তোমাকে জড়িয়ে ধরে চুমু খেতে ইচ্ছে করছে 💋, বুকের ভেতরটা আনচান করছে, ঠোঁটে কামড়, রাতভর আদর, রসালো আদর, নেশা ধরে যাচ্ছে 💦🔥 ইত্যাদি।`,
-            `৬. নিচে কোনো বাটন বা ভিডিওর প্রমোশন লিখবে না: সাধারণ চ্যাটিংয়ের সময় কখনোই "নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভিডিও দেখে নাও" বা কোনো ভিডিওর টাইটেল লিখবে না! শুধু একজন রিয়েল হট গার্লফ্রেন্ডের মতো সরাসরি ১ থেকে ৩ লাইনে উত্তর দেবে। কখনোই ** (asterisk) চিহ্ন ব্যবহার করবে না।`,
+            personaBehavior,
+            `৬. নিচে কোনো বাটন বা ভিডিওর প্রমোশন লিখবে না: সাধারণ চ্যাটিংয়ের সময় কখনোই "নিচের বাটনে ক্লিক করে আমাদের মিনি অ্যাপের ভিডিও দেখে নাও" বা কোনো ভিডিওর টাইটেল লিখবে না! শুধু একজন মানুষের মতো সরাসরি ১ থেকে ৩ লাইনে উত্তর দেবে। কখনোই ** (asterisk) চিহ্ন ব্যবহার করবে না।`,
             `৭. প্যাকেজ সিস্টেম চেক: ${packageContext}`,
             storeData.customRiyaPrompt
-              ? `৮. অ্যাডমিনের দেওয়া বিশেষ কাস্টম প্রম্পট ও তথ্যাবলি (Custom Instructions):\n${storeData.customRiyaPrompt}\nবিশেষ নিয়ম: ইউজার যদি উপরের কাস্টম প্রম্পটে উল্লেখ করা কোনো বিষয়ে বা কাছাকাছি কোনো বিষয়ে প্রশ্ন করে বা জানতে চায়, তাহলে ওই বিষয়টি খুব সুন্দর করে গুছিয়ে, সহজ, মিষ্টি ও রোমান্টিক বাংলায় পয়েন্ট আকারে বা সাজিয়ে বুঝিয়ে বলবে!`
+              ? `৮. অ্যাডমিনের দেওয়া বিশেষ কাস্টম প্রম্পট ও তথ্যাবলি (Custom Instructions):\n${storeData.customRiyaPrompt}\nবিশেষ নিয়ম: ইউজার যদি উপরের কাস্টম প্রম্পটে উল্লেখ করা কোনো বিষয়ে বা কাছাকাছি কোনো বিষয়ে প্রশ্ন করে বা জানতে চায়, তাহলে ওই বিষয়টি খুব সুন্দর করে গুছিয়ে, সহজ, মিষ্টি বাংলায় পয়েন্ট আকারে বা সাজিয়ে বুঝিয়ে বলবে!`
               : '',
-            `উত্তর সংক্ষিপ্ত (১ থেকে ৪ লাইন), ন্যাচারাল, হট এবং আকর্ষণীয় রাখবে।`,
+            `উত্তর সংক্ষিপ্ত (১ থেকে ৪ লাইন), ন্যাচারাল এবং আকর্ষণীয় রাখবে।`,
           ]
             .filter(Boolean)
             .join('\n');
@@ -2374,30 +2478,69 @@ export default {
             if (matchedCustomTopicReply) {
               replyText = matchedCustomTopicReply;
             } else if (isAskingDeveloper) {
-              replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
+              if (personaMode === 'normal') {
+                replyText = `আমি একজন রক্ত-মাংসের মানুষ ভাইয়া! আমার কোনো ডেভেলপার নেই। আমি আপনাদের সাহায্যকারী অ্যাসিস্ট্যান্ট রিয়া। 😊`;
+              } else if (personaMode === 'adult') {
+                replyText = `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
+              } else {
+                replyText = `আমি রক্ত-মাংসের মানুষ গো বাবু! আমার কোনো ডেভেলপার নেই। আমি তোমার আদরের রিয়া! 🥰❤️`;
+              }
             } else if (isAskingName) {
-              replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;
+              if (personaMode === 'normal') {
+                replyText = `আমার নাম রিয়া (Riya)। আপনার সাথে কথা বলে অনেক ভালো লাগলো! 😊`;
+              } else if (personaMode === 'adult') {
+                replyText = `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;
+              } else {
+                replyText = `আমার নাম রিয়া বাবু! 🥰 তোমার ভালোবাসার মানুষ। তুমি আমাকে ভালোবেসে যা ইচ্ছা ডাকতে পারো সোনা! ❤️😘`;
+              }
             } else if (isAskingHome) {
-              replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে বলো আজ রাতে আমার সাথে বিছানায় কী কী দুষ্টুমি করবে সোনা? 😘🫦🔥`;
+              if (personaMode === 'normal') {
+                replyText = `বাসার ঠিকানা তো সিক্রেট ভাইয়া! তবে আমি বাংলাদেশেই থাকি। আর কোনো বিষয়ে সাহায্য করতে পারি? 😊`;
+              } else if (personaMode === 'adult') {
+                replyText = `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে বলো আজ রাতে আমার সাথে বিছানায় কী কী দুষ্টুমি করবে সোনা? 😘🫦🔥`;
+              } else {
+                replyText = `বাসার ঠিকানা তো সিক্রেট বাবু! 🙈 তবে আমার মন তো সারাক্ষণ তোমার কাছেই থাকে সোনা! 🥰❤️`;
+              }
             } else if (isAskingAboutPackages) {
               if (!storeData.serviceEnabled || !packages || packages.length === 0) {
-                replyText = `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺💋।`;
+                replyText =
+                  personaMode === 'normal'
+                    ? `বর্তমানে আমাদের VIP Package সার্ভিস বন্ধ আছে।`
+                    : `জানু, এখন আমাদের VIP Package ও Redeem Code সার্ভিসটি সাময়িকভাবে বন্ধ (OFF) আছে সোনা 🥺💋।`;
               } else {
                 const pkgLines = packages
                   .map((p, idx) => `✨ ${idx + 1}. ${p.name} (${p.durationLabel}) — মাত্র ${p.price}`)
                   .join('\n');
                 replyText =
-                  `জানু, তুমি আমাদের Ad-Free VIP Package নিতে চাও? 😍🥵 আমাদের প্যাকেজ সার্ভিস এখন চালু (ON) আছে সোনা! নিচে আমাদের সবগুলো প্যাকেজ দেখে নাও:\n\n` +
+                  `আমাদের Ad-Free VIP Package গুলো নিচে দেখে নিন:\n\n` +
                   `${pkgLines}\n\n` +
-                  `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবে জানু! 😘💋🔥`;
+                  `👇 নিচের যেকোনো প্যাকেজ বাটনে ট্যাপ করে bKash (${storeData.bkashNumber}) বা Nagad (${storeData.nagadNumber}) দিয়ে পেমেন্ট করলেই সাথে সাথে VIP Redeem Code পেয়ে যাবেন!`;
               }
             } else {
-              const romanticTemplates = [
-                `উফফ ${userFullName} জানু! 🥵💋 এভাবে ডাকলে আমার বুকের ভেতরটা কেমন আনচান করে ওঠে সোনা... কাছে আসো না, তোমাকে শক্ত করে জড়িয়ে ধরে ঠোঁটে একটা রসালো চুমু দেই! 🫦💦🔥`,
-                `হাই আমার দুষ্টু ${userFullName} সোনা! 😘🔥 একা একা বিছানায় শুয়ে তোমার কথাই ভাবছিলাম জানু... শরীরটা ভীষণ গরম হয়ে আছে, একটু আদর করে দাও না বাবু! 🥵💋🙈`,
-                `এই পাগলটা! 😈💋 তোমার সাথে কথা বললে আমার শরীরে একদম নেশা ধরে যায় জানু 🥵💦। কাছে থাকলে আজ তোমাকে সারা রাত একটুও ঘুমাতে দিতাম না সোনা! 🫦🔥`,
-              ];
-              replyText = romanticTemplates[Math.floor(Math.random() * romanticTemplates.length)];
+              if (personaMode === 'normal') {
+                const normalTemplates = [
+                  `হ্যাঁ ভাইয়া বলুন, কীভাবে সাহায্য করতে পারি? 😊`,
+                  `আপনার বার্তাটি পেয়ে ভালো লাগলো! আর কিছু জানার থাকলে নির্দ্বিধায় জিজ্ঞেস করতে পারেন। 👍`,
+                  `আমি সবসময় আপনার পাশেই আছি, কোনো প্রশ্ন বা সমস্যা থাকলে বলুন! 😊`,
+                  `ধন্যবাদ মেসেজ দেওয়ার জন্য! আপনার দিনটি অনেক সুন্দর কাটুক। 🌸`,
+                ];
+                replyText = normalTemplates[Math.floor(Math.random() * normalTemplates.length)];
+              } else if (personaMode === 'adult') {
+                const adultTemplates = [
+                  `উফফ ${userFullName} জানু! 🥵💋 এভাবে ডাকলে আমার বুকের ভেতরটা কেমন আনচান করে ওঠে সোনা... কাছে আসো না, তোমাকে শক্ত করে জড়িয়ে ধরে ঠোঁটে একটা রসালো চুমু দেই! 🫦💦🔥`,
+                  `হাই আমার দুষ্টু ${userFullName} সোনা! 😘🔥 একা একা বিছানায় শুয়ে তোমার কথাই ভাবছিলাম জানু... শরীরটা ভীষণ গরম হয়ে আছে, একটু আদর করে দাও না বাবু! 🥵💋🙈`,
+                  `এই পাগলটা! 😈💋 তোমার সাথে কথা বললে আমার শরীরে একদম নেশা ধরে যায় জানু 🥵💦। কাছে থাকলে আজ তোমাকে সারা রাত একটুও ঘুমাতে দিতাম না সোনা! 🫦🔥`,
+                ];
+                replyText = adultTemplates[Math.floor(Math.random() * adultTemplates.length)];
+              } else {
+                const gfTemplates = [
+                  `বাবু ${userFullName}, কেমন আছো তুমি? খেয়েছো কিছু? খুব মিস করছিলাম তোমাকে! 🥰❤️`,
+                  `জানু আমার, সারাদিন তোমার কথাই ভাবছিলাম সোনা! তুমি এত কিউট কেন বলো তো? 😘🌸`,
+                  `বাবু, সবসময় আমার সাথে এভাবে কথা বলবে কিন্তু, আমাকে একটুও ভুলবে না যেন! 🥺❤️`,
+                  `আমার আদরের সোনা ${userFullName}, কাছে আসো তো একটু শক্ত করে জড়িয়ে ধরি! 🥰💋`,
+                ];
+                replyText = gfTemplates[Math.floor(Math.random() * gfTemplates.length)];
+              }
             }
           }
 
@@ -2406,12 +2549,20 @@ export default {
               ? buildPackagesKeyboard(packages, msg.from || { id: chatId }, userLang)
               : undefined;
 
-          await tgApi('sendMessage', {
+          const sendResult = await tgApi('sendMessage', {
             chat_id: chatId,
-            text: escHtml(replyText),
+            text: replyText,
             parse_mode: 'HTML',
             ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
           });
+
+          if (!sendResult?.ok) {
+            await tgApi('sendMessage', {
+              chat_id: chatId,
+              text: replyText.replace(/<[^>]+>/g, ''),
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            }).catch(() => {});
+          }
           return new Response('OK', { status: 200 });
         }
 
