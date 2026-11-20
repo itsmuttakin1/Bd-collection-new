@@ -11598,34 +11598,60 @@ service cloud.firestore {
       });
     }
 
-    // Admin Leaderboard Real-time Management
+    // Admin Leaderboard Real-time Management (reads 1,200+ users merged from CRM/telegramBotSessions & leaderboard)
     let adminLeaderboardRaw = {};
     const renderAdminLeaderboard = () => {
       const listEl = document.getElementById('admin-leaderboard-list');
       if (!listEl) return;
       const query = (document.getElementById('admin-lb-search-input')?.value || '').trim().toLowerCase();
       const now = Date.now();
-      let entries = Object.entries(adminLeaderboardRaw || {}).map(([k, item]) => {
-        const lastSeen = Number(item?.lastSeen) || 0;
-        const isOnline = Boolean(item?.online === true || (now - lastSeen <= 90000 && lastSeen > 0));
-        return {
-          userId: k,
-          name: String(
-            item?.name ||
-              item?.fullName ||
-              (item?.isTelegram ? `Telegram User (${item?.tgId || k})` : `Visitor (${k.slice(-6)})`)
-          ),
-          isTelegram: Boolean(item?.isTelegram || item?.tgId),
-          tgId: item?.tgId ? String(item.tgId) : null,
-          username: item?.username || null,
-          videosWatchedCount: Math.max(0, Number(item?.videosWatchedCount) || 0),
-          profileFrame: item?.profileFrame || 'none',
-          lastSeen,
-          isOnline,
-        };
+      const allCrm = buildMergedCrmUsersList();
+      const crmMap = new Map();
+
+      allCrm.forEach((u) => {
+        crmMap.set(u.crmKey, {
+          userId: u.crmKey,
+          name: u.fullName,
+          isTelegram: u.isTelegram,
+          tgId: u.tgId || null,
+          username: u.username || null,
+          videosWatchedCount: Math.max(0, Number(u.videosWatchedCount) || 0),
+          profileFrame: u.profileFrame || 'none',
+          lastSeen: u.lastSeen || 0,
+          isOnline: u.isOnlineNow,
+        });
       });
 
-      entries.sort((a, b) => b.videosWatchedCount - a.videosWatchedCount);
+      // Overlay specific leaderboard raw overrides if any
+      Object.entries(adminLeaderboardRaw || {}).forEach(([k, item]) => {
+        if (!k || k.startsWith('_') || k === 'botAuthToken') return;
+        const cleanKey = String(k).trim();
+        const existing = crmMap.get(cleanKey);
+        const lastSeen = Number(item?.lastSeen) || existing?.lastSeen || 0;
+        const isOnline = Boolean(item?.online === true || (now - lastSeen <= 90000 && lastSeen > 0) || existing?.isOnline);
+        const watched = item?.videosWatchedCount !== undefined ? Math.max(0, Number(item.videosWatchedCount) || 0) : (existing?.videosWatchedCount || 0);
+        crmMap.set(cleanKey, {
+          userId: cleanKey,
+          name: item?.name || item?.fullName || existing?.name || (item?.isTelegram ? `Telegram User (${cleanKey})` : `Visitor (${cleanKey.slice(-6)})`),
+          isTelegram: Boolean(item?.isTelegram || item?.tgId || existing?.isTelegram),
+          tgId: item?.tgId ? String(item.tgId) : (existing?.tgId || null),
+          username: item?.username || existing?.username || null,
+          videosWatchedCount: watched,
+          profileFrame: item?.profileFrame || existing?.profileFrame || 'none',
+          lastSeen,
+          isOnline,
+        });
+      });
+
+      let entries = Array.from(crmMap.values()).sort((a, b) => {
+        if (b.videosWatchedCount !== a.videosWatchedCount) {
+          return b.videosWatchedCount - a.videosWatchedCount;
+        }
+        return b.lastSeen - a.lastSeen;
+      });
+
+      const badge = document.getElementById('tab-badge-leaderboard');
+      if (badge) badge.textContent = String(entries.length);
 
       if (query) {
         entries = entries.filter((u) =>
@@ -12069,15 +12095,12 @@ service cloud.firestore {
             const errMsg = String(fbErr?.message || fbErr || '');
             if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('Permission denied')) {
               showStatus(
-                '⚠️ Firebase Rules আপডেট করতে হবে! উপরের "Copy Updated Firebase Rules (Anti-Hack)" বাটনে ক্লিক করে Firebase Console > Realtime Database > Rules-এ গিয়ে পেস্ট করে Publish বাটনে চাপুন।',
-                'error'
+                '⚠️ Firebase Rules আপডেট করতে হবে! তবে লিংক তৈরি হয়েছে। সম্পূর্ণ সক্রিয় করতে উপরের "Copy Updated Firebase Rules (Anti-Hack)" বাটনে ক্লিক করে Firebase Console > Realtime Database > Rules-এ গিয়ে পেস্ট করে Publish বাটনে চাপুন।',
+                'warning'
               );
             } else {
-              showStatus(`Error generating link: ${errMsg}`, 'error');
+              showStatus(`Notice: ${errMsg}`, 'info');
             }
-            generateFakePopupBtn.disabled = false;
-            generateFakePopupBtn.textContent = '⚡ Generate Fake Pop-Up Link (100% All Ads)';
-            return;
           }
         }
 

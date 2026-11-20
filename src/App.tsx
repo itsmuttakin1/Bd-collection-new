@@ -987,52 +987,163 @@ export default function App() {
     };
   }, []);
 
-  // Real-time Leaderboard Listener (merged with presence online status)
+  // Real-time Leaderboard Listener (merged with telegramBotSessions 1,200+ users & presence)
   useEffect(() => {
-    const lbRef = ref(db, 'leaderboard');
-    const unsubLb = onValue(
-      lbRef,
-      (snap) => {
-        const val = snap.val();
-        if (!val || typeof val !== 'object') {
-          setLeaderboardUsers([]);
-          setLeaderboardLoading(false);
-          return;
-        }
-        const now = Date.now();
-        const list: LeaderboardUserItem[] = Object.entries(val)
-          .map(([k, item]: [string, any]) => {
-            const lastSeen = Number(item?.lastSeen) || 0;
-            const isOnline = Boolean(
-              item?.online === true || (now - lastSeen <= 90000 && lastSeen > 0)
-            );
-            return {
-              userId: k,
-              name: String(
-                item?.name ||
-                  item?.fullName ||
-                  (item?.isTelegram ? `Telegram User (${item?.tgId || k})` : `Visitor (${k.slice(-6)})`)
-              ),
-              isTelegram: Boolean(item?.isTelegram || item?.tgId),
-              tgId: item?.tgId ? String(item.tgId) : null,
-              username: item?.username || null,
-              videosWatchedCount: Math.max(0, Number(item?.videosWatchedCount) || 0),
-              profileFrame: item?.profileFrame || 'none',
-              lastSeen,
-              isOnline,
-            };
-          })
-          .sort((a, b) => b.videosWatchedCount - a.videosWatchedCount);
+    let lbRaw: Record<string, any> = {};
+    let tgSessionsRaw: Record<string, any> = {};
+    let presenceRaw: Record<string, any> = {};
 
-        setLeaderboardUsers(list);
-        setLeaderboardLoading(false);
+    const recomputeLeaderboard = () => {
+      const now = Date.now();
+      const userMap = new Map<string, LeaderboardUserItem>();
+
+      // 1. Ingest telegramBotSessions (1,200+ existing registered users)
+      if (tgSessionsRaw && typeof tgSessionsRaw === 'object') {
+        Object.entries(tgSessionsRaw).forEach(([key, val]: [string, any]) => {
+          if (!key || key.startsWith('_') || key === 'botAuthToken') return;
+          const cleanKey = String(key).trim();
+          const isNumeric = /^\d{5,20}$/.test(cleanKey) && cleanKey !== '84920145';
+          const tgId = String(val?.tgId || val?.chatId || (isNumeric ? cleanKey : '')).trim();
+          const isTg = Boolean(val?.isTelegram) || (/^\d{5,20}$/.test(tgId) && tgId !== '84920145');
+          const canonicalKey = isTg && tgId ? tgId : cleanKey;
+
+          const lastSeen = Math.max(
+            Number(val?.lastSeen) || 0,
+            Number(val?.updatedAt) || 0,
+            Number(val?.createdAt) || 0
+          );
+          const isOnline = Boolean(
+            val?.online === true ||
+            presenceRaw[canonicalKey] ||
+            presenceRaw[cleanKey] ||
+            (now - lastSeen <= 90000 && lastSeen > 0)
+          );
+
+          const watchedCount = Math.max(
+            0,
+            Number(val?.videosWatchedCount) || 0,
+            Array.isArray(val?.watchedVideos) ? val.watchedVideos.length : 0
+          );
+
+          const name = String(
+            val?.fullName ||
+            val?.name ||
+            [val?.first_name, val?.last_name].filter(Boolean).join(' ') ||
+            val?.username ||
+            (isTg ? `Telegram User (${tgId || canonicalKey})` : `Visitor (${canonicalKey.slice(-6)})`)
+          );
+
+          userMap.set(canonicalKey, {
+            userId: canonicalKey,
+            name,
+            isTelegram: isTg,
+            tgId: isTg && tgId ? tgId : null,
+            username: val?.username ? String(val.username).replace(/^@/, '') : null,
+            videosWatchedCount: watchedCount,
+            profileFrame: val?.profileFrame || 'none',
+            lastSeen,
+            isOnline,
+          });
+        });
+      }
+
+      // 2. Overlay / merge leaderboard node (admin-customized counts & frames)
+      if (lbRaw && typeof lbRaw === 'object') {
+        Object.entries(lbRaw).forEach(([key, val]: [string, any]) => {
+          if (!key || key.startsWith('_') || key === 'botAuthToken') return;
+          const cleanKey = String(key).trim();
+          const isNumeric = /^\d{5,20}$/.test(cleanKey) && cleanKey !== '84920145';
+          const tgId = String(val?.tgId || (isNumeric ? cleanKey : '')).trim();
+          const isTg = Boolean(val?.isTelegram) || (/^\d{5,20}$/.test(tgId) && tgId !== '84920145');
+          const canonicalKey = isTg && tgId ? tgId : cleanKey;
+
+          const existing = userMap.get(canonicalKey);
+          const lastSeen = Math.max(
+            Number(val?.lastSeen) || 0,
+            existing?.lastSeen || 0
+          );
+          const isOnline = Boolean(
+            val?.online === true ||
+            presenceRaw[canonicalKey] ||
+            presenceRaw[cleanKey] ||
+            (now - lastSeen <= 90000 && lastSeen > 0) ||
+            existing?.isOnline
+          );
+
+          const watchedCount = val?.videosWatchedCount !== undefined
+            ? Math.max(0, Number(val.videosWatchedCount) || 0)
+            : (existing?.videosWatchedCount || 0);
+
+          const profileFrame = val?.profileFrame || existing?.profileFrame || 'none';
+          const name = String(
+            val?.name ||
+            val?.fullName ||
+            existing?.name ||
+            (isTg ? `Telegram User (${tgId || canonicalKey})` : `Visitor (${canonicalKey.slice(-6)})`)
+          );
+
+          userMap.set(canonicalKey, {
+            userId: canonicalKey,
+            name,
+            isTelegram: isTg,
+            tgId: isTg && tgId ? tgId : (existing?.tgId || null),
+            username: val?.username ? String(val.username).replace(/^@/, '') : (existing?.username || null),
+            videosWatchedCount: watchedCount,
+            profileFrame,
+            lastSeen,
+            isOnline,
+          });
+        });
+      }
+
+      // 3. Sort by videosWatchedCount descending, then lastSeen descending
+      const list = Array.from(userMap.values())
+        .sort((a, b) => {
+          if (b.videosWatchedCount !== a.videosWatchedCount) {
+            return b.videosWatchedCount - a.videosWatchedCount;
+          }
+          return b.lastSeen - a.lastSeen;
+        })
+        .slice(0, 100);
+
+      setLeaderboardUsers(list);
+      setLeaderboardLoading(false);
+    };
+
+    const unsubLb = onValue(
+      ref(db, 'leaderboard'),
+      (snap) => {
+        lbRaw = snap.val() || {};
+        recomputeLeaderboard();
       },
       () => {
         setLeaderboardLoading(false);
       }
     );
 
-    return () => unsubLb();
+    const unsubSessions = onValue(
+      ref(db, 'telegramBotSessions'),
+      (snap) => {
+        tgSessionsRaw = snap.val() || {};
+        recomputeLeaderboard();
+      },
+      () => {}
+    );
+
+    const unsubPresence = onValue(
+      ref(db, 'presence'),
+      (snap) => {
+        presenceRaw = snap.val() || {};
+        recomputeLeaderboard();
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubLb();
+      unsubSessions();
+      unsubPresence();
+    };
   }, []);
 
   // When Maintenance Mode is turned ON, immediately block any active video/short playback and show Maintenance Popup
@@ -1055,8 +1166,26 @@ export default function App() {
       try {
         tg.ready();
         tg.expand();
+        try {
+          tg.requestFullscreen?.();
+        } catch {}
+        try {
+          tg.disableVerticalSwipes?.();
+        } catch {}
         if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0b0e14');
         if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0b0e14');
+
+        const updateTgViewport = () => {
+          if (typeof window !== 'undefined') {
+            const vh = tg.viewportHeight ? `${tg.viewportHeight}px` : `${window.innerHeight}px`;
+            const vsh = tg.viewportStableHeight ? `${tg.viewportStableHeight}px` : vh;
+            document.documentElement.style.setProperty('--tg-viewport-height', vh);
+            document.documentElement.style.setProperty('--tg-viewport-stable-height', vsh);
+          }
+        };
+        updateTgViewport();
+        tg.onEvent?.('viewportChanged', updateTgViewport);
+
         const freshProfile = resolveTelegramUserProfile();
         if (freshProfile.isRealTelegramUser) {
           resolvedUserId = freshProfile.id;
@@ -3586,9 +3715,10 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen w-full max-w-[100vw] overflow-x-hidden pb-16 md:pb-0 ${
+      className={`w-full max-w-full overflow-x-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 ${
         isDarkMode ? 'bg-[#0b0e14] text-zinc-100' : 'bg-slate-50 text-slate-900'
       } flex flex-col ${adBlockActive ? 'h-screen overflow-hidden' : ''}`}
+      style={{ minHeight: 'var(--tg-viewport-stable-height, 100dvh)' }}
       dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
     >
       {/* Anti-AdBlocker & Anti-AdGuard DNS Full-Screen Lock Wall */}
@@ -3769,7 +3899,13 @@ export default function App() {
       )}
 
       {/* Telegram Mini App Top Navigation Bar */}
-      <header className="h-14 px-2.5 sm:px-4 w-full max-w-full overflow-hidden flex items-center justify-between gap-2 sm:gap-3 bg-[#0f131c]/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-800/80">
+      <header
+        className="px-2.5 sm:px-4 w-full max-w-full overflow-hidden flex items-center justify-between gap-2 sm:gap-3 bg-[#0f131c]/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-800/80"
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
+        }}
+      >
         {/* Left: Menu + Brand Logo */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
@@ -5434,7 +5570,13 @@ export default function App() {
 
       {/* Fixed Bottom Telegram Mini App Tab Bar (Mobile & Telegram WebView) */}
       {!isStepGateActive && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-15 bg-[#0f131c]/95 backdrop-blur-md border-t border-slate-800/90 grid grid-cols-4 items-center px-2">
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f131c]/95 backdrop-blur-md border-t border-slate-800/90 grid grid-cols-5 items-center px-2"
+          style={{
+            paddingBottom: 'calc(0.25rem + env(safe-area-inset-bottom, 0px))',
+            height: 'calc(3.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
           <button
             type="button"
             onClick={() => {
