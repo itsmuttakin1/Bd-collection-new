@@ -1756,6 +1756,133 @@ export default {
 
         const chatId = msg.chat.id;
         const text = String(msg.text || msg.caption || '').trim();
+
+        // ⚡ INSTANT ULTRA-FAST PATH: /start with video/short deep-link (`vid_<id>` or `short_<id>`)
+        // Responds within < 300ms by skipping heavy store configs, sessions & backgrounding menu/db updates
+        if (text.startsWith('/start')) {
+          const startArg = text.replace(/^\/start\s*/i, '').trim();
+          if (startArg && startArg !== 'buy' && startArg !== 'home') {
+            let isShortLink = false;
+            let rawTargetId = startArg;
+            if (startArg.startsWith('vid_')) {
+              rawTargetId = decodeTgStartId(startArg.slice(4));
+            } else if (startArg.startsWith('short_')) {
+              isShortLink = true;
+              rawTargetId = decodeTgStartId(startArg.slice(6));
+            } else {
+              rawTargetId = decodeTgStartId(startArg);
+            }
+
+            if (rawTargetId) {
+              const cleanId = rawTargetId.replace(/^(vid_|short_|v_)/i, '');
+              const altId = cleanId.replace(/__/g, '_');
+              const userLang = String(msg.from?.language_code || '').toLowerCase().startsWith('en') ? 'en' : 'bn';
+              const isEn = userLang === 'en';
+
+              let videoTitle = isEn ? '🔥 Exclusive Viral Video (Watch Now)' : '🔥 নতুন ভাইরাল গোপন ফুল ভিডিও 🥵💋';
+              let videoDuration = '';
+              const matchedId = rawTargetId;
+
+              // Ultra-fast parallel title resolution with strict 750ms timeout (never delays the response)
+              try {
+                const checkKeys = Array.from(new Set([rawTargetId, cleanId, `vid_${cleanId}`, altId])).filter(Boolean);
+                const fetchList = [];
+                for (const k of checkKeys) {
+                  fetchList.push(
+                    fetch(`${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(k)}.json`, {
+                      headers: { 'Accept': 'application/json' },
+                      signal: AbortSignal.timeout(750),
+                    }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+                    fetch(`${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(k)}.json`, {
+                      headers: { 'Accept': 'application/json' },
+                      signal: AbortSignal.timeout(750),
+                    }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+                    fetch(`${FIREBASE_RTDB_BASE}/fakeLinks/${encodeURIComponent(k)}.json`, {
+                      headers: { 'Accept': 'application/json' },
+                      signal: AbortSignal.timeout(750),
+                    }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+                  );
+                }
+                const results = await Promise.all(fetchList);
+                const mediaItem = results.find((x) => x && typeof x === 'object' && (x.title || x.videoUrl));
+                if (mediaItem) {
+                  if (mediaItem.title) videoTitle = String(mediaItem.title).trim();
+                  if (mediaItem.duration) videoDuration = String(mediaItem.duration).trim();
+                }
+              } catch {}
+
+              const miniAppWatchUrl = buildUserWebAppUrl(
+                isShortLink
+                  ? `/?short=${encodeURIComponent(matchedId)}`
+                  : `/?v=${encodeURIComponent(matchedId)}`,
+                msg.from || { id: chatId },
+                userLang
+              );
+              const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
+
+              // 🚀 Send message immediately to Telegram! Zero waiting!
+              const sendPromise = tgApi('sendMessage', {
+                chat_id: chatId,
+                text: isEn
+                  ? `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
+                    `👇 Tap <b>▶️ Watch Video Now</b> below to open the Mini App and complete the 3-Step Verification to play this video:`
+                  : `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
+                    `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App ওপেন হবে এবং ৩টি ধাপ সম্পন্ন করলেই এই ভিডিওটি চালু হবে:`,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: isEn
+                          ? '▶️ Watch Video Now (Mini App)'
+                          : '▶️ Watch Video Now (সরাসরি দেখুন)',
+                        web_app: { url: miniAppWatchUrl },
+                      },
+                    ],
+                    [
+                      {
+                        text: isEn
+                          ? '📱 Open All Videos (Mini App)'
+                          : '📱 সব ভিডিও দেখুন (Mini App)',
+                        web_app: { url: miniAppHomeUrl },
+                      },
+                    ],
+                  ],
+                },
+              });
+
+              // Background non-blocking tasks (setChatMenuButton + session save)
+              runInBackground(
+                Promise.all([
+                  sendPromise,
+                  tgApi('setChatMenuButton', {
+                    chat_id: chatId,
+                    menu_button: {
+                      type: 'web_app',
+                      text: isEn ? '▶️ Watch Video' : '▶️ ভিডিও দেখুন',
+                      web_app: { url: miniAppWatchUrl },
+                    },
+                  }).catch(() => null),
+                  saveChatSession(
+                    chatId,
+                    {
+                      lang: userLang,
+                      step: 'idle',
+                      pendingVideoId: matchedId,
+                      pendingIsShort: isShortLink,
+                      pendingAt: Date.now(),
+                    },
+                    msg.from
+                  ),
+                ])
+              );
+
+              await sendPromise;
+              return new Response('OK', { status: 200 });
+            }
+          }
+        }
+
         const [storeData, session] = await Promise.all([
           loadStoreData(),
           getChatSession(chatId),
@@ -2019,114 +2146,8 @@ export default {
           return new Response('OK', { status: 200 });
         }
 
-        // /start command -> Handle shared video deep-link (`vid_<id>` or `short_<id>`) OR show Mini App + Packages
+        // Default /start command (without video deep-link) -> Show Mini App + Packages
         if (text.startsWith('/start')) {
-          const startArg = text.replace(/^\/start\s*/i, '').trim();
-          if (startArg) {
-            let isShortLink = false;
-            let rawTargetId = startArg;
-            if (startArg.startsWith('vid_')) {
-              rawTargetId = decodeTgStartId(startArg.slice(4));
-            } else if (startArg.startsWith('short_')) {
-              isShortLink = true;
-              rawTargetId = decodeTgStartId(startArg.slice(6));
-            } else {
-              rawTargetId = decodeTgStartId(startArg);
-            }
-
-            if (rawTargetId) {
-              const altId = rawTargetId.replace(/__/g, '_');
-              const [vRes, sRes, vAltRes, sAltRes] = await Promise.all([
-                fetch(`${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
-                fetch(`${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(rawTargetId)}.json`).catch(() => null),
-                altId !== rawTargetId
-                  ? fetch(`${FIREBASE_RTDB_BASE}/videos/${encodeURIComponent(altId)}.json`).catch(() => null)
-                  : Promise.resolve(null),
-                altId !== rawTargetId
-                  ? fetch(`${FIREBASE_RTDB_BASE}/shorts/${encodeURIComponent(altId)}.json`).catch(() => null)
-                  : Promise.resolve(null),
-              ]);
-              const vData = vRes && vRes.ok ? await vRes.json().catch(() => null) : null;
-              const sData = sRes && sRes.ok ? await sRes.json().catch(() => null) : null;
-              const vAltData = vAltRes && vAltRes.ok ? await vAltRes.json().catch(() => null) : null;
-              const sAltData = sAltRes && sAltRes.ok ? await sAltRes.json().catch(() => null) : null;
-
-              let matchedId = rawTargetId;
-              let mediaItem = vData || sData;
-              if (!mediaItem && (vAltData || sAltData)) {
-                matchedId = altId;
-                mediaItem = vAltData || sAltData;
-              }
-              if ((!vData && sData) || (!vData && !sData && !vAltData && sAltData)) {
-                isShortLink = true;
-              }
-
-              const videoTitle = String(mediaItem?.title || 'Exclusive Viral Video 🔥').trim();
-              const videoDuration = String(mediaItem?.duration || '').trim();
-              const miniAppWatchUrl = buildUserWebAppUrl(
-                isShortLink
-                  ? `/?short=${encodeURIComponent(matchedId)}`
-                  : `/?v=${encodeURIComponent(matchedId)}`,
-                msg.from || { id: chatId },
-                userLang
-              );
-              const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
-
-              await Promise.all([
-                saveChatSession(
-                  chatId,
-                  {
-                    ...session,
-                    lang: userLang,
-                    step: 'idle',
-                    pendingVideoId: matchedId,
-                    pendingIsShort: isShortLink,
-                    pendingAt: Date.now(),
-                  },
-                  msg.from
-                ),
-                tgApi('setChatMenuButton', {
-                  chat_id: chatId,
-                  menu_button: {
-                    type: 'web_app',
-                    text: isEn ? '▶️ Watch Video' : '▶️ ভিডিও দেখুন',
-                    web_app: { url: miniAppWatchUrl },
-                  },
-                }).catch(() => null),
-                tgApi('sendMessage', {
-                  chat_id: chatId,
-                  text: isEn
-                    ? `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                      `👇 Tap <b>▶️ Watch Video Now</b> below to open the Mini App and complete the 3-Step Verification to play this video:`
-                    : `🎬 <b>${escHtml(videoTitle)}</b>${videoDuration ? ` (${escHtml(videoDuration)})` : ''}\n\n` +
-                      `👇 নিচের <b>▶️ Watch Video Now</b> বাটনে ট্যাপ করলে সরাসরি Mini App ওপেন হবে এবং ৩টি ধাপ সম্পন্ন করলেই এই ভিডিওটি চালু হবে:`,
-                  parse_mode: 'HTML',
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {
-                          text: isEn
-                            ? '▶️ Watch Video Now (Mini App)'
-                            : '▶️ Watch Video Now (সরাসরি দেখুন)',
-                          web_app: { url: miniAppWatchUrl },
-                        },
-                      ],
-                      [
-                        {
-                          text: isEn
-                            ? '📱 Open All Videos (Mini App)'
-                            : '📱 সব ভিডিও দেখুন (Mini App)',
-                          web_app: { url: miniAppHomeUrl },
-                        },
-                      ],
-                    ],
-                  },
-                }),
-              ]);
-              return new Response('OK', { status: 200 });
-            }
-          }
-
           await Promise.all([
             saveChatSession(
               chatId,
