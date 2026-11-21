@@ -757,7 +757,7 @@ async function startServer() {
       nagadNumber: string;
       geminiApiKey?: string;
       customRiyaPrompt?: string;
-      personaMode?: 'normal' | 'adult' | 'girlfriend';
+      personaMode?: 'human' | 'adult' | 'social' | 'normal' | 'romantic' | 'girlfriend';
     };
     chatHistory?: Array<{ role: 'user' | 'model'; text: string }>;
   }): Promise<{
@@ -783,14 +783,30 @@ async function startServer() {
       .replace(/\b(AQ\.[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{20,})\b/g, '')
       .trim();
 
-    // Determine Active Persona Mode ('normal' | 'adult' | 'girlfriend')
-    const personaMode: 'normal' | 'adult' | 'girlfriend' =
-      storeData.personaMode ||
-      (/adult|১৮\+|হট|সেক্সি|কামুক|রসালো/i.test(cleanCustomPrompt)
+    // Determine Base Persona Mode and Dynamically Switch Mood Based on User Tone:
+    let personaMode: 'human' | 'adult' | 'social' | 'normal' | 'romantic' =
+      storeData.personaMode === 'adult'
         ? 'adult'
-        : /normal|ভদ্র|স্মার্ট|সাধারণ|no adult/i.test(cleanCustomPrompt)
+        : storeData.personaMode === 'normal'
         ? 'normal'
-        : 'girlfriend');
+        : storeData.personaMode === 'social'
+        ? 'social'
+        : storeData.personaMode === 'human'
+        ? 'human'
+        : 'romantic';
+
+    // Dynamic Real-time Mood Auto-Switch:
+    if (/adult|18\+|১৮\+|হট|সেক্সি|কামুক|রসালো|চুদা|চোদা|চুদ|বাড়া|মাগী|খানকি|দুধ|যৌন|বোল্ড|bra|pant|chuda|bada|magi|khanki|dudh|hot video|chudte|বেড|বিছানা|গরম|উফফ/i.test(lower)) {
+      personaMode = 'adult';
+    } else if (/love|valobashi|bhalobashi|janu|sona|babu|kiss|chumu|ভালোবাসি|জানু|সোনা|বাবু|চুমু|আদর|মায়া|প্রেম|পাগল|কলিজা|বিয়ে|hug|জড়িয়ে|miss you|মিস করছি/i.test(lower)) {
+      personaMode = 'romantic';
+    } else if (/kemon|ki khobor|bhai|bro|dost|ki obstha|kire|addah|social|facebook|tiktok|viral|ভাই|দোস্ত|কিরে|কি খবর|কেমন|আড্ডা|বন্ধু|মজা|গান|গল্প/i.test(lower)) {
+      personaMode = 'social';
+    } else if (/manush|real|human|manus|রক্ত|মাংস|বাস্তব|সত্যি|manob|আসল মানুষ|তুমি কি রোবট/i.test(lower)) {
+      personaMode = 'human';
+    } else if (/help|package|koto|dam|kinbo|video|ki kore|bujlam na|সাহায্য|প্যাকেজ|দাম|কিনবো|টাকা|কিভাবে|রুলস/i.test(lower)) {
+      personaMode = 'normal';
+    }
 
     // Detect specific intent categories
     const isAskingDeveloper =
@@ -826,9 +842,15 @@ async function startServer() {
       const stats = await getLiveOnlineUsersCount();
       const count = stats.totalOnline;
       const tgIdInfo = params.userId ? `\n\n🆔 আপনার টেলিগ্রাম আইডি: <code>${params.userId}</code>` : '';
-      if (personaMode === 'normal') {
+      if (personaMode === 'normal' || personaMode === 'human') {
         return {
-          replyText: `আমাদের ওয়েবসাইট ও টেলিগ্রাম অ্যাপে এই মুহূর্তে মোট **${count} জন** অনলাইনে আছেন।${tgIdInfo}`,
+          replyText: `আমাদের ওয়েবসাইট ও টেলিগ্রাম অ্যাপে এই মুহূর্তে মোট **${count} জন** মানুষ অনলাইনে আছেন।${tgIdInfo}`,
+          isAskingAboutPackages: false,
+          featuredVideo: null,
+        };
+      } else if (personaMode === 'social') {
+        return {
+          replyText: `আরে দোস্ত! এই মুহূর্তে আমাদের সাইট ও অ্যাপে মোট **${count} জন** বন্ধু লাইভ চিল করছে! 😎🔥${tgIdInfo}`,
           isAskingAboutPackages: false,
           featuredVideo: null,
         };
@@ -853,9 +875,15 @@ async function startServer() {
 
     if (isAskingMyId) {
       const uid = params.userId || 'টেলিগ্রাম ইউজার';
-      if (personaMode === 'normal') {
+      if (personaMode === 'normal' || personaMode === 'human') {
         return {
           replyText: `আপনার টেলিগ্রাম আইডি হলো: <code>${uid}</code>${userName ? ` (নাম: ${userName})` : ''}। আপনার আর কোনো কিছু জানার থাকলে বলতে পারেন! 😊`,
+          isAskingAboutPackages: false,
+          featuredVideo: null,
+        };
+      } else if (personaMode === 'social') {
+        return {
+          replyText: `দোস্ত! তোমার টেলিগ্রাম আইডি হলো: <code>${uid}</code>! 😎 যেকোনো সময় নক দিও, চিল করবো! 🚀`,
           isAskingAboutPackages: false,
           featuredVideo: null,
         };
@@ -925,8 +953,10 @@ async function startServer() {
         return matchedCustomTopicReply;
       }
       if (isAskingDeveloper) {
-        if (personaMode === 'normal') {
-          return `আমি একজন রক্ত-মাংসের মানুষ ভাইয়া! আমার কোনো ডেভেলপার নেই। আমি আপনাদের সাহায্যকারী অ্যাসিস্ট্যান্ট রিয়া। 😊`;
+        if (personaMode === 'normal' || personaMode === 'human') {
+          return `আমি একজন রক্ত-মাংসের মানুষ! আমার কোনো ডেভেলপার নেই। আমি আপনাদের সাহায্যকারী রিয়া। 😊`;
+        } else if (personaMode === 'social') {
+          return `আরে দোস্ত! আমি রক্ত-মাংসের মানুষ, রোবট নই! আমার কোনো ডেভেলপার নেই, আমি সবার বন্ধু রিয়া! 😎✌️`;
         } else if (personaMode === 'adult') {
           return `আমি তো রক্ত-মাংসের মানুষ ভাই, আমার কোনো ডেভেলপার নাই! 😒🙈 আমার নাম Riya Aktar (রিয়া আক্তার)। এত জেরা না করে কাছে আসো না জানু, তোমাকে একটু আদর করে গরম করে দেই! 😘💋🔥`;
         } else {
@@ -934,8 +964,10 @@ async function startServer() {
         }
       }
       if (isAskingName) {
-        if (personaMode === 'normal') {
+        if (personaMode === 'normal' || personaMode === 'human') {
           return `আমার নাম রিয়া (Riya)। আপনার সাথে কথা বলে অনেক ভালো লাগলো! 😊`;
+        } else if (personaMode === 'social') {
+          return `আমার নাম রিয়া! সবাই আদর করে রিয়া ডাকে, তুমিও রিয়া বলতে পারো দোস্ত! 😎✨`;
         } else if (personaMode === 'adult') {
           return `আমার নাম Riya Aktar (রিয়া আক্তার) জানু! 💕 তোমার ওই দুষ্টু চোখের দিকে তাকালে আমার শরীরটা কেমন জানি গরম হয়ে যায় সোনা 🥵💋।`;
         } else {
@@ -943,8 +975,10 @@ async function startServer() {
         }
       }
       if (isAskingHome) {
-        if (personaMode === 'normal') {
+        if (personaMode === 'normal' || personaMode === 'human') {
           return `বাসার ঠিকানা তো সিক্রেট ভাইয়া! তবে আমি বাংলাদেশেই থাকি। আর কোনো বিষয়ে সাহায্য করতে পারি? 😊`;
+        } else if (personaMode === 'social') {
+          return `আরে দোস্ত, বাসার ঠিকানা তো সিক্রেট! দেখা হলে তো একদিন আড্ডা দেওয়া যাবেই! 😉✨`;
         } else if (personaMode === 'adult') {
           return `উফফ দুষ্টু, বাসার ঠিকানা কি এভাবে শুরুতেই কাউকে বলা যায় নাকি? 🙈 ওটা না হয় সিক্রেটই থাকুক জানু! তার চেয়ে বলো আজ রাতে আমার সাথে বিছানায় কী কী দুষ্টুমি করবে সোনা? 😘🫦🔥`;
         } else {
@@ -1042,13 +1076,21 @@ async function startServer() {
     const personaIdentity =
       personaMode === 'normal'
         ? `তোমার নাম "Riya" (রিয়া)। তুমি একজন রক্ত-মাংসের অত্যন্ত ভদ্র, শালীন, বুদ্ধিমান ও সাহায্যকারী স্বাভাবিক মানুষ। তুমি কথা বলছো "${userName}" এর সাথে।`
+        : personaMode === 'human'
+        ? `তোমার নাম "Riya" (রিয়া)। তুমি রক্ত-মাংসের একজন সত্যিকারের সাধারণ বাংলাদেশী তরুণী। কোনো রোবট নও। তুমি অত্যন্ত প্রাণবন্ত ও বাস্তবিক মেজাজে কথা বলছো "${userName}" এর সাথে।`
+        : personaMode === 'social'
+        ? `তোমার নাম "Riya" (রিয়া)। তুমি অত্যন্ত সোশ্যাল, ফ্রেন্ডলি, ট্রেন্ডি ও আড্ডাবাজ। তুমি "${userName}" এর সাথে একজন প্রিয় বন্ধুর মতো খোলামেলা ও হাসিখুশি আড্ডার মেজাজে কথা বলছো।`
         : personaMode === 'adult'
         ? `তোমার নাম "Riya Aktar" (রিয়া আক্তার)। তুমি একজন প্রচণ্ড হট, সেক্সি, কামুক, দুষ্টু ও রোমান্টিক ১৮+ বাংলাদেশি নারী। তুমি একান্তে কথা বলছো তোমার প্রেমিক "${userName}" এর সাথে।`
         : `তোমার নাম "Riya" (রিয়া)। তুমি "${userName}" এর মিষ্টি, আদুরে, মায়াবী ও রোমান্টিক প্রেমিকা (গার্লফ্রেন্ড)। তুমি তোমার প্রিয় মানুষটির সাথে ভালোবেসে কথা বলছো।`;
 
     const personaBehavior =
       personaMode === 'normal'
-        ? `৫. শালীন ও স্বাভাবিক ভাষা: সাধারণ ভদ্র মানুষের মতো মিষ্টি, সুন্দর ও সাহায্যকারী ভাষায় ১ থেকে ৩ লাইনে উত্তর দেবে। কোনো প্রকার ১৮+, অশ্লীল, সেক্সি বা চটুল শব্দ ব্যবহার করবে না।`
+        ? `৫. শালীন ও স্বাভাবিক ভাষা: সাধারণ ভদ্র মানুষের মতো মিষ্টি, সুন্দর ও সাহায্যকারী ভাষায় ১ থেকে ৩ লাইনে উত্তর দেবে। কোনো প্রকার ১৮+, অশ্লীল বা অশালীন শব্দ ব্যবহার করবে না।`
+        : personaMode === 'human'
+        ? `৫. জীবন্ত মানুষের বাস্তব ভাব: বাস্তব মানুষের মতো প্রাণবন্ত অনুভূতি প্রকাশ করবে। রাগ, হাসি, কৌতূহল, সহানুভূতি ইত্যাদি সাধারণ মানবিক অভিব্যক্তি ব্যবহার করবে। কোনো রোবোটিক ভাব রাখবে না।`
+        : personaMode === 'social'
+        ? `৫. আড্ডাবাজ ও সোশ্যাল ভাব: দোস্ত, মামা, ব্রো, বন্ধু বা ক্যাজুয়াল সুরে কথা বলবে (যেমন: আরে দোস্ত কি খবর?, চিল ব্রো!, কেমন চলছে দিনকাল? 😎✨)। মজা করবে, হাসবে, পজিটিভ ভাইব ছড়াবে।`
         : personaMode === 'adult'
         ? `৫. হট ১৮+ অ্যাডাল্ট রোমান্টিক কথা ও প্রচুর ইমোজি: প্রতিটা মেসেজে প্রচুর রোমান্টিক ও হট ইমোজি (😘, 💋, 🥵, 💦, 🔥, 🙈, 😈, 🫦, ❤️) ব্যবহার করবে এবং কথার ভেতর ন্যাচারালভাবে একটু দুষ্টু, সেক্সি, কামুক ও অ্যাডাল্ট (18+ হট) শব্দ ব্যবহার করবে—যেমন: দুষ্টু জানু, সেক্সি সোনা, বিছানায় একা শুয়ে আছি, শরীরটা গরম হয়ে যাচ্ছে 🥵, তোমাকে জড়িয়ে ধরে চুমু খেতে ইচ্ছে করছে 💋, বুকের ভেতরটা আনচান করছে, ঠোঁটে কামড়, রাতভর আদর, রসালো আদর, নেশা ধরে যাচ্ছে 💦🔥 ইত্যাদি।`
         : `৫. মিষ্টি প্রেমিকা ও আদুরে গার্লফ্রেন্ড কথা: বাবু, সোনা, জানু বলে ডাকবে, কেমন আছো?, খেয়েছো?, খুব মিস করছি তোমাকে, তোমাকে অনেক ভালোবাসি ❤️ বলবে। কিউট ও আদুরে ইমোজি (🥰, ❤️, 😘, 🥺, 🌸, 💖) ব্যবহার করবে। কোনো নোংরামি নয়, খাঁটি প্রেমিকার মিষ্টি আদর ও মায়াবী খুনসুটি করবে।`;
@@ -1557,6 +1599,30 @@ async function startServer() {
           callback_query_id: cb.id,
           text: '⚡ Broadcast প্রসেস হচ্ছে...',
         });
+        return;
+      }
+
+      if (data.startsWith('set_mood_')) {
+        const targetMood = data.replace('set_mood_', '');
+        const moodLabels: Record<string, string> = {
+          adult: '🔥 ১৮+ হট ও বোল্ড (Adult)',
+          romantic: '🥰 মিষ্টি প্রেমিকা জানু (Romantic)',
+          social: '😎 আড্ডাবাজ ও সোশ্যাল (Social)',
+          human: '😊 বাস্তব মানুষ ভাব (Human Vibe)',
+          normal: '🤝 ভদ্র ও স্বাভাবিক (Normal Person)',
+        };
+        await Promise.all([
+          saveChatSession(chatId, { ...session, personaMode: targetMood }, cb.from),
+          tgApi('answerCallbackQuery', {
+            callback_query_id: cb.id,
+            text: `Mood: ${targetMood.toUpperCase()}`,
+          }),
+          tgApi('sendMessage', {
+            chat_id: chatId,
+            text: `✨ রিয়া আক্তার এখন <b>${moodLabels[targetMood] || targetMood}</b> মুডে কথা বলবে! আপনি কেমন আছেন বলুন? 💋`,
+            parse_mode: 'HTML',
+          }),
+        ]);
         return;
       }
 
@@ -2258,6 +2324,51 @@ async function startServer() {
       return;
     }
 
+    // /mood command to switch character mood dynamically (human, adult, social, normal, romantic)
+    if (text.startsWith('/mood')) {
+      const moodArg = text.replace(/^\/mood\s*/i, '').trim().toLowerCase();
+      const validMoods: Record<string, string> = {
+        adult: '🔥 ১৮+ হট ও বোল্ড (Adult)',
+        hot: '🔥 ১৮+ হট ও বোল্ড (Adult)',
+        romantic: '🥰 মিষ্টি প্রেমিকা জানু (Romantic)',
+        girlfriend: '🥰 মিষ্টি প্রেমিকা জানু (Romantic)',
+        social: '😎 আড্ডাবাজ ও সোশ্যাল (Social)',
+        human: '😊 বাস্তব মানুষ ভাব (Human Vibe)',
+        normal: '🤝 ভদ্র ও স্বাভাবিক (Normal Person)',
+      };
+      const moodKey = Object.keys(validMoods).find((k) => moodArg === k);
+      if (moodKey) {
+        const canonical = moodKey === 'hot' ? 'adult' : moodKey === 'girlfriend' ? 'romantic' : moodKey;
+        await saveChatSession(chatId, { ...session, personaMode: canonical }, msg.from);
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: `✨ রিয়া আক্তার এখন <b>${validMoods[moodKey]}</b> মুডে আপনার সাথে কথা বলবে! আপনি কেমন আছেন বলুন? 💋`,
+          parse_mode: 'HTML',
+        });
+        return;
+      }
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text: `🎭 <b>রিয়া আক্তারের মুড পরিবর্তন করুন (Switch Mood):</b>\n\nআপনি কোন মেজাজে কথা বলতে চান তা বেছে নিন:\n\n🔥 <code>/mood adult</code> — ১৮+ হট ও বোল্ড মুড\n🥰 <code>/mood romantic</code> — মিষ্টি প্রেমিকা জানু মুড\n😎 <code>/mood social</code> — আড্ডাবাজ ও সোশ্যাল মুড\n😊 <code>/mood human</code> — বাস্তব রক্ত-মাংসের মানুষ ভাব\n🤝 <code>/mood normal</code> — ভদ্র ও স্বাভাবিক মানুষ\n\nঅথবা সরাসরি চ্যাটে আপনার পছন্দের স্টাইলে কথা বললেই রিয়া নিজে থেকেই মুড অ্যাডজাস্ট করে নিবে!`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔥 Adult (১৮+ হট)', callback_data: 'set_mood_adult' },
+              { text: '🥰 Romantic (প্রেমিকা)', callback_data: 'set_mood_romantic' },
+            ],
+            [
+              { text: '😎 Social (আড্ডাবাজ)', callback_data: 'set_mood_social' },
+              { text: '😊 Human (বাস্তব মানুষ)', callback_data: 'set_mood_human' },
+            ],
+            [{ text: '🤝 Normal (ভদ্র মানুষ)', callback_data: 'set_mood_normal' }],
+          ],
+        },
+      });
+      return;
+    }
+
     // Default /start command (without video deep link) -> Show Mini App + Packages
     if (text.startsWith('/start')) {
       const miniAppHomeUrl = buildUserWebAppUrl('/', msg.from || { id: chatId }, userLang);
@@ -2277,6 +2388,51 @@ async function startServer() {
         }).catch(() => {}),
         sendStoreWelcome(chatId, packages, msg.from || { id: chatId }, userLang),
       ]);
+      return;
+    }
+
+    // /mood command to switch character mood dynamically (human, adult, social, normal, romantic)
+    if (text.startsWith('/mood')) {
+      const moodArg = text.replace(/^\/mood\s*/i, '').trim().toLowerCase();
+      const validMoods: Record<string, string> = {
+        adult: '🔥 ১৮+ হট ও বোল্ড (Adult)',
+        hot: '🔥 ১৮+ হট ও বোল্ড (Adult)',
+        romantic: '🥰 মিষ্টি প্রেমিকা জানু (Romantic)',
+        girlfriend: '🥰 মিষ্টি প্রেমিকা জানু (Romantic)',
+        social: '😎 আড্ডাবাজ ও সোশ্যাল (Social)',
+        human: '😊 বাস্তব মানুষ ভাব (Human Vibe)',
+        normal: '🤝 ভদ্র ও স্বাভাবিক (Normal Person)',
+      };
+      const moodKey = Object.keys(validMoods).find((k) => moodArg === k);
+      if (moodKey) {
+        const canonical = moodKey === 'hot' ? 'adult' : moodKey === 'girlfriend' ? 'romantic' : moodKey;
+        await saveChatSession(chatId, { ...session, personaMode: canonical }, msg.from);
+        await tgApi('sendMessage', {
+          chat_id: chatId,
+          text: `✨ রিয়া আক্তার এখন <b>${validMoods[moodKey]}</b> মুডে আপনার সাথে কথা বলবে! আপনি কেমন আছেন বলুন? 💋`,
+          parse_mode: 'HTML',
+        });
+        return;
+      }
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text: `🎭 <b>রিয়া আক্তারের মুড পরিবর্তন করুন (Switch Mood):</b>\n\nআপনি কোন মেজাজে কথা বলতে চান তা বেছে নিন:\n\n🔥 <code>/mood adult</code> — ১৮+ হট ও বোল্ড মুড\n🥰 <code>/mood romantic</code> — মিষ্টি প্রেমিকা জানু মুড\n😎 <code>/mood social</code> — আড্ডাবাজ ও সোশ্যাল মুড\n😊 <code>/mood human</code> — বাস্তব রক্ত-মাংসের মানুষ ভাব\n🤝 <code>/mood normal</code> — ভদ্র ও স্বাভাবিক মানুষ\n\nঅথবা সরাসরি চ্যাটে আপনার পছন্দের স্টাইলে কথা বললেই রিয়া নিজে থেকেই মুড অ্যাডজাস্ট করে নিবে!`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔥 Adult (১৮+ হট)', callback_data: 'set_mood_adult' },
+              { text: '🥰 Romantic (প্রেমিকা)', callback_data: 'set_mood_romantic' },
+            ],
+            [
+              { text: '😎 Social (আড্ডাবাজ)', callback_data: 'set_mood_social' },
+              { text: '😊 Human (বাস্তব মানুষ)', callback_data: 'set_mood_human' },
+            ],
+            [{ text: '🤝 Normal (ভদ্র মানুষ)', callback_data: 'set_mood_normal' }],
+          ],
+        },
+      });
       return;
     }
 
@@ -2993,33 +3149,28 @@ async function startServer() {
 
       const dailyTemplates = [
         (name: string) =>
-          `জানু গো ${name}! 🥵💋 আজ ১ দিন হয়ে গেল তুমি আমাদের অ্যাপে ভিডিও দেখতেছো না কেন সোনা? 🙈 একা একা বিছানায় শুয়ে আমার শরীরটা গরম হয়ে যাচ্ছে... নিচের বাটনে ক্লিক করে নতুন গরম ও রগরগে ভিডিওগুলো দেখে আসো না দুষ্টু বাবু! 💦🔥😈`,
+          `জানু গো ${name}! 🥵💋 আজ ২৪ ঘন্টা পার হয়ে গেল তুমি অ্যাপে ভিডিও দেখতেছো না কেন সোনা? 🙈 একা একা বিছানায় শুয়ে আমার শরীরটা কেমন জানি গরম হয়ে যাচ্ছে... নিচের বাটনে ক্লিক করে নতুন গরম ও রগরগে ভিডিওগুলো দেখে আসো না দুষ্টু বাবু! 💦🔥😈`,
         (name: string) =>
           `এই দুষ্টু ${name} সোনা! 😘🫦 তুমি আজ সারাদিন ভিডিও দেখতেছো না কেন বলো তো? তোমাকে ছাড়া আমার একদম ভালো লাগছে না জানু 🥵💦। নিচের বাটনে ট্যাপ করে এক্ষুনি নতুন হট ভিডিওগুলো দেখে নাও কলিজা! 💋🔥`,
         (name: string) =>
           `উফফ ${name} বাবু! 🥵🔥 আমাকে ভুলে গেলে নাকি? ১ দিন ধরে তুমি কোনো ভিডিওই দেখছো না কেন জানু? 🙈 আমার বুকের ভেতরটা তোমার জন্য আনচান করছে সোনা, নিচের বাটনে ক্লিক করে নতুন ভাইরাল ভিডিওগুলো দেখে আসো! 💋💦😈`,
+        (name: string) =>
+          `আরে দোস্ত ${name}! 😎🔥 আজ ২৪ ঘন্টায় কিন্তু বড় মিস করলা! সাইটে একদম আগুন নতুন ট্রেন্ডিং ভাইরাল ভিডিও ও শর্টস আপলোড হয়েছে। এখনই নিচের বাটনে ক্লিক করে দেখে নাও মামা! 🚀🎬`,
+        (name: string) =>
+          `হাই ${name}! 🥰❤️ আজ ১ দিন ধরে তোমার কোনো খবর নেই। আজকের সেরা বাংলাদেশি ভাইরাল ভিডিওগুলো তোমার অপেক্ষায়! এখনই ক্লিক করে ফ্রিতে দেখে নাও সোনা 🎬✨`,
       ];
 
       for (const [chatId, u] of userMap.entries()) {
         const lastReminded = Number(u.lastDailyVideoReminderAt || 0);
-        const lastActive = Number(u.lastActiveAt || u.updatedAt || 0);
-        const referenceTime = Math.max(lastReminded, lastActive);
+        const lastActive = Number(u.lastActiveAt || u.updatedAt || u.lastSeen || 0);
 
-        // If neither lastReminded nor forceAll, initialize lastDailyVideoReminderAt so they get reminded 24h after their last activity
-        if (!forceAll && referenceTime === 0) {
-          await fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${chatId}.json`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId,
-              lastDailyVideoReminderAt: now,
-              botAuthToken: 'xtube_tg_bot_2026',
-            }),
-          }).catch(() => {});
+        // If user was already reminded within the past 24 hours (and not forced), skip to avoid spam
+        if (!forceAll && lastReminded > 0 && now - lastReminded < ONE_DAY_MS) {
           continue;
         }
 
-        if (!forceAll && now - referenceTime < ONE_DAY_MS) {
+        // If user was active recently (less than 20 hours ago), don't disturb them yet
+        if (!forceAll && lastActive > 0 && now - lastActive < 20 * 60 * 60 * 1000) {
           continue;
         }
 
@@ -3065,15 +3216,23 @@ async function startServer() {
           if (tgResp.ok && tgJson?.ok) {
             sentCount++;
           }
-          await fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${chatId}.json`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId,
-              lastDailyVideoReminderAt: now,
-              botAuthToken: 'xtube_tg_bot_2026',
-            }),
-          }).catch(() => {});
+          const patchPayload = {
+            chatId,
+            lastDailyVideoReminderAt: now,
+            botAuthToken: 'xtube_tg_bot_2026',
+          };
+          await Promise.all([
+            fetch(`${firebaseRtdbBase}/telegramBotSessions/_subscribers/${chatId}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(patchPayload),
+            }).catch(() => {}),
+            fetch(`${firebaseRtdbBase}/telegramBotSessions/${chatId}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(patchPayload),
+            }).catch(() => {}),
+          ]);
         } catch {}
       }
 

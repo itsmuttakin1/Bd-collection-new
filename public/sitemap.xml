@@ -1,13 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+  <!-- Main Home Page -->
   <url>
     <loc>https://xtubeofficial.pages.dev/</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
   </url>
+
+  <!-- Trending Videos Section -->
   <url>
-    <loc>https://xtubeofficial.pages.dev/?short=feed</loc>
+    <loc>https://xtubeofficial.pages.dev/?tab=trending</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.95</priority>
+  </url>
+
+  <!-- Shorts Feed Section -->
+  <url>
+    <loc>https://xtubeofficial.pages.dev/?tab=shorts</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <!-- Leaderboard Section -->
+  <url>
+    <loc>https://xtubeofficial.pages.dev/?tab=leaderboard</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Viral Category -->
+  <url>
+    <loc>https://xtubeofficial.pages.dev/?category=viral</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Desi & Adult Category -->
+  <url>
+    <loc>https://xtubeofficial.pages.dev/?category=desi</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Room Date & Leaks Category -->
+  <url>
+    <loc>https://xtubeofficial.pages.dev/?category=room-date</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- Exclusive Trending -->
+  <url>
+    <loc>https://xtubeofficial.pages.dev/?category=exclusive</loc>
+    <lastmod>2026-11-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
   </url>
 </urlset>

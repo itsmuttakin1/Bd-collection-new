@@ -1019,11 +1019,9 @@ export default function App() {
             (now - lastSeen <= 90000 && lastSeen > 0)
           );
 
-          const watchedCount = Math.max(
-            0,
-            Number(val?.videosWatchedCount) || 0,
-            Array.isArray(val?.watchedVideos) ? val.watchedVideos.length : 0
-          );
+          const watchedCount = val?.videosWatchedCount !== undefined
+            ? Math.max(0, Number(val.videosWatchedCount) || 0)
+            : (Array.isArray(val?.watchedVideos) ? val.watchedVideos.length : 0);
 
           const name = String(
             val?.fullName ||
@@ -2359,7 +2357,10 @@ export default function App() {
         })
         .sort((a, b) => b.lastAt - a.lastAt);
 
-      const totalWatched = Math.max(watchedEntries.length, remoteWatchedCount);
+      // Remote / Admin edited count is the single source of truth; never overwrite with local history
+      const totalWatched = typeof remoteWatchedCount === 'number' && remoteWatchedCount >= 0
+        ? remoteWatchedCount
+        : watchedEntries.length;
 
       const presencePayload = {
         online: true,
@@ -2393,15 +2394,13 @@ export default function App() {
           page: viewMode,
           vipActive: Boolean(isAdFree),
           vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
-          videosWatchedCount: totalWatched,
-          watchedVideos: watchedEntries.slice(0, 25),
           device: detectDeviceSummary(),
           lastSeen: now,
           updatedAt: now,
           botAuthToken: 'xtube_tg_bot_2026',
         }).catch(() => {});
 
-        // Real-time Leaderboard Entry Sync
+        // Real-time Leaderboard Entry Sync (updates online presence & profile without overwriting admin's count)
         update(ref(db, `leaderboard/${crmKey}`), {
           userId: crmKey,
           name: isTg
@@ -2410,7 +2409,6 @@ export default function App() {
           isTelegram: isTg,
           tgId: isTg ? String(tgProfile.id) : '',
           username: tgProfile.username || '',
-          videosWatchedCount: totalWatched,
           profileFrame: profileFrame || 'none',
           lastSeen: now,
           botAuthToken: 'xtube_tg_bot_2026',

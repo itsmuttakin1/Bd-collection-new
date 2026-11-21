@@ -1,17 +1,24 @@
 # X Tube Official - Search Engine Crawler Rules
-# Keywords: X Tube, X tube official, xxx, xtube, viral videos, shorts
+# Canonical Domain: https://xtubeofficial.pages.dev/
+# Keywords: adult, x tube, xtube, Bangladeshi viral video, desi viral video, 18+ adult clips, x tube official
 User-agent: *
 Allow: /
+Allow: /llms.txt
 Allow: /?v=
 Allow: /?short=
+Allow: /?tab=
+Allow: /?category=
 Allow: /api/stream
 Disallow: /ad.html
 Disallow: /api/r2-proxy/
 
 User-agent: Googlebot
 Allow: /
+Allow: /llms.txt
 Allow: /?v=
 Allow: /?short=
+Allow: /?tab=
+Allow: /?category=
 Allow: /api/stream
 Disallow: /ad.html
 Disallow: /api/r2-proxy/
@@ -27,9 +34,8 @@ Allow: /
 
 User-agent: Bingbot
 Allow: /
+Allow: /llms.txt
 Allow: /?v=
 Allow: /?short=
 
 Sitemap: https://xtubeofficial.pages.dev/sitemap.xml
-Sitemap: https://xtubeofficial.pages.dev/sitemap-videos.xml
-Sitemap: https://xtubeofficial.pages.dev/sitemap-shorts.xml

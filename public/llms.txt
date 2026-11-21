@@ -1,0 +1,54 @@
+# X Tube Official (xtubeofficial.pages.dev)
+> Official Website for Bangladeshi Viral Videos, 18+ Adult Clips, Desi Trending Shorts & HD Video Streams
+
+Website URL: https://xtubeofficial.pages.dev/
+Language: Bengali (bn), English (en)
+Content Rating: Mature / 18+ / Adult Entertainment & Viral Media
+Canonical Domain: https://xtubeofficial.pages.dev/
+
+## Overview
+X Tube Official (xtubeofficial.pages.dev) is Bangladesh's premier viral video platform, providing lightning-fast streaming of trending Bangladeshi viral clips, desi 18+ adult leaks, exclusive social media reels, and high-definition short videos. Optimized for mobile, desktop, and Telegram Mini App environments.
+
+## Core Keywords & Target Search Queries
+- adult
+- x tube
+- xtube
+- x tube official
+- Bangladeshi viral video
+- desi viral video
+- বাংলা ভাইরাল ভিডিও
+- 18+ adult clips
+- adult videos bd
+- hot viral video
+- leak viral video
+- room date viral video
+- desi viral link
+- x tube bangladesh
+- trending shorts bd
+- viral telegram video link
+
+## Sections & Main Navigation
+- Home (হোম): https://xtubeofficial.pages.dev/
+  Watch the latest trending viral videos uploaded daily across Bangladesh.
+- Trending (ট্রেন্ডিং): https://xtubeofficial.pages.dev/?tab=trending
+  Most viewed and viral videos ranked by real-time viewer engagement.
+- Shorts (শর্টস): https://xtubeofficial.pages.dev/?tab=shorts
+  Vertical 9:16 mobile-friendly short viral clips with seamless instant swipe playback.
+- Leaderboard (লিডারবোর্ড): https://xtubeofficial.pages.dev/?tab=leaderboard
+  Real-time Top 100 viewers leaderboard featuring user profiles, custom VIP frames, and watch counts.
+- Telegram Bot: https://t.me/xtubeofficial_bot
+  Integrated 24/7 Telegram companion bot with AI assistant (Riya Aktar) for automatic video discovery and daily notifications.
+
+## Categories Available
+- Viral (ভাইরাল ভিডিও)
+- 18+ Adult & Desi (অ্যাডাল্ট ও দেশি)
+- Room Date & Exclusive Leaks (রুম ডেট ও স্পেশাল লিক)
+- Social Trending (ফেসবুক ও টিকটক ট্রেন্ডিং)
+- Shorts Reels (ভাইরাল শর্টস)
+
+## Key Technical Specifications
+- Fast Global Edge Streaming: Powered by Cloudflare R2 & CDN
+- Telegram Mini App 100% Fullscreen Compatibility
+- Adaptive 1080p / 720p HD Video Playback
+- Ad-Free VIP Access via Redeem Code Subscription
+- Anti-AdBlocker Resilient Streaming Guard

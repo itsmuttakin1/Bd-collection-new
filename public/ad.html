@@ -10395,11 +10395,9 @@ service cloud.firestore {
           if (wArr.length > existing.watchedVideos.length) {
             existing.watchedVideos = wArr;
           }
-          const wCount = Math.max(
-            Number(rawObj.videosWatchedCount) || 0,
-            existing.watchedVideos.length,
-            existing.videosWatchedCount
-          );
+          const wCount = typeof rawObj.videosWatchedCount === 'number'
+            ? Math.max(0, rawObj.videosWatchedCount)
+            : existing.watchedVideos.length;
           existing.videosWatchedCount = wCount;
           if (rawObj.dailyWatchedDate === todayKey && typeof rawObj.dailyWatchedCount === 'number') {
             existing.dailyWatchedCount = Math.max(existing.dailyWatchedCount, rawObj.dailyWatchedCount);
@@ -10442,6 +10440,9 @@ service cloud.firestore {
           }
           if (typeof uc.profileFrame === 'string') {
             existing.profileFrame = uc.profileFrame === 'none' ? '' : uc.profileFrame;
+          }
+          if (typeof uc.adminWatchedCount === 'number') {
+            existing.videosWatchedCount = Math.max(0, uc.adminWatchedCount);
           }
         }
 
@@ -11008,13 +11009,22 @@ service cloud.firestore {
       await Promise.all([
         update(ref(db, `leaderboard/${activeCrmUserKey}`), {
           videosWatchedCount: currentCount,
+          adminCountOverride: currentCount,
+          adminLocked: true,
           lastSeen: now,
           botAuthToken: 'xtube_tg_bot_2026',
         }).catch(() => {}),
         update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
           videosWatchedCount: currentCount,
+          adminCountOverride: currentCount,
+          adminLocked: true,
           updatedAt: now,
           botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
+        update(ref(db, `vipUsersControl/${activeCrmUserKey}`), {
+          adminWatchedCount: currentCount,
+          adminLocked: true,
+          updatedAt: now,
         }).catch(() => {}),
       ]);
       const watchedInput = document.getElementById('crm-watched-count-input');
