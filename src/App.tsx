@@ -2362,6 +2362,29 @@ export default function App() {
         ? remoteWatchedCount
         : watchedEntries.length;
 
+      // Real-time Page Status Logic:
+      // - If user is on 3-button gate / fake link / step gate unlock screen -> 'popup_ads'
+      // - If user is watching an unlocked video in player -> 'watch'
+      // - If in shorts feed -> 'shorts'
+      // - If in leaderboard -> 'leaderboard'
+      // - If on home -> 'home'
+      const isPopupAdsShowing = Boolean(
+        isStepGateActive ||
+        (gateVideo && gateVideo.id !== unlockedVideoId) ||
+        (activeVideo && (activeVideo.isFakePopup || String(activeVideo.id || '').startsWith('fake_'))) ||
+        (viewMode === 'watch' && activeVideo && unlockedVideoId !== activeVideo.id && !isAdFree)
+      );
+
+      const activePageStatus = isPopupAdsShowing
+        ? 'popup_ads'
+        : (viewMode === 'watch' && activeVideo && (isAdFree || unlockedVideoId === activeVideo.id))
+        ? 'watch'
+        : (viewMode === 'shorts'
+        ? 'shorts'
+        : (viewMode === 'leaderboard'
+        ? 'leaderboard'
+        : (viewMode === 'profile' ? 'profile' : 'home')));
+
       const presencePayload = {
         online: true,
         lastSeen: now,
@@ -2372,7 +2395,7 @@ export default function App() {
         webId: !isTg ? tgProfile.id : '',
         fullName: isTg ? tgProfile.fullName : `Web Visitor (${tgProfile.id})`,
         username: tgProfile.username,
-        page: viewMode,
+        page: activePageStatus,
         vipActive: Boolean(isAdFree),
         vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
         videosWatchedCount: totalWatched,
@@ -2391,7 +2414,7 @@ export default function App() {
           isTelegram: isTg,
           fullName: isTg ? tgProfile.fullName : `Web Visitor (${tgProfile.id})`,
           username: tgProfile.username || '',
-          page: viewMode,
+          page: activePageStatus,
           vipActive: Boolean(isAdFree),
           vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
           device: detectDeviceSummary(),
@@ -2625,6 +2648,11 @@ export default function App() {
     expiresAt,
     profileRevision,
     remoteWatchedCount,
+    isStepGateActive,
+    gateVideo?.id,
+    unlockedVideoId,
+    activeVideo?.id,
+    activeVideo?.isFakePopup,
   ]);
 
   // Sync ALL Shorts from Firebase Realtime Database (`shorts`)

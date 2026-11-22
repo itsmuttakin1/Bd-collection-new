@@ -9,16 +9,49 @@ const FIREBASE_RTDB_BASE =
   'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 const SEO_CORE_TAGS = [
-  'X Tube',
-  'X Tube Official',
-  'xtubeofficial',
+  'x videos',
+  'x video',
+  'pornhub',
+  'porno',
+  'xnxx.com',
+  'freeporn',
+  'xhamster.com',
+  'videos porno',
+  'video porno',
+  'xxxvideos',
+  'xxxvideo',
+  'xhampster',
+  'film porno',
+  'porno gratis',
+  'xnnx',
+  'free porno',
+  'tube',
+  'xx video',
+  'tube galore',
+  'porntube',
+  'videos pornos',
+  'xxvideos',
+  'tube pleasure',
+  'porno video',
+  'porno tube',
+  'video x',
+  'gaytube',
+  'sexfilme',
+  'kostenlose pornos',
+  'sextube',
   'xtube',
-  'x tube video',
-  'x tube shorts',
+  'tubepleasure',
+  'pornotube',
   'Bangladeshi viral video',
   'bd viral link',
   'বাংলা ভাইরাল ভিডিও',
   'desi viral video',
+  'desi 18+',
+  'room date viral',
+  'adult videos bd',
+  'X Tube',
+  'X Tube Official',
+  'xtubeofficial'
 ];
 
 const BROKEN_FILES = ['5_6230929087481782223.mp4', 'VID_20261015_090110_156.mp4'];
@@ -183,7 +216,8 @@ async function generateLiveSitemapXml(mode = 'all') {
       xml += `      <video:duration>${durationSec}</video:duration>\n`;
       xml += `      <video:view_count>${views}</video:view_count>\n`;
       xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
-      xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
+      xml += `      <video:family_friendly>no</video:family_friendly>\n`;
+      xml += `      <video:category>Adult / Viral</video:category>\n`;
       xml += `      <video:live>no</video:live>\n`;
       for (const tag of itemTags) {
         xml += `      <video:tag>${escapeXml(tag)}</video:tag>\n`;
@@ -247,7 +281,8 @@ async function generateLiveSitemapXml(mode = 'all') {
       xml += `      <video:duration>${durationSec}</video:duration>\n`;
       xml += `      <video:view_count>${views}</video:view_count>\n`;
       xml += `      <video:publication_date>${pubIso}</video:publication_date>\n`;
-      xml += `      <video:family_friendly>yes</video:family_friendly>\n`;
+      xml += `      <video:family_friendly>no</video:family_friendly>\n`;
+      xml += `      <video:category>Adult / Viral</video:category>\n`;
       xml += `      <video:live>no</video:live>\n`;
       for (const tag of shortTags) {
         xml += `      <video:tag>${escapeXml(tag)}</video:tag>\n`;
