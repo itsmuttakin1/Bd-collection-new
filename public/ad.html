@@ -3130,6 +3130,30 @@ export default {
                   ".validate": "newData.isNumber() && newData.val() >= 0"
                 }
               }
+            },
+            users: {
+              ".read": adminOnly,
+              ".write": adminOnly,
+              "$userId": {
+                ".read": adminOnly,
+                ".write": botOrAdmin
+              }
+            },
+            tg_users: {
+              ".read": adminOnly,
+              ".write": adminOnly,
+              "$tgId": {
+                ".read": adminOnly,
+                ".write": botOrAdmin
+              }
+            },
+            bot_users: {
+              ".read": adminOnly,
+              ".write": botOrAdmin
+            },
+            webapp_users: {
+              ".read": adminOnly,
+              ".write": botOrAdmin
             }
           }
         },
@@ -3292,20 +3316,37 @@ service cloud.firestore {
       try {
         let remoteList = null;
 
-        // 1. Try Cloud Firestore (`admin_storage/servers`)
+        // 1. Try Cloud Firestore (`admin_storage/servers`) — only if non-empty array
         try {
           const snap = await getDoc(doc(firestoreDb, 'admin_storage', 'servers'));
-          if (snap.exists() && Array.isArray(snap.data()?.servers)) {
+          if (snap.exists() && Array.isArray(snap.data()?.servers) && snap.data().servers.length > 0) {
             remoteList = snap.data().servers;
           }
         } catch {}
 
-        // 2. Fallback to Firebase RTDB (`settings/servers`)
-        if (!remoteList) {
+        // 2. Always also check Firebase RTDB (`settings/servers`) and use whichever has more servers
+        try {
+          const rtdbSnap = await get(ref(db, 'settings/servers'));
+          const rtdbList = rtdbSnap.exists() && Array.isArray(rtdbSnap.val()) ? rtdbSnap.val() : null;
+          if (rtdbList && rtdbList.length > 0) {
+            if (!remoteList || rtdbList.length >= remoteList.length) {
+              remoteList = rtdbList;
+            }
+          }
+        } catch {}
+
+        // 3. If still nothing, try direct REST fetch from RTDB (bypasses Firebase SDK auth issues)
+        if (!remoteList || remoteList.length === 0) {
           try {
-            const rtdbSnap = await get(ref(db, 'settings/servers'));
-            if (rtdbSnap.exists() && Array.isArray(rtdbSnap.val())) {
-              remoteList = rtdbSnap.val();
+            const restRes = await fetch(
+              'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/settings/servers.json',
+              { cache: 'no-store' }
+            );
+            if (restRes.ok) {
+              const restData = await restRes.json();
+              if (Array.isArray(restData) && restData.length > 0) {
+                remoteList = restData;
+              }
             }
           } catch {}
         }
@@ -3315,16 +3356,31 @@ service cloud.firestore {
         renderServerSelect();
         renderStorageCards();
         renderActiveServerFiles();
-        // Auto-refresh real-time storage stats for ALL servers on startup
+        // Auto-refresh real-time storage stats for ALL servers on startup (delay so DOM is ready)
         setTimeout(() => {
           refreshAllServers().catch(() => {});
-        }, 150);
+        }, 800);
       } catch {
-        servers = [];
-        activeServerId = '';
+        // Last-resort: try REST fetch directly
+        try {
+          const restRes = await fetch(
+            'https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/settings/servers.json',
+            { cache: 'no-store' }
+          );
+          if (restRes.ok) {
+            const restData = await restRes.json();
+            if (Array.isArray(restData) && restData.length > 0) {
+              servers = sanitizeServerList(restData);
+              activeServerId = servers[0]?.id || '';
+            }
+          }
+        } catch {}
         renderServerSelect();
         renderStorageCards();
         renderActiveServerFiles();
+        if (servers.length > 0) {
+          setTimeout(() => { refreshAllServers().catch(() => {}); }, 800);
+        }
       }
     };
 

@@ -141,6 +141,30 @@
           ".validate": "newData.isNumber() && newData.val() >= 0"
         }
       }
+    },
+    "users": {
+      ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$userId": {
+        ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
+      }
+    },
+    "tg_users": {
+      ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$tgId": {
+        ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
+      }
+    },
+    "bot_users": {
+      ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
+    },
+    "webapp_users": {
+      ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
     }
   }
 }

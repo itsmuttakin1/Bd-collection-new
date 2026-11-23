@@ -161,7 +161,7 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
       };
       try {
         localStorage.setItem(TG_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-      } catch {}
+      } catch { }
       return profile;
     }
 
@@ -185,7 +185,7 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
       };
       try {
         localStorage.setItem(TG_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-      } catch {}
+      } catch { }
       return profile;
     }
 
@@ -200,7 +200,7 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
         };
       }
     }
-  } catch {}
+  } catch { }
 
   // Browser fallback when opened outside Telegram: generate a persistent Web Visitor tag (`Web-vXXXXXX`)
   let webVisitorTag = 'Web-v849201';
@@ -213,7 +213,7 @@ const resolveTelegramUserProfile = (): TelegramUserProfile => {
       webVisitorTag = `Web-v${randDigits}`;
       localStorage.setItem('xtube_web_visitor_tag', webVisitorTag);
     }
-  } catch {}
+  } catch { }
 
   return {
     id: webVisitorTag,
@@ -282,8 +282,8 @@ const extractTelegramStartParamRaw = (): string => {
           if (sStart && sStart.trim() && sStart.trim() !== 'home') return sStart.trim();
         }
       }
-    } catch {}
-  } catch {}
+    } catch { }
+  } catch { }
   return '';
 };
 
@@ -312,7 +312,7 @@ const getRequestedShortIdFromUrl = (allowTelegramStartParam = false): string | n
         return cleanIncomingShortParam(startParam);
       }
     }
-  } catch {}
+  } catch { }
   return null;
 };
 
@@ -350,7 +350,7 @@ const getRequestedVideoIdFromUrl = (allowTelegramStartParam = false): string | n
         hashParams.get('s');
       if (hv && hv.trim() && hv.trim() !== 'feed') return cleanIncomingVideoParam(hv.trim());
     }
-  } catch {}
+  } catch { }
   return null;
 };
 
@@ -360,7 +360,7 @@ const buildFakePopupVideoObject = (fakeId: string, val?: any): VideoItem => {
     try {
       const params = new URLSearchParams(window.location.search);
       urlTitle = (params.get('title') || params.get('t') || '').trim();
-    } catch {}
+    } catch { }
   }
   const title =
     String(val?.title || urlTitle || '🔥 নতুন এক্সক্লুসিভ ভাইরাল গোপন ফুল ভিডিও ফাঁস 🥵💋').trim();
@@ -393,7 +393,7 @@ const findMatchingVideo = (list: VideoItem[], rawTarget: string | null): VideoIt
   let decoded = target;
   try {
     decoded = decodeURIComponent(target).trim();
-  } catch {}
+  } catch { }
   const singleUnderscore = decoded.replace(/__/g, '_');
 
   // 1. Exact or decoded Firebase key / inner rawId match
@@ -455,7 +455,7 @@ const findMatchingShort = (list: ShortItem[], rawTarget: string | null): ShortIt
   let decoded = target;
   try {
     decoded = decodeURIComponent(target).trim();
-  } catch {}
+  } catch { }
   const singleUnderscore = decoded.replace(/__/g, '_');
 
   const exact = list.find(
@@ -603,7 +603,7 @@ const loadUserTasteProfile = (): UserTasteProfile => {
         likedHistory: parsed.likedHistory || {},
       };
     }
-  } catch {}
+  } catch { }
   return {
     tagScores: {},
     categoryScores: {},
@@ -835,7 +835,7 @@ export default function App() {
         root.classList.remove('dark');
         localStorage.setItem('xtube_theme_mode', 'light');
       }
-    } catch {}
+    } catch { }
   }, [isDarkMode]);
 
   // 3-Step Smartlink Verification State (Step 1 -> Step 2 -> Step 3, 20s each + Mini WebView + 1x Popunder on Next)
@@ -895,7 +895,7 @@ export default function App() {
         message:
           String(
             val?.message ||
-              'বর্তমানে আমাদের ভিডিও সার্ভার আপগ্রেড ও মেইনটেন্যান্সের কাজ চলছে। এই মুহূর্তে কোনো ভিডিও প্লে করা যাবে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
+            'বর্তমানে আমাদের ভিডিও সার্ভার আপগ্রেড ও মেইনটেন্যান্সের কাজ চলছে। এই মুহূর্তে কোনো ভিডিও প্লে করা যাবে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
           ).trim(),
         updatedAt: Number(val?.updatedAt) || 0,
       };
@@ -913,14 +913,14 @@ export default function App() {
       .then((json) => {
         if (json !== null) applyMaintenanceVal(json);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const unsubMaint = onValue(
       ref(db, 'settings/maintenance'),
       (snap) => {
         applyMaintenanceVal(snap.val());
       },
-      () => {}
+      () => { }
     );
 
     const applyFakeLinksVal = (val: any) => {
@@ -971,14 +971,14 @@ export default function App() {
       .then((json) => {
         if (json && typeof json === 'object') applyFakeLinksVal(json);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const unsubFake = onValue(
       ref(db, 'fakeLinks'),
       (snap) => {
         applyFakeLinksVal(snap.val());
       },
-      () => {}
+      () => { }
     );
 
     return () => {
@@ -1125,7 +1125,7 @@ export default function App() {
         tgSessionsRaw = snap.val() || {};
         recomputeLeaderboard();
       },
-      () => {}
+      () => { }
     );
 
     const unsubPresence = onValue(
@@ -1134,7 +1134,7 @@ export default function App() {
         presenceRaw = snap.val() || {};
         recomputeLeaderboard();
       },
-      () => {}
+      () => { }
     );
 
     return () => {
@@ -1166,10 +1166,10 @@ export default function App() {
         tg.expand();
         try {
           tg.requestFullscreen?.();
-        } catch {}
+        } catch { }
         try {
           tg.disableVerticalSwipes?.();
-        } catch {}
+        } catch { }
         if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0b0e14');
         if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0b0e14');
 
@@ -1190,7 +1190,7 @@ export default function App() {
           setTgProfile(freshProfile);
           setAvatarLoadFailed(false);
         }
-      } catch {}
+      } catch { }
     }
 
     // Check if Telegram populated initDataUnsafe.start_param for Direct Mini App links (?startapp=vid_... or ?startapp=short_...)
@@ -1208,7 +1208,7 @@ export default function App() {
           setViewMode('watch');
         }
       }
-    } catch {}
+    } catch { }
 
     // Also check if the user clicked a `?start=vid_<id>` link in Telegram Bot and then opened the Mini App via the Menu Button!
     if (resolvedUserId && /^\d+$/.test(resolvedUserId)) {
@@ -1229,7 +1229,7 @@ export default function App() {
               pendingVideoId: null,
               pendingAt: null,
               botAuthToken: 'xtube_tg_bot_2026',
-            }).catch(() => {});
+            }).catch(() => { });
 
             if (!userNavigatedRef.current && !pendingSharedIdRef.current) {
               const cleanVid = cleanIncomingVideoParam(pendingVid);
@@ -1245,7 +1245,7 @@ export default function App() {
             }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [tgProfile.id, tgProfile.isRealTelegramUser]);
 
@@ -1270,11 +1270,11 @@ export default function App() {
       setActiveShortId(null);
       setViewMode('home');
       setActiveVideo(null);
-    setGateVideo(null);
-    setUnlockedVideoId(null);
+      setGateVideo(null);
+      setUnlockedVideoId(null);
       try {
         window.history.pushState({}, '', '/');
-      } catch {}
+      } catch { }
     };
 
     try {
@@ -1290,12 +1290,12 @@ export default function App() {
       } else {
         backButton.hide();
       }
-    } catch {}
+    } catch { }
 
     return () => {
       try {
         backButton.offClick(handleBack);
-      } catch {}
+      } catch { }
     };
   }, [viewMode, stepGateVideo, stepGatePendingId]);
 
@@ -1503,7 +1503,7 @@ export default function App() {
         primaryPkgs = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
         syncMergedPackages();
       },
-      () => {}
+      () => { }
     );
 
     const unsubPkg2 = onValue(
@@ -1512,7 +1512,7 @@ export default function App() {
         fallbackPkgs = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
         syncMergedPackages();
       },
-      () => {}
+      () => { }
     );
 
     let primaryCfg: Record<string, any> = {};
@@ -1527,8 +1527,8 @@ export default function App() {
           primaryCfg.serviceEnabled !== undefined
             ? primaryCfg.serviceEnabled !== false
             : fallbackCfg.serviceEnabled !== undefined
-            ? fallbackCfg.serviceEnabled !== false
-            : true,
+              ? fallbackCfg.serviceEnabled !== false
+              : true,
       };
       if (merged.botUsername) {
         setActiveTelegramBotUsername(
@@ -1540,7 +1540,7 @@ export default function App() {
       const rawToken = String((merged as any).botToken || '').trim();
       if (!hasVerifiedBotWebhook && rawToken && rawToken.includes(':')) {
         hasVerifiedBotWebhook = true;
-        fetch('/api/bot-keepalive').catch(() => {});
+        fetch('/api/bot-keepalive').catch(() => { });
         fetch('https://xtubeofficial.pages.dev/api/telegram-bot', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1568,11 +1568,11 @@ export default function App() {
                       allowed_updates: ['message', 'edited_message', 'callback_query'],
                       drop_pending_updates: false,
                     }),
-                  }).catch(() => {});
+                  }).catch(() => { });
                 }
               });
           })
-          .catch(() => {});
+          .catch(() => { });
       }
       setStoreConfig(merged);
       if (merged.serviceEnabled === false) {
@@ -1586,7 +1586,7 @@ export default function App() {
         primaryCfg = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
         syncMergedConfig();
       },
-      () => {}
+      () => { }
     );
 
     const unsubCfg2 = onValue(
@@ -1595,7 +1595,7 @@ export default function App() {
         fallbackCfg = snap.val() && typeof snap.val() === 'object' ? snap.val() : {};
         syncMergedConfig();
       },
-      () => {}
+      () => { }
     );
 
     const unsubBcastJob = onValue(
@@ -1609,11 +1609,11 @@ export default function App() {
           job.remainingChatIds.length > 0
         ) {
           setTimeout(() => {
-            fetch('/api/bot-keepalive').catch(() => {});
+            fetch('/api/bot-keepalive').catch(() => { });
           }, 800);
         }
       },
-      () => {}
+      () => { }
     );
 
     return () => {
@@ -1666,7 +1666,7 @@ export default function App() {
       update(ref(db, `telegramBotSessions/${crmKey}`), {
         personalNotice: updatedNotice,
         botAuthToken: 'xtube_tg_bot_2026',
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -1970,13 +1970,13 @@ export default function App() {
         const featuredHomeVideo =
           videoNodes.length > 0
             ? [
-                {
-                  ...videoNodes[0],
-                  '@id': `${SITE_ORIGIN}/#featured-video`,
-                  url: `${SITE_ORIGIN}/`,
-                  embedUrl: `${SITE_ORIGIN}/`,
-                },
-              ]
+              {
+                ...videoNodes[0],
+                '@id': `${SITE_ORIGIN}/#featured-video`,
+                url: `${SITE_ORIGIN}/`,
+                embedUrl: `${SITE_ORIGIN}/`,
+              },
+            ]
             : [];
 
         const multiVideoGraph = {
@@ -2024,7 +2024,7 @@ export default function App() {
       } else {
         window.history.pushState({}, '', url.toString());
       }
-    } catch {}
+    } catch { }
   };
 
   const syncUrlWithShort = (shortId: string | null, replace = false) => {
@@ -2047,7 +2047,7 @@ export default function App() {
       } else {
         window.history.pushState({}, '', url.toString());
       }
-    } catch {}
+    } catch { }
   };
 
   const goHome = () => {
@@ -2122,8 +2122,8 @@ export default function App() {
         setSharedVideoId(null);
         setActiveShortId(null);
         setActiveVideo(null);
-    setGateVideo(null);
-    setUnlockedVideoId(null);
+        setGateVideo(null);
+        setUnlockedVideoId(null);
         setViewMode('home');
       }
     };
@@ -2150,9 +2150,9 @@ export default function App() {
       localStorage.setItem('bd_collection_lang', newCode);
       localStorage.setItem('bd_collection_lang_manual', '1');
       if (tgProfile.isRealTelegramUser && /^[0-9]+$/.test(tgProfile.id)) {
-        set(ref(db, `telegramBotSessions/${tgProfile.id}/lang`), newCode).catch(() => {});
+        set(ref(db, `telegramBotSessions/${tgProfile.id}/lang`), newCode).catch(() => { });
         set(ref(db, `telegramBotSessions/${tgProfile.id}/botAuthToken`), 'xtube_tg_bot_2026').catch(
-          () => {}
+          () => { }
         );
       }
     }
@@ -2169,13 +2169,13 @@ export default function App() {
       lastSeen: Date.now(),
       botAuthToken: 'xtube_tg_bot_2026',
     };
-    set(ref(db, `telegramBotSessions/_subscribers/${tgProfile.id}`), subPayload).catch(() => {});
-    set(ref(db, `telegramBotSessions/${tgProfile.id}/lang`), langCode).catch(() => {});
-    set(ref(db, `telegramBotSessions/${tgProfile.id}/chatId`), tgProfile.id).catch(() => {});
-    set(ref(db, `telegramBotSessions/${tgProfile.id}/fullName`), tgProfile.fullName).catch(() => {});
-    set(ref(db, `telegramBotSessions/${tgProfile.id}/username`), tgProfile.username).catch(() => {});
+    set(ref(db, `telegramBotSessions/_subscribers/${tgProfile.id}`), subPayload).catch(() => { });
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/lang`), langCode).catch(() => { });
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/chatId`), tgProfile.id).catch(() => { });
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/fullName`), tgProfile.fullName).catch(() => { });
+    set(ref(db, `telegramBotSessions/${tgProfile.id}/username`), tgProfile.username).catch(() => { });
     set(ref(db, `telegramBotSessions/${tgProfile.id}/botAuthToken`), 'xtube_tg_bot_2026').catch(
-      () => {}
+      () => { }
     );
   }, [tgProfile.id, tgProfile.isRealTelegramUser, tgProfile.fullName, tgProfile.username, langCode]);
 
@@ -2185,7 +2185,7 @@ export default function App() {
     const viewsRef = ref(db, `videos/${videoId}/views`);
     runTransaction(viewsRef, (currentViews) => {
       return (Number(currentViews) || 0) + 1;
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   const incrementVideoLikes = (videoId: string) => {
@@ -2193,7 +2193,7 @@ export default function App() {
     const likesRef = ref(db, `videos/${videoId}/likes`);
     runTransaction(likesRef, (currentLikes) => {
       return (Number(currentLikes) || 0) + 1;
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   // Increment Short views & likes atomically in Firebase RTDB (`shorts/$shortId/views` & `likes`)
@@ -2202,7 +2202,7 @@ export default function App() {
     const viewsRef = ref(db, `shorts/${shortId}/views`);
     runTransaction(viewsRef, (currentViews) => {
       return (Number(currentViews) || 0) + 1;
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   const incrementShortLikes = (shortId: string) => {
@@ -2210,7 +2210,7 @@ export default function App() {
     const likesRef = ref(db, `shorts/${shortId}/likes`);
     runTransaction(likesRef, (currentLikes) => {
       return (Number(currentLikes) || 0) + 1;
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   // Track Total Users & Live Online Users in Firebase Realtime Database (`stats/totalUsers` & `presence/$visitorId`)
@@ -2231,7 +2231,7 @@ export default function App() {
     let alreadyCounted = false;
     try {
       alreadyCounted = localStorage.getItem(countedKey) === '1';
-    } catch {}
+    } catch { }
 
     if (!alreadyCounted) {
       const totalUsersRef = ref(db, 'stats/totalUsers');
@@ -2240,10 +2240,10 @@ export default function App() {
           if (res.committed) {
             try {
               localStorage.setItem(countedKey, '1');
-            } catch {}
+            } catch { }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       const fallbackStatsRef = ref(db, 'telegramBotSessions/_stats');
       runTransaction(fallbackStatsRef, (curr) => {
@@ -2256,10 +2256,10 @@ export default function App() {
           if (res.committed) {
             try {
               localStorage.setItem(countedKey, '1');
-            } catch {}
+            } catch { }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     // 2. Count session visit into Firebase `stats/totalVisits` + `telegramBotSessions/_stats` once per browser session
@@ -2267,7 +2267,7 @@ export default function App() {
     let sessionCounted = false;
     try {
       sessionCounted = sessionStorage.getItem(sessionKey) === '1';
-    } catch {}
+    } catch { }
 
     if (!sessionCounted) {
       const totalVisitsRef = ref(db, 'stats/totalVisits');
@@ -2276,10 +2276,10 @@ export default function App() {
           if (res.committed) {
             try {
               sessionStorage.setItem(sessionKey, '1');
-            } catch {}
+            } catch { }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       const fallbackStatsRef = ref(db, 'telegramBotSessions/_stats');
       runTransaction(fallbackStatsRef, (curr) => {
@@ -2292,10 +2292,10 @@ export default function App() {
           if (res.committed) {
             try {
               sessionStorage.setItem(sessionKey, '1');
-            } catch {}
+            } catch { }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     // 3. Track Live Online User Presence in Firebase `presence/$visitorId` + `telegramBotSessions/_online/$visitorId` + Server Heartbeat
@@ -2314,21 +2314,21 @@ export default function App() {
       const os = /Android/i.test(ua)
         ? 'Android'
         : /iPhone|iPad|iPod/i.test(ua)
-        ? 'iOS'
-        : /Windows/i.test(ua)
-        ? 'Windows'
-        : /Mac/i.test(ua)
-        ? 'Mac'
-        : 'Linux';
+          ? 'iOS'
+          : /Windows/i.test(ua)
+            ? 'Windows'
+            : /Mac/i.test(ua)
+              ? 'Mac'
+              : 'Linux';
       const browser = /Telegram/i.test(ua)
         ? 'Telegram WebView'
         : /Chrome/i.test(ua)
-        ? 'Chrome'
-        : /Safari/i.test(ua)
-        ? 'Safari'
-        : /Firefox/i.test(ua)
-        ? 'Firefox'
-        : 'Browser';
+          ? 'Chrome'
+          : /Safari/i.test(ua)
+            ? 'Safari'
+            : /Firefox/i.test(ua)
+              ? 'Firefox'
+              : 'Browser';
       return `${browser} · ${os}`;
     };
 
@@ -2378,12 +2378,12 @@ export default function App() {
       const activePageStatus = isPopupAdsShowing
         ? 'popup_ads'
         : (viewMode === 'watch' && activeVideo && (isAdFree || unlockedVideoId === activeVideo.id))
-        ? 'watch'
-        : (viewMode === 'shorts'
-        ? 'shorts'
-        : (viewMode === 'leaderboard'
-        ? 'leaderboard'
-        : (viewMode === 'profile' ? 'profile' : 'home')));
+          ? 'watch'
+          : (viewMode === 'shorts'
+            ? 'shorts'
+            : (viewMode === 'leaderboard'
+              ? 'leaderboard'
+              : (viewMode === 'profile' ? 'profile' : 'home')));
 
       const presencePayload = {
         online: true,
@@ -2404,8 +2404,8 @@ export default function App() {
         botAuthToken: 'xtube_tg_bot_2026',
       };
 
-      set(userPresenceRef, presencePayload).catch(() => {});
-      set(fallbackOnlineRef, presencePayload).catch(() => {});
+      set(userPresenceRef, presencePayload).catch(() => { });
+      set(fallbackOnlineRef, presencePayload).catch(() => { });
 
       if (crmKey) {
         update(ref(db, `telegramBotSessions/${crmKey}`), {
@@ -2421,7 +2421,7 @@ export default function App() {
           lastSeen: now,
           updatedAt: now,
           botAuthToken: 'xtube_tg_bot_2026',
-        }).catch(() => {});
+        }).catch(() => { });
 
         // Real-time Leaderboard Entry Sync (updates online presence & profile without overwriting admin's count)
         update(ref(db, `leaderboard/${crmKey}`), {
@@ -2435,7 +2435,7 @@ export default function App() {
           profileFrame: profileFrame || 'none',
           lastSeen: now,
           botAuthToken: 'xtube_tg_bot_2026',
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       fetch('/api/visitor-ping', {
@@ -2449,7 +2449,7 @@ export default function App() {
             setLiveOnlineCount((prev) => Math.max(prev, data.onlineUsers));
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     const crmKeyForNotice = tgProfile.isRealTelegramUser
@@ -2469,13 +2469,13 @@ export default function App() {
               const next = Math.max(prev, remoteVal);
               try {
                 localStorage.setItem(`xtube_daily_watch_count_${todayKey}`, String(next));
-              } catch {}
+              } catch { }
               return next;
             });
           }
         }
       },
-      () => {}
+      () => { }
     );
 
     const userCrmRef = ref(db, `telegramBotSessions/${crmKeyForNotice}`);
@@ -2510,7 +2510,7 @@ export default function App() {
           setPersonalNoticePopupOpen(false);
         }
       },
-      () => {}
+      () => { }
     );
 
     const userLbSingleRef = ref(db, `leaderboard/${crmKeyForNotice}`);
@@ -2527,7 +2527,7 @@ export default function App() {
           }
         }
       },
-      () => {}
+      () => { }
     );
 
     const unsubConnected = onValue(connectedRef, (snap) => {
@@ -2536,14 +2536,14 @@ export default function App() {
         setIsUserOnline(true);
         onDisconnect(userPresenceRef)
           .remove()
-          .catch(() => {});
+          .catch(() => { });
         onDisconnect(fallbackOnlineRef)
           .update({
             online: false,
             lastSeen: Date.now(),
             botAuthToken: 'xtube_tg_bot_2026',
           })
-          .catch(() => {});
+          .catch(() => { });
         writePresence();
       }
     });
@@ -2568,7 +2568,7 @@ export default function App() {
           setLiveOnlineCount((prev) => Math.max(prev, activeCount));
         }
       },
-      () => {}
+      () => { }
     );
 
     const unsubFallbackOnline = onValue(
@@ -2591,7 +2591,7 @@ export default function App() {
         }
         setLiveOnlineCount(Math.max(1, activeCount));
       },
-      () => {}
+      () => { }
     );
 
     const handleBrowserOnline = () => {
@@ -2609,12 +2609,12 @@ export default function App() {
     const heartbeatTimer = window.setInterval(writePresence, 15000);
 
     const handleBeforeUnload = () => {
-      remove(userPresenceRef).catch(() => {});
+      remove(userPresenceRef).catch(() => { });
       update(fallbackOnlineRef, {
         online: false,
         lastSeen: Date.now(),
         botAuthToken: 'xtube_tg_bot_2026',
-      }).catch(() => {});
+      }).catch(() => { });
       try {
         navigator.sendBeacon?.(
           '/api/visitor-ping',
@@ -2622,7 +2622,7 @@ export default function App() {
             type: 'application/json',
           })
         );
-      } catch {}
+      } catch { }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -2727,7 +2727,7 @@ export default function App() {
       let decodedShort = bootShortId.trim();
       try {
         decodedShort = decodeURIComponent(decodedShort).trim();
-      } catch {}
+      } catch { }
 
       fetch(
         `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts/${encodeURIComponent(
@@ -2757,7 +2757,7 @@ export default function App() {
             setViewMode('shorts');
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     fetch('https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/shorts.json', {
@@ -2769,14 +2769,14 @@ export default function App() {
           applyShortsAndResolveUrl(json);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const unsubShorts = onValue(
       shortsRef,
       (snapshot) => {
         applyShortsAndResolveUrl(snapshot.val());
       },
-      () => {}
+      () => { }
     );
 
     return () => unsubShorts();
@@ -2817,7 +2817,7 @@ export default function App() {
           setNotices(parseNoticesData(json));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const noticesRef = ref(db, 'notices');
     const unsubNotices = onValue(
@@ -2825,7 +2825,7 @@ export default function App() {
       (snapshot) => {
         setNotices(parseNoticesData(snapshot.val()));
       },
-      () => {}
+      () => { }
     );
 
     return () => unsubNotices();
@@ -2927,7 +2927,7 @@ export default function App() {
           let decodedFakeId = urlVidId.trim();
           try {
             decodedFakeId = decodeURIComponent(decodedFakeId).trim();
-          } catch {}
+          } catch { }
           fetch(
             `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/fakeLinks/${encodeURIComponent(
               decodedFakeId
@@ -2991,7 +2991,7 @@ export default function App() {
           let decodedId = urlVidId.trim();
           try {
             decodedId = decodeURIComponent(decodedId).trim();
-          } catch {}
+          } catch { }
 
           fetch(
             `https://video-platform-7c031-default-rtdb.asia-southeast1.firebasedatabase.app/videos/${encodeURIComponent(
@@ -3128,7 +3128,7 @@ export default function App() {
           applyRawVideosData(json);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const unsubscribe = onValue(
       videosRef,
@@ -3195,7 +3195,7 @@ export default function App() {
 
       try {
         localStorage.setItem(ALGO_STORAGE_KEY, JSON.stringify(updated));
-      } catch {}
+      } catch { }
       return updated;
     });
 
@@ -3215,15 +3215,15 @@ export default function App() {
     syncVipDailyWatchedCount(nextCount);
     try {
       localStorage.setItem(`xtube_daily_watch_count_${todayKey}`, String(nextCount));
-    } catch {}
+    } catch { }
     const crmKey = getUserCrmKey();
     if (crmKey) {
-      set(ref(db, `userDailyVideoUsage/${crmKey}/${todayKey}`), nextCount).catch(() => {});
+      set(ref(db, `userDailyVideoUsage/${crmKey}/${todayKey}`), nextCount).catch(() => { });
       update(ref(db, `telegramBotSessions/${crmKey}`), {
         dailyWatchedCount: nextCount,
         dailyWatchedDate: todayKey,
         botAuthToken: 'xtube_tg_bot_2026',
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 
@@ -3552,26 +3552,26 @@ export default function App() {
     const fallbackVideoShorts: ShortItem[] =
       uploadedPool.length < 10
         ? videos
-            .filter((v) => !usedIds.has(v.id))
-            .slice(0, Math.max(0, 12 - uploadedPool.length))
-            .map((v) => ({
-              id: v.id,
-              title: v.title,
-              hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
-              keywords: v.keywords,
-              videoUrl: v.videoUrl || v.url || '',
-              url: v.url || v.videoUrl || '',
-              r2Key: v.r2Key,
-              thumbnail: v.thumbnail || v.thumbnailUrl || '',
-              thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
-              duration: v.duration || '00:35',
-              views: v.views || 0,
-              likes: v.likes || 0,
-              createdAt: v.createdAt,
-              addedAt: v.addedAt || v.createdAt,
-              author: v.author || 'X Tube',
-              isLongVideo: true,
-            }))
+          .filter((v) => !usedIds.has(v.id))
+          .slice(0, Math.max(0, 12 - uploadedPool.length))
+          .map((v) => ({
+            id: v.id,
+            title: v.title,
+            hashtags: v.hashtags || '#Shorts #BdViral #18Plus #DesiHot #ViralGirl',
+            keywords: v.keywords,
+            videoUrl: v.videoUrl || v.url || '',
+            url: v.url || v.videoUrl || '',
+            r2Key: v.r2Key,
+            thumbnail: v.thumbnail || v.thumbnailUrl || '',
+            thumbnailUrl: v.thumbnailUrl || v.thumbnail || '',
+            duration: v.duration || '00:35',
+            views: v.views || 0,
+            likes: v.likes || 0,
+            createdAt: v.createdAt,
+            addedAt: v.addedAt || v.createdAt,
+            author: v.author || 'X Tube',
+            isLongVideo: true,
+          }))
         : [];
 
     const combinedPool: ShortItem[] = [...uploadedPool, ...fallbackVideoShorts];
@@ -3741,9 +3741,8 @@ export default function App() {
 
   return (
     <div
-      className={`w-full max-w-full overflow-x-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 ${
-        isDarkMode ? 'bg-[#0b0e14] text-zinc-100' : 'bg-slate-50 text-slate-900'
-      } flex flex-col ${adBlockActive ? 'h-screen overflow-hidden' : ''}`}
+      className={`w-full max-w-full overflow-x-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 ${isDarkMode ? 'bg-[#0b0e14] text-zinc-100' : 'bg-slate-50 text-slate-900'
+        } flex flex-col ${adBlockActive ? 'h-screen overflow-hidden' : ''}`}
       style={{ minHeight: 'var(--tg-viewport-stable-height, 100dvh)' }}
       dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
     >
@@ -3790,13 +3789,12 @@ export default function App() {
                   return (
                     <div
                       key={stepNum}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
-                        isDone
-                          ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
-                          : isCurrent
+                      className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${isDone
+                        ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                        : isCurrent
                           ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
                           : 'bg-slate-800/80 border border-slate-700/70 text-slate-400'
-                      }`}
+                        }`}
                     >
                       {isDone ? (
                         <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -3816,11 +3814,10 @@ export default function App() {
             <div className="flex items-center justify-between gap-2.5 bg-[#0b0e14] border border-slate-800/90 rounded-xl px-3 py-2">
               <div className="flex items-center gap-2 min-w-0">
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-extrabold shrink-0 ${
-                    stepTimer > 0
-                      ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
-                      : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
-                  }`}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-extrabold shrink-0 ${stepTimer > 0
+                    ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300'
+                    : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                    }`}
                 >
                   {stepTimer > 0 ? `${stepTimer}s` : '✓'}
                 </div>
@@ -3834,8 +3831,8 @@ export default function App() {
                     {stepTimer > 0
                       ? '👇 নিচের বিজ্ঞাপনে ১ বার ক্লিক করলে দ্রুত আনলক হবে!'
                       : currentStep < 3
-                      ? ui.clickNextStepDesc(currentStep + 1)
-                      : ui.clickPlayVideoDesc}
+                        ? ui.clickNextStepDesc(currentStep + 1)
+                        : ui.clickPlayVideoDesc}
                   </p>
                 </div>
               </div>
@@ -3844,11 +3841,10 @@ export default function App() {
                 type="button"
                 disabled={stepTimer > 0}
                 onClick={handleCompleteCurrentStep}
-                className={`px-3.5 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shrink-0 transition-all ${
-                  stepTimer > 0
-                    ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed opacity-80'
-                    : 'bg-gradient-to-r from-emerald-500 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 shadow-lg shadow-emerald-500/30 cursor-pointer active:scale-95 animate-pulse'
-                }`}
+                className={`px-3.5 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shrink-0 transition-all ${stepTimer > 0
+                  ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed opacity-80'
+                  : 'bg-gradient-to-r from-emerald-500 to-amber-400 hover:from-emerald-400 hover:to-amber-300 text-slate-950 shadow-lg shadow-emerald-500/30 cursor-pointer active:scale-95 animate-pulse'
+                  }`}
               >
                 {stepTimer > 0 ? (
                   <>
@@ -3876,9 +3872,8 @@ export default function App() {
             {/* Smooth 20-Second Progress Bar */}
             <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
               <div
-                className={`h-full transition-all duration-500 ${
-                  stepTimer === 0 ? 'bg-emerald-400' : 'bg-red-500'
-                }`}
+                className={`h-full transition-all duration-500 ${stepTimer === 0 ? 'bg-emerald-400' : 'bg-red-500'
+                  }`}
                 style={{ width: `${stepProgressPercent}%` }}
               />
             </div>
@@ -3888,11 +3883,10 @@ export default function App() {
               <button
                 type="button"
                 onClick={handleVerifyStepAdClick}
-                className={`w-full sm:w-auto flex-1 py-2 px-3 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                  stepAdClicked
-                    ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
-                    : 'bg-gradient-to-r from-red-600 via-amber-500 to-red-600 border-amber-300 text-white shadow-lg shadow-red-600/30 animate-pulse'
-                }`}
+                className={`w-full sm:w-auto flex-1 py-2 px-3 rounded-xl border text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer transition-all ${stepAdClicked
+                  ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
+                  : 'bg-gradient-to-r from-red-600 via-amber-500 to-red-600 border-amber-300 text-white shadow-lg shadow-red-600/30 animate-pulse'
+                  }`}
               >
                 {stepAdClicked ? (
                   <>
@@ -3996,11 +3990,10 @@ export default function App() {
                 setRedeemFeedback(null);
                 setRedeemModalOpen(true);
               }}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                isAdFree
-                  ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300'
-                  : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
-              }`}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${isAdFree
+                ? 'bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/60 text-emerald-300'
+                : 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/50 text-amber-300'
+                }`}
               title={ui.redeemModalTitle}
             >
               {isAdFree ? (
@@ -4026,11 +4019,10 @@ export default function App() {
               setViewMode('leaderboard');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
-              viewMode === 'leaderboard'
-                ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
-                : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-300'
-            }`}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-full border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${viewMode === 'leaderboard'
+              ? 'bg-amber-500/20 border-amber-500/70 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
+              : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-300'
+              }`}
             title="🏆 লিডারবোর্ড - শীর্ষ ইউজার তালিকা"
           >
             <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
@@ -4041,13 +4033,12 @@ export default function App() {
           <button
             type="button"
             onClick={() => setViewMode('profile')}
-            className={`pl-1.5 pr-2.5 py-1 rounded-full border flex items-center gap-2 transition-all cursor-pointer ${
-              viewMode === 'profile'
-                ? 'bg-emerald-500/20 border-emerald-500/60 text-white'
-                : activeFrameDef
+            className={`pl-1.5 pr-2.5 py-1 rounded-full border flex items-center gap-2 transition-all cursor-pointer ${viewMode === 'profile'
+              ? 'bg-emerald-500/20 border-emerald-500/60 text-white'
+              : activeFrameDef
                 ? 'bg-[#181e2c] hover:bg-[#1e2638] border-amber-500/50 text-zinc-100'
                 : 'bg-[#161b26] hover:bg-[#1c2230] border-slate-800 text-zinc-100'
-            }`}
+              }`}
             title={ui.profile}
           >
             <VipFramedAvatar
@@ -4083,11 +4074,10 @@ export default function App() {
             <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-3.5">
               <div className="flex items-center gap-2.5">
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    isAdFree
-                      ? 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400'
-                      : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
-                  }`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isAdFree
+                    ? 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400'
+                    : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
+                    }`}
                 >
                   {isAdFree ? <ShieldCheck className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
                 </div>
@@ -4158,11 +4148,10 @@ export default function App() {
 
               {redeemFeedback && (
                 <div
-                  className={`p-3 rounded-xl border text-xs leading-relaxed ${
-                    redeemFeedback.ok
-                      ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
-                      : 'bg-red-950/60 border-red-800 text-red-200'
-                  }`}
+                  className={`p-3 rounded-xl border text-xs leading-relaxed ${redeemFeedback.ok
+                    ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                    : 'bg-red-950/60 border-red-800 text-red-200'
+                    }`}
                 >
                   {redeemFeedback.text}
                 </div>
@@ -4284,11 +4273,10 @@ export default function App() {
 
             {redeemFeedback && (
               <div
-                className={`p-3 rounded-xl border text-xs ${
-                  redeemFeedback.ok
-                    ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
-                    : 'bg-red-950/60 border-red-800 text-red-200'
-                }`}
+                className={`p-3 rounded-xl border text-xs ${redeemFeedback.ok
+                  ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                  : 'bg-red-950/60 border-red-800 text-red-200'
+                  }`}
               >
                 {redeemFeedback.text}
               </div>
@@ -4329,11 +4317,10 @@ export default function App() {
                 setSortByTrending(false);
                 goHome();
               }}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                viewMode === 'home' && !sortByTrending
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-300 hover:bg-slate-900'
-              }`}
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${viewMode === 'home' && !sortByTrending
+                ? 'bg-slate-800 text-white'
+                : 'text-slate-300 hover:bg-slate-900'
+                }`}
             >
               <Home className="w-5 h-5" />
               <span>{t.home}</span>
@@ -4351,11 +4338,10 @@ export default function App() {
             <button
               type="button"
               onClick={handleSelectTrending}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                sortByTrending
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-300 hover:bg-slate-900'
-              }`}
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${sortByTrending
+                ? 'bg-slate-800 text-white'
+                : 'text-slate-300 hover:bg-slate-900'
+                }`}
             >
               <Flame className="w-5 h-5 text-red-500" />
               <span>{t.trending}</span>
@@ -4367,11 +4353,10 @@ export default function App() {
                 setViewMode('leaderboard');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
-                viewMode === 'leaderboard'
-                  ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30'
-                  : 'text-slate-300 hover:bg-slate-900'
-              }`}
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${viewMode === 'leaderboard'
+                ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30'
+                : 'text-slate-300 hover:bg-slate-900'
+                }`}
             >
               <Trophy className="w-5 h-5 text-amber-400" />
               <span>লিডারবোর্ড</span>
@@ -4411,11 +4396,10 @@ export default function App() {
 
               {/* Main User Card matching uploaded screenshot */}
               <div
-                className={`rounded-3xl bg-[#161b24] border p-5 sm:p-6 shadow-2xl space-y-5 transition-all ${
-                  activeFrameDef
-                    ? 'border-amber-500/60 shadow-[0_0_30px_rgba(245,158,11,0.12)]'
-                    : 'border-slate-800/90'
-                }`}
+                className={`rounded-3xl bg-[#161b24] border p-5 sm:p-6 shadow-2xl space-y-5 transition-all ${activeFrameDef
+                  ? 'border-amber-500/60 shadow-[0_0_30px_rgba(245,158,11,0.12)]'
+                  : 'border-slate-800/90'
+                  }`}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0">
@@ -4452,11 +4436,10 @@ export default function App() {
                           {tgProfile.isRealTelegramUser ? `TG ID: ${tgProfile.id}` : `🌐 ${tgProfile.id}`}
                         </span>
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${
-                            isUserOnline
-                              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
-                              : 'bg-rose-500/15 border border-rose-500/30 text-rose-400'
-                          }`}
+                          className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold ${isUserOnline
+                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
+                            : 'bg-rose-500/15 border border-rose-500/30 text-rose-400'
+                            }`}
                         >
                           {isUserOnline ? `● ${ui.online}` : `○ ${ui.offline}`}
                         </span>
@@ -4567,11 +4550,10 @@ export default function App() {
                 <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80 pb-3.5">
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        isVipMember
-                          ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
-                          : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
-                      }`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isVipMember
+                        ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
+                        : 'bg-amber-500/20 border border-amber-500/40 text-amber-400'
+                        }`}
                     >
                       {isVipMember ? <ShieldCheck className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
                     </div>
@@ -4583,13 +4565,12 @@ export default function App() {
                     </div>
                   </div>
                   <span
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-wide ${
-                      isVipMember
-                        ? isDailyLimitReached
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'bg-emerald-500 text-slate-950'
-                        : 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
-                    }`}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-wide ${isVipMember
+                      ? isDailyLimitReached
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'bg-emerald-500 text-slate-950'
+                      : 'bg-amber-500/15 border border-amber-500/40 text-amber-300'
+                      }`}
                   >
                     {isVipMember
                       ? isDailyLimitReached
@@ -4601,11 +4582,10 @@ export default function App() {
 
                 {/* Live Expire Time & Countdown Box */}
                 <div
-                  className={`p-4 rounded-2xl border space-y-2.5 ${
-                    isVipMember
-                      ? 'bg-emerald-950/35 border-emerald-600/60'
-                      : 'bg-[#1e2430] border-slate-700/60'
-                  }`}
+                  className={`p-4 rounded-2xl border space-y-2.5 ${isVipMember
+                    ? 'bg-emerald-950/35 border-emerald-600/60'
+                    : 'bg-[#1e2430] border-slate-700/60'
+                    }`}
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
@@ -4613,9 +4593,8 @@ export default function App() {
                       <span>VIP Time Remaining:</span>
                     </span>
                     <span
-                      className={`text-sm sm:text-base font-mono font-extrabold tabular-nums ${
-                        isVipMember ? 'text-emerald-400' : 'text-slate-400'
-                      }`}
+                      className={`text-sm sm:text-base font-mono font-extrabold tabular-nums ${isVipMember ? 'text-emerald-400' : 'text-slate-400'
+                        }`}
                     >
                       {isVipMember ? formatVipCountdown(remainingMs) : '00:00:00 (Not Active)'}
                     </span>
@@ -4677,11 +4656,10 @@ export default function App() {
 
                     {redeemFeedback && (
                       <div
-                        className={`p-3 rounded-xl border text-xs leading-relaxed ${
-                          redeemFeedback.ok
-                            ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
-                            : 'bg-red-950/60 border-red-800 text-red-200'
-                        }`}
+                        className={`p-3 rounded-xl border text-xs leading-relaxed ${redeemFeedback.ok
+                          ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                          : 'bg-red-950/60 border-red-800 text-red-200'
+                          }`}
                       >
                         {redeemFeedback.text}
                       </div>
@@ -4784,14 +4762,12 @@ export default function App() {
                       type="button"
                       onClick={() => setIsDarkMode((prev) => !prev)}
                       aria-label="Toggle Theme Mode"
-                      className={`w-13 h-7 rounded-full p-1 transition-colors cursor-pointer flex items-center ${
-                        isDarkMode ? 'bg-emerald-500/30 justify-end' : 'bg-slate-700 justify-start'
-                      }`}
+                      className={`w-13 h-7 rounded-full p-1 transition-colors cursor-pointer flex items-center ${isDarkMode ? 'bg-emerald-500/30 justify-end' : 'bg-slate-700 justify-start'
+                        }`}
                     >
                       <span
-                        className={`w-5 h-5 rounded-full transition-transform shadow-md ${
-                          isDarkMode ? 'bg-emerald-400' : 'bg-slate-300'
-                        }`}
+                        className={`w-5 h-5 rounded-full transition-transform shadow-md ${isDarkMode ? 'bg-emerald-400' : 'bg-slate-300'
+                          }`}
                       />
                     </button>
                   </div>
@@ -5091,7 +5067,7 @@ export default function App() {
                           type="button"
                           onClick={() => {
                             if (selectedLeaderboardUser.tgId) {
-                              navigator.clipboard.writeText(selectedLeaderboardUser.tgId).catch(() => {});
+                              navigator.clipboard.writeText(selectedLeaderboardUser.tgId).catch(() => { });
                               alert('Telegram ID কপি হয়েছে!');
                             }
                           }}
@@ -5185,9 +5161,8 @@ export default function App() {
                 return (
                   <div
                     onClick={() => handleNoticeAction(currentNotice)}
-                    className={`relative w-full max-w-full overflow-hidden rounded-xl sm:rounded-2xl border border-red-500/45 bg-gradient-to-r from-red-950/80 via-zinc-900/95 to-zinc-900/95 p-2.5 sm:px-4 sm:py-3 shadow-lg transition-all ${
-                      hasTarget ? 'cursor-pointer hover:border-red-500/80 active:scale-[0.99]' : ''
-                    }`}
+                    className={`relative w-full max-w-full overflow-hidden rounded-xl sm:rounded-2xl border border-red-500/45 bg-gradient-to-r from-red-950/80 via-zinc-900/95 to-zinc-900/95 p-2.5 sm:px-4 sm:py-3 shadow-lg transition-all ${hasTarget ? 'cursor-pointer hover:border-red-500/80 active:scale-[0.99]' : ''
+                      }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
                       <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0">
@@ -5209,11 +5184,10 @@ export default function App() {
                                     e.stopPropagation();
                                     setActiveNoticeIdx(idx);
                                   }}
-                                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                                    idx === activeNoticeIdx % notices.length
-                                      ? 'w-3.5 bg-red-500'
-                                      : 'w-1.5 bg-zinc-600'
-                                  }`}
+                                  className={`h-1.5 rounded-full transition-all cursor-pointer ${idx === activeNoticeIdx % notices.length
+                                    ? 'w-3.5 bg-red-500'
+                                    : 'w-1.5 bg-zinc-600'
+                                    }`}
                                   aria-label={`Notice ${idx + 1}`}
                                 />
                               ))}
@@ -5244,11 +5218,10 @@ export default function App() {
                                   e.stopPropagation();
                                   setActiveNoticeIdx(idx);
                                 }}
-                                className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                                  idx === activeNoticeIdx % notices.length
-                                    ? 'w-4 bg-red-500'
-                                    : 'w-1.5 bg-zinc-600 hover:bg-zinc-400'
-                                }`}
+                                className={`h-1.5 rounded-full transition-all cursor-pointer ${idx === activeNoticeIdx % notices.length
+                                  ? 'w-4 bg-red-500'
+                                  : 'w-1.5 bg-zinc-600 hover:bg-zinc-400'
+                                  }`}
                                 aria-label={`Notice ${idx + 1}`}
                               />
                             ))}
@@ -5394,137 +5367,165 @@ export default function App() {
             !String(activeVideo.id || '').startsWith('fake_') &&
             (!gateVideo || gateVideo.id === unlockedVideoId) &&
             !isStepGateActive && (
-            <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
-              <div className="lg:col-span-8 space-y-4 min-w-0">
-                {/* 1. Top Sponsored Banner directly above the video player */}
-                <PlayerTopSponsoredBanner />
+              <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full overflow-x-hidden">
+                <div className="lg:col-span-8 space-y-4 min-w-0">
+                  {/* 1. Top Sponsored Banner directly above the video player */}
+                  <PlayerTopSponsoredBanner />
 
-                <ProtectedVideoPlayer
-                  key={activeVideo.id}
-                  videoId={activeVideo.id}
-                  videoUrl={activeVideo.url || activeVideo.videoUrl}
-                  title={activeVideo.title}
-                  poster={activeVideo.thumbnail || activeVideo.thumbnailUrl}
-                  onPlaySuccess={() => handleVideoPlaySuccess(activeVideo)}
-                />
+                  <ProtectedVideoPlayer
+                    key={activeVideo.id}
+                    videoId={activeVideo.id}
+                    videoUrl={activeVideo.url || activeVideo.videoUrl}
+                    title={activeVideo.title}
+                    poster={activeVideo.thumbnail || activeVideo.thumbnailUrl}
+                    onPlaySuccess={() => handleVideoPlaySuccess(activeVideo)}
+                  />
 
-                {/* 2. High-Converting Sponsored Fast HD Streaming & Download Buttons directly below player */}
-                <SponsoredDownloadStreamButtons videoTitle={activeVideo.title} />
+                  {/* 2. High-Converting Sponsored Fast HD Streaming & Download Buttons directly below player */}
+                  <SponsoredDownloadStreamButtons videoTitle={activeVideo.title} />
 
-                {/* 3. High-CPM Inline 320x50 Banner below action buttons */}
-                <Banner320x50Ad className="my-1" />
+                  {/* 3. High-CPM Inline 320x50 Banner below action buttons */}
+                  <Banner320x50Ad className="my-1" />
 
-                <div className="space-y-3 pt-1">
-                  <h1 className="text-base sm:text-xl font-bold text-white leading-snug break-words">
-                    {activeVideo.title}
-                  </h1>
+                  <div className="space-y-3 pt-1">
+                    <h1 className="text-base sm:text-xl font-bold text-white leading-snug break-words">
+                      {activeVideo.title}
+                    </h1>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 text-white font-semibold flex items-center justify-center shrink-0">
-                        {(activeVideo.author || 'X').charAt(0).toUpperCase()}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 text-white font-semibold flex items-center justify-center shrink-0">
+                          {(activeVideo.author || 'X').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{activeVideo.author}</p>
+                          <p className="text-xs text-zinc-400">
+                            {activeVideo.views.toLocaleString()} {t.views}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{activeVideo.author}</p>
-                        <p className="text-xs text-zinc-400">
-                          {activeVideo.views.toLocaleString()} {t.views}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const wasLiked = Boolean(likedVideos[activeVideo.id]);
-                          setLikedVideos((prev) => ({
-                            ...prev,
-                            [activeVideo.id]: !wasLiked,
-                          }));
-                          if (!wasLiked) {
-                            incrementVideoLikes(activeVideo.id);
-                            recordAlgorithmInteraction(activeVideo, 'like');
-                          }
-                        }}
-                        className={`px-3.5 sm:px-4 py-2 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                          likedVideos[activeVideo.id]
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const wasLiked = Boolean(likedVideos[activeVideo.id]);
+                            setLikedVideos((prev) => ({
+                              ...prev,
+                              [activeVideo.id]: !wasLiked,
+                            }));
+                            if (!wasLiked) {
+                              incrementVideoLikes(activeVideo.id);
+                              recordAlgorithmInteraction(activeVideo, 'like');
+                            }
+                          }}
+                          className={`px-3.5 sm:px-4 py-2 rounded-full text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${likedVideos[activeVideo.id]
                             ? 'bg-white text-black'
                             : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100'
-                        }`}
-                      >
-                        <ThumbsUp className="w-4 h-4" />
-                        <span>{t.like}</span>
-                      </button>
+                            }`}
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                          <span>{t.like}</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleShareVideo(activeVideo)}
-                        className="px-3.5 sm:px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        <span>{copiedShare ? t.copied : t.share}</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleShareVideo(activeVideo)}
+                          className="px-3.5 sm:px-4 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          <span>{copiedShare ? t.copied : t.share}</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {activeVideo.description && (
+                      <div className="p-3.5 rounded-xl bg-zinc-900/90 text-sm text-zinc-300 leading-relaxed break-words">
+                        <p>{activeVideo.description}</p>
+                      </div>
+                    )}
                   </div>
 
-                  {activeVideo.description && (
-                    <div className="p-3.5 rounded-xl bg-zinc-900/90 text-sm text-zinc-300 leading-relaxed break-words">
-                      <p>{activeVideo.description}</p>
+                  <Banner320x50Ad />
+                  <NativeBannerAd />
+
+                  {recommendedHomeShorts.length > 0 && (
+                    <div className="pt-3 pb-2 border-y border-zinc-800/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-red-600 flex items-center justify-center">
+                            <Smartphone className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-sm font-bold text-white">
+                            {ui.shorts} · {ui.suggestedForYou}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openShortsTab()}
+                          className="text-xs font-semibold text-red-400 hover:text-red-300 cursor-pointer"
+                        >
+                          {ui.viewAllShorts}
+                        </button>
+                      </div>
+                      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                        {recommendedHomeShorts.slice(0, 8).map((s) => (
+                          <div
+                            key={`watch-short-${s.id}`}
+                            onClick={() => openShortsTab(s.id)}
+                            className="group relative w-32 sm:w-36 aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-red-500/60 shrink-0 cursor-pointer shadow-md"
+                          >
+                            <ShortShelfPreview short={s} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent flex flex-col justify-end p-2">
+                              <p className="text-[11px] font-bold text-white line-clamp-2 leading-snug">
+                                {s.title}
+                              </p>
+                              <p className="text-[10px] text-zinc-300 mt-0.5 tabular-nums">
+                                {(s.views || 0).toLocaleString()} {t.views}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
-                </div>
 
-                <Banner320x50Ad />
-                <NativeBannerAd />
-
-                {recommendedHomeShorts.length > 0 && (
-                  <div className="pt-3 pb-2 border-y border-zinc-800/80 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-red-600 flex items-center justify-center">
-                          <Smartphone className="w-3.5 h-3.5 text-white" />
-                        </div>
-                        <span className="text-sm font-bold text-white">
-                          {ui.shorts} · {ui.suggestedForYou}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openShortsTab()}
-                        className="text-xs font-semibold text-red-400 hover:text-red-300 cursor-pointer"
-                      >
-                        {ui.viewAllShorts}
-                      </button>
-                    </div>
-                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                      {recommendedHomeShorts.slice(0, 8).map((s) => (
-                        <div
-                          key={`watch-short-${s.id}`}
-                          onClick={() => openShortsTab(s.id)}
-                          className="group relative w-32 sm:w-36 aspect-[9/16] rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-red-500/60 shrink-0 cursor-pointer shadow-md"
-                        >
-                          <ShortShelfPreview short={s} />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent flex flex-col justify-end p-2">
-                            <p className="text-[11px] font-bold text-white line-clamp-2 leading-snug">
-                              {s.title}
-                            </p>
-                            <p className="text-[10px] text-zinc-300 mt-0.5 tabular-nums">
-                              {(s.views || 0).toLocaleString()} {t.views}
-                            </p>
-                          </div>
-                        </div>
+                  <div className="pt-4 space-y-4">
+                    <h2 className="text-base font-semibold text-white">{t.moreVideos}</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {suggestedVideos.map((video) => (
+                        <VideoCard
+                          key={video.id}
+                          video={video}
+                          onCardClick={handleVideoCardClick}
+                          t={t}
+                        />
                       ))}
                     </div>
                   </div>
-                )}
+                </div>
 
-                <div className="pt-4 space-y-4">
-                  <h2 className="text-base font-semibold text-white">{t.moreVideos}</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {suggestedVideos.map((video) => (
+                <div className="lg:col-span-4 space-y-4 min-w-0">
+                  <Banner320x50Ad className="my-0" />
+                  <h3 className="text-sm font-semibold text-zinc-200 px-1">{t.upNext}</h3>
+                  <div className="space-y-2">
+                    {suggestedVideos.slice(0, 3).map((video) => (
                       <VideoCard
-                        key={video.id}
+                        key={`side-${video.id}`}
                         video={video}
+                        compact
+                        onCardClick={handleVideoCardClick}
+                        t={t}
+                      />
+                    ))}
+                    {suggestedVideos.length > 3 && (
+                      <Banner320x50Ad className="my-2" />
+                    )}
+                    {suggestedVideos.slice(3).map((video) => (
+                      <VideoCard
+                        key={`side-${video.id}`}
+                        video={video}
+                        compact
                         onCardClick={handleVideoCardClick}
                         t={t}
                       />
@@ -5532,36 +5533,7 @@ export default function App() {
                   </div>
                 </div>
               </div>
-
-              <div className="lg:col-span-4 space-y-4 min-w-0">
-                <Banner320x50Ad className="my-0" />
-                <h3 className="text-sm font-semibold text-zinc-200 px-1">{t.upNext}</h3>
-                <div className="space-y-2">
-                  {suggestedVideos.slice(0, 3).map((video) => (
-                    <VideoCard
-                      key={`side-${video.id}`}
-                      video={video}
-                      compact
-                      onCardClick={handleVideoCardClick}
-                      t={t}
-                    />
-                  ))}
-                  {suggestedVideos.length > 3 && (
-                    <Banner320x50Ad className="my-2" />
-                  )}
-                  {suggestedVideos.slice(3).map((video) => (
-                    <VideoCard
-                      key={`side-${video.id}`}
-                      video={video}
-                      compact
-                      onCardClick={handleVideoCardClick}
-                      t={t}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+            )}
 
           {/* Floating Sticky Bottom High-CPM Ad (Automatically hidden for VIP users) */}
           <FloatingStickyBottomBanner />
@@ -5609,9 +5581,8 @@ export default function App() {
               setSortByTrending(false);
               goHome();
             }}
-            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
-              viewMode === 'home' && !sortByTrending ? 'text-red-500' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${viewMode === 'home' && !sortByTrending ? 'text-red-500' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <Home className="w-5 h-5" />
             <span className="text-[10px] font-semibold mt-0.5">{t.home}</span>
@@ -5620,9 +5591,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => openShortsTab()}
-            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
-              viewMode === 'shorts' ? 'text-red-500' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${viewMode === 'shorts' ? 'text-red-500' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <Smartphone className="w-5 h-5" />
             <span className="text-[10px] font-semibold mt-0.5">{ui.shorts}</span>
@@ -5631,9 +5601,8 @@ export default function App() {
           <button
             type="button"
             onClick={handleSelectTrending}
-            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
-              viewMode === 'home' && sortByTrending ? 'text-red-500' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${viewMode === 'home' && sortByTrending ? 'text-red-500' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <Flame className="w-5 h-5" />
             <span className="text-[10px] font-semibold mt-0.5">{t.trending}</span>
@@ -5645,9 +5614,8 @@ export default function App() {
               setViewMode('leaderboard');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
-              viewMode === 'leaderboard' ? 'text-amber-400' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${viewMode === 'leaderboard' ? 'text-amber-400' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <Trophy className="w-5 h-5" />
             <span className="text-[10px] font-semibold mt-0.5">লিডারবোর্ড</span>
@@ -5656,9 +5624,8 @@ export default function App() {
           <button
             type="button"
             onClick={() => setViewMode('profile')}
-            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${
-              viewMode === 'profile' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex flex-col items-center justify-center py-1.5 cursor-pointer transition-colors ${viewMode === 'profile' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <User className="w-5 h-5" />
             <span className="text-[10px] font-semibold mt-0.5">{ui.profile}</span>
