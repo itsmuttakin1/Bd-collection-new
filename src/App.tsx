@@ -839,6 +839,7 @@ export default function App() {
   }, [isDarkMode]);
 
   // 3-Step Smartlink Verification State (Step 1 -> Step 2 -> Step 3, 20s each + Mini WebView + 1x Popunder on Next)
+  const isStepGateActive = false;
   const STEP_DURATION_SECONDS = 20;
   const [stepGateVideo, setStepGateVideo] = useState<VideoItem | null>(null);
   const [stepGatePendingId, setStepGatePendingId] = useState<string | null>(null);
@@ -1100,7 +1101,7 @@ export default function App() {
           if (b.videosWatchedCount !== a.videosWatchedCount) {
             return b.videosWatchedCount - a.videosWatchedCount;
           }
-          return b.lastSeen - a.lastSeen;
+          return (Number(b.lastSeen) || 0) - (Number(a.lastSeen) || 0);
         })
         .slice(0, 100);
 
@@ -1328,10 +1329,12 @@ export default function App() {
     expiresAt,
     durationLabel,
     dailyVideoLimit,
-    profileFrame,
+    profileFrame: vipProfileFrame,
     remainingMs,
     activateCode,
   } = useAdFreeVip();
+  const [customProfileFrame, setProfileFrame] = useState<string>('');
+  const profileFrame = customProfileFrame || vipProfileFrame || '';
   const activeFrameDef = useMemo(() => getVipFrameById(profileFrame), [profileFrame]);
   const [redeemModalOpen, setRedeemModalOpen] = useState<boolean>(false);
   const [redeemInput, setRedeemInput] = useState<string>('');
@@ -3728,7 +3731,6 @@ export default function App() {
   }, [shorts, videos, shortsSessionSeed, activeShortId]);
 
   // Step 1, 2, 3 Ads removed from the website (Step ads handled externally by Redrectorlink D:\link gen)
-  const isStepGateActive = false;
   const currentSmartlinkUrl = STEP_SMARTLINKS[currentStep - 1] || STEP_SMARTLINKS[0];
   const stepProgressPercent = Math.min(
     100,
@@ -4353,7 +4355,7 @@ export default function App() {
                 setViewMode('leaderboard');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${viewMode === 'leaderboard'
+              className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${(viewMode as string) === 'leaderboard'
                 ? 'bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30'
                 : 'text-slate-300 hover:bg-slate-900'
                 }`}
