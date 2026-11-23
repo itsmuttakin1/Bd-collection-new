@@ -3214,8 +3214,18 @@ export default {
     }
 
     // 4. Dynamic Edge SSR for Homepage (/), Video Watch (/?v=...), and Shorts (/?short=...)
-    // So Googlebot sees the Google verification meta tag, exact video title, VideoObject JSON-LD & crawlable video links immediately!
+    // ONLY for Googlebot/crawlers — normal browser users get the asset directly (no Firebase hang)
     if (path === '/' || path === '/index.html') {
+      const ua = request.headers.get('user-agent') || '';
+      const isBot =
+        /googlebot|bingbot|yandex|duckduckbot|slurp|baiduspider|facebookexternalhit|twitterbot|telegrambot|linkedinbot|whatsapp|applebot|semrushbot|ahrefsbot|mj12bot|dotbot|rogerbot|exabot|ia_archiver|crawler|spider|headlesschrome|lighthouse|pagespeed/i.test(ua);
+
+      // Non-bot (normal browser): serve asset directly with NO Firebase calls — zero delay
+      if (!isBot) {
+        return env.ASSETS.fetch(request);
+      }
+
+      // Bot/crawler: do Edge SSR with Firebase data for proper meta tags & JSON-LD
       const assetRes = await env.ASSETS.fetch(request);
       const contentType = assetRes.headers.get('content-type') || '';
       if (!contentType.includes('text/html')) {
@@ -3241,7 +3251,9 @@ export default {
 
       try {
         let html = await assetRes.text();
-        const { videosData, shortsData, seoData } = await fetchFirebaseData();
+        // Fetch Firebase data with a timeout so bots never hang > 3s
+        const fbTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('fb_timeout')), 3000));
+        const { videosData, shortsData, seoData } = await Promise.race([fetchFirebaseData(), fbTimeout]).catch(() => ({ videosData: {}, shortsData: {}, seoData: {} }));
 
         // Inject Google Search Console verification meta tag if configured in Admin Panel (`seoConfig/googleVerification`)
         const googleToken = extractGoogleVerificationToken(seoData?.googleVerification);
