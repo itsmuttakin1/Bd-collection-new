@@ -165,6 +165,22 @@
     "webapp_users": {
       ".read": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026'"
+    },
+    "bannedUsers": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$userId": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
+      }
+    },
+    "unbanRequests": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
+      "$userId": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' || (!data.exists() && newData.child('status').val() === 'pending')"
+      }
     }
   }
 }

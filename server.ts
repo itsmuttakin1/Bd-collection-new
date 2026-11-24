@@ -536,6 +536,73 @@ async function startServer() {
     }
   });
 
+  // Admin Unban / Appeal Action API (Approve or Reject Unban Appeal)
+  app.post('/api/admin/unban-action', async (req, res) => {
+    try {
+      const { userId, action } = req.body || {};
+      if (!userId || !action) {
+        return res.status(400).json({ ok: false, error: 'Missing userId or action' });
+      }
+      const cleanId = String(userId).trim();
+      const isApprove = action === 'approve';
+
+      // 1. Update Firebase RTDB
+      if (isApprove) {
+        await Promise.all([
+          fetch(`${firebaseRtdbBase}/bannedUsers/${cleanId}.json`, { method: 'DELETE' }).catch(() => {}),
+          fetch(`${firebaseRtdbBase}/telegramBotSessions/${cleanId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ banned: false, unbannedAt: Date.now(), botAuthToken: 'xtube_tg_bot_2026' }),
+          }).catch(() => {}),
+          fetch(`${firebaseRtdbBase}/unbanRequests/${cleanId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'approved', reviewedAt: Date.now(), botAuthToken: 'xtube_tg_bot_2026' }),
+          }).catch(() => {}),
+        ]);
+        tgBotMemorySessions.delete(cleanId);
+      } else {
+        await fetch(`${firebaseRtdbBase}/unbanRequests/${cleanId}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'rejected', reviewedAt: Date.now(), botAuthToken: 'xtube_tg_bot_2026' }),
+        }).catch(() => {});
+      }
+
+      // 2. Notify User via Telegram Bot
+      let botToken = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+      if (!botToken) {
+        try {
+          const cfgRes = await fetch(`${firebaseRtdbBase}/telegramBotSessions/_storeConfig.json`);
+          if (cfgRes.ok) {
+            const cfg = await cfgRes.json();
+            botToken = String(cfg?.botToken || '').trim();
+          }
+        } catch {}
+      }
+      if (botToken && /^\d{5,20}$/.test(cleanId)) {
+        const tgText = isApprove
+          ? `✅ <b>অ্যাডমিন আপনাকে আনব্যান করেছেন!</b>\n\nপরবর্তীতে আর কখনো অ্যাডস বাইপাস করার চেষ্টা করবেন না। নিয়ম সবার জন্য সমান। ধন্যবাদ!\n\n👉 <a href="https://t.me/xtubeofficial_bot">X Tube Mini App খুলুন</a>`
+          : `❌ <b>দুঃখিত! অ্যাডমিন আপনার আনব্যান রিকোয়েস্ট বাতিল (Reject) করেছেন।</b>\n\nআপনি নিয়ম লঙ্ঘন করায় ব্যান বহাল রাখা হয়েছে।`;
+
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: cleanId,
+            text: tgText,
+            parse_mode: 'HTML',
+          }),
+        }).catch(() => {});
+      }
+
+      return res.status(200).json({ ok: true, action, userId: cleanId });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || 'Unban action error' });
+    }
+  });
+
   // In-memory fallback session store for Telegram Redeem Store Bot
   const tgBotMemorySessions = new Map<string, any>();
   const firebaseRtdbBase =
@@ -2138,6 +2205,70 @@ async function startServer() {
     const { packages, adminChatId } = storeData;
     const userLang = resolveUserLang(session, msg.from);
     const isEn = userLang === 'en';
+
+    // 🚨 BANNED USER CHECK & UNBAN APPEAL HANDLER:
+    // If user is banned and messages the bot (e.g. asking for unban, sorry, etc.),
+    // record their unban appeal in Firebase RTDB `unbanRequests` for Admin review and reply with confirmation!
+    let isUserBanned = Boolean(session?.banned === true);
+    let banReason = String(session?.banReason || 'অ্যাডস বাইপাস করার চেষ্টা');
+
+    if (!isUserBanned) {
+      try {
+        const banCheckRes = await fetch(`${firebaseRtdbBase}/bannedUsers/${chatId}.json`, {
+          signal: AbortSignal.timeout(1000),
+        });
+        if (banCheckRes.ok) {
+          const banVal: any = await banCheckRes.json().catch(() => null);
+          if (banVal && banVal !== false) {
+            isUserBanned = true;
+            if (typeof banVal === 'object' && banVal.reason) {
+              banReason = String(banVal.reason);
+            }
+          }
+        }
+      } catch { }
+    }
+
+    if (isUserBanned) {
+      const now = Date.now();
+      const appealPayload = {
+        chatId: String(chatId),
+        userId: String(chatId),
+        fullName: msg.from?.first_name
+          ? `${msg.from.first_name} ${msg.from.last_name || ''}`.trim()
+          : `User ${chatId}`,
+        username: msg.from?.username ? `@${msg.from.username}` : '',
+        userMessage: text,
+        banReason,
+        status: 'pending',
+        requestedAt: now,
+        botAuthToken: 'xtube_tg_bot_2026',
+      };
+
+      // Save / update appeal request to Firebase RTDB `unbanRequests/${chatId}`
+      fetch(`${firebaseRtdbBase}/unbanRequests/${chatId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appealPayload),
+      }).catch(() => { });
+
+      await tgApi('sendMessage', {
+        chat_id: chatId,
+        text: isEn
+          ? `🚫 <b>Your account is currently banned!</b>\n` +
+          `Reason: <i>${escHtml(banReason)}</i>\n\n` +
+          `📩 <b>Your unban appeal has been submitted to the Admin!</b>\n` +
+          `Your Message: "<i>${escHtml(text)}</i>"\n\n` +
+          `⏳ The Admin will review your appeal. If approved, you will receive a confirmation message here. Please do not attempt to bypass ads again.`
+          : `🚫 <b>আপনার অ্যাকাউন্টটি বর্তমানে ব্যান (নিষিদ্ধ) অবস্থায় আছে!</b>\n` +
+          `ব্যানের কারণ: <i>${escHtml(banReason)}</i>\n\n` +
+          `📩 <b>আপনার আনব্যান রিকোয়েস্ট অ্যাডমিনের কাছে পাঠানো হয়েছে!</b>\n` +
+          `আপনার বার্তা: "<i>${escHtml(text)}</i>"\n\n` +
+          `⏳ অ্যাডমিন আপনার আবেদনটি পর্যালোচনা করবেন। অ্যাডমিন অনুমোদন (Approve) করলে আপনাকে মেসেজের মাধ্যমে জানানো হবে। অনুগ্রহ করে অপেক্ষা করুন।`,
+        parse_mode: 'HTML',
+      });
+      return;
+    }
 
     // Always register subscriber in background when they message the bot
     saveChatSession(chatId, { ...session, lang: userLang }, msg.from).catch(() => {});

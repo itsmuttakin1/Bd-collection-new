@@ -12,6 +12,7 @@ import {
   update,
   remove,
   runTransaction,
+  increment,
   onDisconnect,
   VideoItem,
   ShortItem,
@@ -817,6 +818,17 @@ export default function App() {
   const [personalNoticePopupOpen, setPersonalNoticePopupOpen] = useState<boolean>(false);
   const dismissedNoticeIdRef = useRef<string>('');
   const [remoteWatchedCount, setRemoteWatchedCount] = useState<number>(0);
+  // Real-time User Ban & Warning Lockout State
+  const [isUserBanned, setIsUserBanned] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('xtube_device_banned') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [banReason, setBanReason] = useState<string>('আপনাকে ব্যান করা হয়েছে! আপনি অ্যাডস বাইপাস করার চেষ্টা করেছেন এবং পূর্বের সতর্কতা মানেননি।');
+  const [warningNotice, setWarningNotice] = useState<{ active?: boolean; title?: string; message?: string } | null>(null);
+  const [warningPopupOpen, setWarningPopupOpen] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
       return localStorage.getItem('xtube_theme_mode') !== 'light';
@@ -2360,10 +2372,15 @@ export default function App() {
         })
         .sort((a, b) => b.lastAt - a.lastAt);
 
-      // Remote / Admin edited count is the single source of truth; never overwrite with local history
-      const totalWatched = typeof remoteWatchedCount === 'number' && remoteWatchedCount >= 0
-        ? remoteWatchedCount
-        : watchedEntries.length;
+      // Total watched videos count: takes the maximum of all recorded watch events or remote admin count
+      const totalLocalWatchEvents = Object.values(tasteProfile.watchedHistory || {}).reduce(
+        (acc, item) => acc + (Number(item?.count) || 1),
+        0
+      );
+      const totalWatched = Math.max(
+        totalLocalWatchEvents,
+        typeof remoteWatchedCount === 'number' && remoteWatchedCount >= 0 ? remoteWatchedCount : 0
+      );
 
       // Real-time Page Status Logic:
       // - If user is on 3-button gate / fake link / step gate unlock screen -> 'popup_ads'
@@ -2496,6 +2513,25 @@ export default function App() {
         if (val.dailyWatchedDate === todayKey && typeof val.dailyWatchedCount === 'number') {
           setDailyWatchedCount((prev) => Math.max(prev, val.dailyWatchedCount));
         }
+
+        // Real-time Ban Check from Session
+        if (val.banned === true) {
+          setIsUserBanned(true);
+          if (val.banReason) setBanReason(val.banReason);
+          try { localStorage.setItem('xtube_device_banned', 'true'); } catch {}
+        } else if (val.banned === false) {
+          setIsUserBanned(false);
+          try { localStorage.removeItem('xtube_device_banned'); } catch {}
+        }
+
+        // Real-time Danger Warning Check from Session
+        if (val.warning && val.warning.active !== false && !val.warning.acknowledged) {
+          setWarningNotice(val.warning);
+          setWarningPopupOpen(true);
+        } else {
+          setWarningNotice(null);
+          setWarningPopupOpen(false);
+        }
         const pNotice = val.personalNotice;
         if (
           pNotice &&
@@ -2511,6 +2547,25 @@ export default function App() {
         } else {
           setPersonalNotice(null);
           setPersonalNoticePopupOpen(false);
+        }
+      },
+      () => { }
+    );
+
+    const banRef = ref(db, `bannedUsers/${crmKeyForNotice}`);
+    const unsubBan = onValue(
+      banRef,
+      (snap) => {
+        if (snap.exists() && snap.val() !== false) {
+          setIsUserBanned(true);
+          const bVal = snap.val();
+          if (bVal && typeof bVal === 'object' && bVal.reason) {
+            setBanReason(bVal.reason);
+          }
+          try { localStorage.setItem('xtube_device_banned', 'true'); } catch { }
+        } else if (snap.val() === null) {
+          setIsUserBanned(false);
+          try { localStorage.removeItem('xtube_device_banned'); } catch { }
         }
       },
       () => { }
@@ -2630,6 +2685,7 @@ export default function App() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
+      unsubBan();
       unsubDailyUsage();
       unsubUserCrm();
       unsubUserLbSingle();
@@ -3383,6 +3439,33 @@ export default function App() {
   const handleVideoPlaySuccess = (video: VideoItem) => {
     incrementVideoViews(video.id);
     recordAlgorithmInteraction(video, 'watch');
+
+    // 1. Increment local remoteWatchedCount state immediately so profile and leaderboard update live
+    setRemoteWatchedCount((prev) => (Number(prev) || 0) + 1);
+
+    // 2. Increment Firebase RTDB user watch counts in real time across CRM and Leaderboard
+    const targetKey = tgProfile.isRealTelegramUser
+      ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')
+      : (typeof window !== 'undefined' ? localStorage.getItem('xtube_visitor_presence_key') || '' : '');
+
+    if (targetKey) {
+      const todayKey = getTodayDateKey();
+      update(ref(db, `telegramBotSessions/${targetKey}`), {
+        videosWatchedCount: increment(1),
+        lastWatchedVideoId: video.id,
+        lastWatchedTitle: video.title || '',
+        lastWatchedAt: Date.now(),
+        botAuthToken: 'xtube_tg_bot_2026',
+      }).catch(() => { });
+
+      update(ref(db, `leaderboard/${targetKey}`), {
+        videosWatchedCount: increment(1),
+        lastSeen: Date.now(),
+        botAuthToken: 'xtube_tg_bot_2026',
+      }).catch(() => { });
+
+      runTransaction(ref(db, `userDailyVideoUsage/${targetKey}/${todayKey}`), (c) => (Number(c) || 0) + 1).catch(() => { });
+    }
   };
 
   // Handle clicking on a Notice Board item (opens linked Video, Short, or latest uploaded Video)
@@ -3736,10 +3819,61 @@ export default function App() {
     100,
     Math.max(0, Math.round(((STEP_DURATION_SECONDS - stepTimer) / STEP_DURATION_SECONDS) * 100))
   );
-  const watchedVideosCount = Math.max(
-    Object.keys(tasteProfile.watchedHistory || {}).length,
-    remoteWatchedCount
+  const totalLocalWatchEvents = Object.values(tasteProfile.watchedHistory || {}).reduce(
+    (acc, item) => acc + (Number(item?.count) || 1),
+    0
   );
+  const watchedVideosCount = Math.max(
+    totalLocalWatchEvents,
+    typeof remoteWatchedCount === 'number' && remoteWatchedCount >= 0 ? remoteWatchedCount : 0
+  );
+
+  if (isUserBanned) {
+    return (
+      <div className="fixed inset-0 z-[999999] bg-[#080202] text-white flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none font-sans overflow-hidden">
+        <div className="w-full max-w-lg rounded-3xl bg-[#140505] border-2 border-rose-600 p-6 sm:p-8 shadow-[0_0_80px_rgba(225,29,72,0.4)] flex flex-col items-center space-y-5 animate-fadeIn">
+          <div className="w-20 h-20 rounded-full bg-rose-950/80 border-4 border-rose-600 flex items-center justify-center text-4xl shadow-lg shadow-rose-900/50 animate-pulse">
+            🚫
+          </div>
+
+          <div className="space-y-2">
+            <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-mono font-extrabold uppercase tracking-wider">
+              ACCOUNT SUSPENDED / BANNED
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-rose-100">
+              আপনার অ্যাকাউন্ট ও ডিভাইস ব্যান করা হয়েছে!
+            </h1>
+          </div>
+
+          <div className="w-full p-4 rounded-2xl bg-black/60 border border-rose-900/80 text-rose-200 text-xs sm:text-sm text-left leading-relaxed space-y-2">
+            <p className="font-bold text-rose-300">
+              📌 ব্যান করার কারণ:
+            </p>
+            <p className="text-zinc-300 bg-rose-950/30 p-2.5 rounded-xl border border-rose-950">
+              {banReason || 'আপনাকে ব্যান করা হয়েছে! আপনি অ্যাডস বাইপাস করার চেষ্টা করেছেন এবং পূর্বের সতর্কতা অমান্য করেছেন।'}
+            </p>
+            <p className="text-[11px] text-zinc-400 pt-1">
+              • নিয়ম সবার জন্য সমান। ব্যাক করে অ্যাডস স্কিপ করা বা নিয়ম লঙ্ঘন করা সম্পূর্ণ নিষিদ্ধ।
+            </p>
+          </div>
+
+          <div className="w-full space-y-3 pt-2">
+            <a
+              href="https://t.me/xtubeofficial_bot?start=unban"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-sm font-extrabold flex items-center justify-center gap-2 shadow-xl shadow-rose-900/40 transition-transform active:scale-95 cursor-pointer"
+            >
+              <span>🤖 Telegram Bot-এ আনব্যান রিকোয়েস্ট পাঠান</span>
+            </a>
+            <p className="text-[11px] text-zinc-500">
+              বট-এ মেসেজ দিলে আপনার আবেদনটি অ্যাডমিন প্যানেলে পাঠানো হবে। অ্যাডমিন অনুমোদন করলে আপনার ব্যান উঠে যাবে।
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -3748,6 +3882,51 @@ export default function App() {
       style={{ minHeight: 'var(--tg-viewport-stable-height, 100dvh)' }}
       dir={langCode === 'ar' || langCode === 'ur' || langCode === 'fa' ? 'rtl' : 'ltr'}
     >
+      {/* Real-time Danger Warning Animated Modal */}
+      {warningNotice && warningPopupOpen && (
+        <div className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none">
+          <div className="w-full max-w-md rounded-3xl bg-[#180505] border-4 border-rose-500 text-white p-6 shadow-[0_0_60px_rgba(244,63,94,0.6)] space-y-5 animate-pulse relative">
+            <div className="flex items-center gap-3 border-b border-rose-900/80 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-rose-900/80">
+                🚨
+              </div>
+              <div className="min-w-0">
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                  DANGER WARNING
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-rose-100 leading-snug">
+                  {warningNotice.title || '⚠️ অ্যাডমিন সতর্কতা (Danger Warning)'}
+                </h3>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-black/60 border border-rose-800 text-rose-100 text-xs sm:text-sm leading-relaxed">
+              {warningNotice.message ||
+                'সতর্কবার্তা: আপনি নিয়ম ভেঙে অ্যাডস বাইপাস করার চেষ্টা করছেন। আর একবার এমন করলে আপনার অ্যাকাউন্ট ও ডিভাইস আজীবনের জন্য ব্যান করা হবে! নিয়ম সবার জন্য সমান।'}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setWarningPopupOpen(false);
+                const targetKey = tgProfile.isRealTelegramUser
+                  ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')
+                  : (typeof window !== 'undefined' ? localStorage.getItem('xtube_visitor_presence_key') || '' : '');
+                if (targetKey) {
+                  update(ref(db, `telegramBotSessions/${targetKey}/warning`), {
+                    acknowledged: true,
+                    acknowledgedAt: Date.now(),
+                    botAuthToken: 'xtube_tg_bot_2026',
+                  }).catch(() => { });
+                }
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs sm:text-sm font-extrabold cursor-pointer shadow-lg transition-transform active:scale-95 text-center"
+            >
+              ⚠️ আমি সতর্কবার্তা বুঝতে পেরেছি এবং নিয়ম মেনে চলব
+            </button>
+          </div>
+        </div>
+      )}
       {/* Anti-AdBlocker & Anti-AdGuard DNS Full-Screen Lock Wall */}
       <AntiAdBlockGuard onBlockStateChange={setAdBlockActive} />
 
@@ -5358,6 +5537,18 @@ export default function App() {
                 video={gateVideo || activeVideo}
                 onUnlock={handleUnlockVideoFromGate}
                 onBack={goHome}
+                onBypassDetected={(bypassCount) => {
+                  const targetKey = tgProfile.isRealTelegramUser
+                    ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')
+                    : (typeof window !== 'undefined' ? localStorage.getItem('xtube_visitor_presence_key') || '' : '');
+                  if (targetKey) {
+                    update(ref(db, `telegramBotSessions/${targetKey}`), {
+                      suspiciousBypassCount: bypassCount,
+                      lastBypassDetectedAt: Date.now(),
+                      botAuthToken: 'xtube_tg_bot_2026',
+                    }).catch(() => { });
+                  }
+                }}
               />
             )}
 

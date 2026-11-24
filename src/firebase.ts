@@ -10,6 +10,7 @@ import {
   get,
   update,
   runTransaction,
+  increment,
   onDisconnect,
   serverTimestamp,
 } from 'firebase/database';
@@ -455,6 +456,6 @@ export const buildVideoStreamCandidates = (rawUrl?: string, r2Key?: string): str
   return list;
 };
 
-export { ref, onValue, push, set, remove, get, update, runTransaction, onDisconnect, serverTimestamp };
+export { ref, onValue, push, set, remove, get, update, runTransaction, increment, onDisconnect, serverTimestamp };
 
 

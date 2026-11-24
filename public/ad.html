@@ -636,6 +636,29 @@
           </div>
         </div>
 
+        <!-- LIVE UNBAN APPEALS & REQUESTS (Real-time appeals from banned users via Telegram Bot) -->
+        <div id="unban-appeals-card" class="p-3.5 sm:p-4 rounded-xl border border-rose-600/70 bg-gradient-to-br from-rose-950/30 via-zinc-950 to-zinc-950 space-y-3">
+          <div class="flex items-center justify-between gap-2 border-b border-zinc-800 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-extrabold tracking-wide">
+                🚨 UNBAN APPEALS
+              </span>
+              <h3 class="text-xs sm:text-sm font-extrabold text-white">
+                আনব্যান আবেদন ও আপিল রিকোয়েস্ট (বট থেকে আসা ইউজারদের আবেদন)
+              </h3>
+              <span id="unban-appeals-count-badge" class="px-2 py-0.5 rounded-full bg-rose-950 border border-rose-600 text-[10px] font-mono font-bold text-rose-300">
+                0 Pending
+              </span>
+            </div>
+            <p class="text-[11px] text-zinc-400 hidden sm:block">
+              বট-এ ইউজাররা আনব্যান রিকোয়েস্ট পাঠালে এখানে শো করবে। Approve বা Reject বাটনে ক্লিক করলে বট স্বয়ংক্রিয়ভাবে মেসেজ পাঠিয়ে দিবে।
+            </p>
+          </div>
+          <div id="unban-appeals-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto pr-1">
+            <p class="text-xs text-zinc-500 col-span-full py-2">কোনো পেন্ডিং আনব্যান আবেদন নেই।</p>
+          </div>
+        </div>
+
         <!-- ALL TELEGRAM BOT & WEBAPP USERS DIRECTORY (CLICK ANY USER FOR PERSONAL MESSAGE / PACKAGE / PROFILE POPUP & WATCHED VIDEOS) -->
         <div class="p-3.5 sm:p-4 rounded-xl border border-sky-700/60 bg-gradient-to-br from-sky-950/25 via-zinc-950 to-zinc-950 space-y-3">
           <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
@@ -1109,6 +1132,20 @@
             </div>
             <textarea id="crm-popup-msg-input" rows="2" placeholder="ইউজারের প্রোফাইলে পপ-আপ নোটিশে যা দেখাতে চান তা লিখুন..."
               class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-emerald-500"></textarea>
+            
+            <!-- Quick Message Templates for Warning & Ban -->
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <span class="text-[10px] font-bold text-zinc-400">⚡ কুইক টেমপ্লেট:</span>
+              <button id="crm-tpl-warning-btn" type="button"
+                class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-[10px] font-extrabold cursor-pointer transition-colors">
+                ⚠️ Ads Bypass Warning (সতর্কবার্তা)
+              </button>
+              <button id="crm-tpl-ban-btn" type="button"
+                class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 text-[10px] font-extrabold cursor-pointer transition-colors">
+                🚫 Ban Notice (ব্যান মেসেজ)
+              </button>
+            </div>
+
             <div class="flex flex-wrap items-center gap-2 pt-1">
               <button id="crm-popup-submit-btn" type="submit"
                 class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-emerald-600/25">
@@ -1120,6 +1157,45 @@
               </button>
             </div>
           </form>
+
+          <!-- Action 4: Real-time Warning & Ban / Unban Lockout Controller -->
+          <div class="p-4 sm:p-5 rounded-2xl border border-rose-700/60 bg-gradient-to-r from-rose-950/30 via-zinc-900 to-zinc-900 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-extrabold">ACTION 4 · USER BAN &amp; WARNING CONTROL</span>
+                <h4 class="text-xs sm:text-sm font-extrabold text-white">
+                  🚨 সতর্কবার্তা পাঠানো ও ওয়েবসাইট থেকে ব্যান / আনব্যান করুন
+                </h4>
+              </div>
+              <span id="crm-user-ban-status-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-600/50 text-emerald-300 text-[10px] font-mono font-bold">
+                ● USER ACTIVE
+              </span>
+            </div>
+            <p class="text-[11px] text-zinc-400">
+              ইউজার যদি বারবার ব্যাক করে অ্যাডস বাইপাস করে ভিডিও দেখার চেষ্টা করে, তবে তাকে রেড ডেঞ্জার সতর্কবার্তা পাঠান অথবা পুরো ওয়েবসাইট থেকে ব্যান করে দিতে পারেন।
+            </p>
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-bold text-zinc-400">ব্যান করার কারণ / সতর্কবার্তা টেক্সট:</label>
+              <input id="crm-ban-reason-input" type="text"
+                value="আপনাকে ব্যান করা হয়েছে! আপনি অ্যাডস বাইপাস করার চেষ্টা করেছেন এবং পূর্বের সতর্কতা মানেননি।"
+                placeholder="ব্যান করার কারণ লিখুন..."
+                class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-rose-200 focus:outline-none focus:border-rose-500" />
+            </div>
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <button id="crm-send-danger-warning-btn" type="button"
+                class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-amber-600/20">
+                🚨 Send Danger Warning (রেড ডেঞ্জার অ্যালার্ট পাঠান)
+              </button>
+              <button id="crm-ban-user-btn" type="button"
+                class="px-4 py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-rose-700/25">
+                🚫 BAN USER (ওয়েবসাইট লক করুন)
+              </button>
+              <button id="crm-unban-user-btn" type="button"
+                class="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer shadow-lg shadow-emerald-700/25">
+                ✅ UNBAN USER (ব্যান প্রত্যাহার)
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3154,6 +3230,22 @@ export default {
             webapp_users: {
               ".read": adminOnly,
               ".write": botOrAdmin
+            },
+            bannedUsers: {
+              ".read": true,
+              ".write": adminOnly,
+              "$userId": {
+                ".read": true,
+                ".write": adminOnly
+              }
+            },
+            unbanRequests: {
+              ".read": true,
+              ".write": adminOnly,
+              "$userId": {
+                ".read": true,
+                ".write": `${adminOnly} || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026') || (!data.exists() && newData.child('status').val() === 'pending')`
+              }
             }
           }
         },
@@ -11073,6 +11165,19 @@ service cloud.firestore {
             'px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 text-[10px] font-mono';
         }
       }
+
+      const banBadgeEl = document.getElementById('crm-user-ban-status-badge');
+      if (banBadgeEl) {
+        if (userObj.banned === true) {
+          banBadgeEl.textContent = '🚫 USER BANNED (নিষিদ্ধ)';
+          banBadgeEl.className =
+            'px-2.5 py-0.5 rounded-full bg-rose-950 border border-rose-600 text-rose-300 text-[10px] font-mono font-bold animate-pulse';
+        } else {
+          banBadgeEl.textContent = '● USER ACTIVE';
+          banBadgeEl.className =
+            'px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-600/50 text-emerald-300 text-[10px] font-mono font-bold';
+        }
+      }
     };
 
     // Admin VIP Control Helper: Update user's VIP time (+ / - min, hour, day), VIP ON/OFF, Daily Video Limit, or Profile Frame
@@ -11747,6 +11852,261 @@ service cloud.firestore {
         }
       });
     }
+
+    // Quick Message Template Button Listeners
+    const crmTplWarningBtn = document.getElementById('crm-tpl-warning-btn');
+    if (crmTplWarningBtn) {
+      crmTplWarningBtn.addEventListener('click', () => {
+        if (crmPopupTitleInput) crmPopupTitleInput.value = '⚠️ সতর্কবার্তা: অ্যাডস বাইপাস বন্ধ করুন';
+        if (crmPopupMsgInput) crmPopupMsgInput.value = 'আপনি নিয়ম ভেঙে অ্যাডস বাইপাস করার চেষ্টা করছেন। আর একবার এমন করলে আপনাকে ব্যান করা হবে! নিয়ম সবার জন্য সমান।';
+        showStatus('⚠️ Warning Template টেক্সট বক্সে লোড হয়েছে!', 'info');
+      });
+    }
+
+    const crmTplBanBtn = document.getElementById('crm-tpl-ban-btn');
+    if (crmTplBanBtn) {
+      crmTplBanBtn.addEventListener('click', () => {
+        if (crmPopupTitleInput) crmPopupTitleInput.value = '🚫 আপনার অ্যাকাউন্ট ব্যান করা হয়েছে!';
+        if (crmPopupMsgInput) crmPopupMsgInput.value = 'আপনাকে ব্যান করা হয়েছে! আপনি অ্যাডস বাইপাস করার চেষ্টা করেছেন এবং পূর্বের সতর্কতা মানেননি।';
+        showStatus('🚫 Ban Template টেক্সট বক্সে লোড হয়েছে!', 'info');
+      });
+    }
+
+    // Action 4 Listeners: Send Danger Warning, Ban User, and Unban User
+    const crmSendDangerWarningBtn = document.getElementById('crm-send-danger-warning-btn');
+    if (crmSendDangerWarningBtn) {
+      crmSendDangerWarningBtn.addEventListener('click', async () => {
+        if (!activeCrmUserKey) return;
+        const reason = (document.getElementById('crm-ban-reason-input')?.value || 'আপনি নিয়ম ভেঙে অ্যাডস বাইপাস করার চেষ্টা করছেন। আর একবার এমন করলে আপনাকে ব্যান করা হবে! নিয়ম সবার জন্য সমান।').trim();
+        try {
+          const now = Date.now();
+          const warningObj = {
+            active: true,
+            title: '⚠️ অ্যাডমিন সতর্কতা (Danger Warning)',
+            message: reason,
+            warnedAt: now,
+            acknowledged: false,
+          };
+          await Promise.all([
+            update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+              warning: warningObj,
+              personalNotice: {
+                id: `warn_${now}`,
+                title: '⚠️ অ্যাডমিন সতর্কতা (Danger Warning)',
+                message: reason,
+                active: true,
+                createdAt: now,
+              },
+              botAuthToken: 'xtube_tg_bot_2026',
+            }),
+          ]);
+          window.refreshActiveCrmModalData();
+          showStatus('🚨 ইউজারের কাছে লাল ডেঞ্জার অ্যানিমেশন সতর্কবার্তা পাঠানো হয়েছে!', 'success');
+        } catch (err) {
+          showStatus(`Warning Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    const crmBanUserBtn = document.getElementById('crm-ban-user-btn');
+    if (crmBanUserBtn) {
+      crmBanUserBtn.addEventListener('click', async () => {
+        if (!activeCrmUserKey) return;
+        const reason = (document.getElementById('crm-ban-reason-input')?.value || 'আপনাকে ব্যান করা হয়েছে! আপনি অ্যাডস বাইপাস করার চেষ্টা করেছেন এবং পূর্বের সতর্কতা মানেননি।').trim();
+        if (!confirm(`আপনি কি সত্যিই এই ইউজার (${activeCrmUserKey})-কে ওয়েবসাইট থেকে BAN করতে চান? ইউজার আর ওয়েবসাইট ব্যবহার করতে পারবে না!`)) return;
+        try {
+          const now = Date.now();
+          await Promise.all([
+            set(ref(db, `bannedUsers/${activeCrmUserKey}`), {
+              banned: true,
+              reason,
+              bannedAt: now,
+              bannedBy: 'admin',
+            }),
+            update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+              banned: true,
+              banReason: reason,
+              bannedAt: now,
+              botAuthToken: 'xtube_tg_bot_2026',
+            }),
+          ]);
+          window.refreshActiveCrmModalData();
+          showStatus(`🚫 ইউজার (${activeCrmUserKey}) সফলভাবে ব্যান হয়েছে! সে ওয়েবসাইট ব্যবহার করতে পারবে না।`, 'success');
+        } catch (err) {
+          showStatus(`Ban Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    const crmUnbanUserBtn = document.getElementById('crm-unban-user-btn');
+    if (crmUnbanUserBtn) {
+      crmUnbanUserBtn.addEventListener('click', async () => {
+        if (!activeCrmUserKey) return;
+        if (!confirm(`আপনি কি এই ইউজার (${activeCrmUserKey})-এর ব্যান প্রত্যাহার (Unban) করতে চান?`)) return;
+        try {
+          await Promise.all([
+            remove(ref(db, `bannedUsers/${activeCrmUserKey}`)).catch(() => {}),
+            update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+              banned: false,
+              unbannedAt: Date.now(),
+              botAuthToken: 'xtube_tg_bot_2026',
+            }),
+          ]);
+          window.refreshActiveCrmModalData();
+          showStatus(`✅ ইউজার (${activeCrmUserKey}) আনব্যান হয়েছে! এখন ওয়েবসাইট ব্যবহার করতে পারবে।`, 'success');
+        } catch (err) {
+          showStatus(`Unban Error: ${err.message}`, 'error');
+        }
+      });
+    }
+
+    // Realtime Listener for Unban Appeals from Telegram Bot
+    const unbanAppealsListEl = document.getElementById('unban-appeals-list');
+    const unbanAppealsCountBadge = document.getElementById('unban-appeals-count-badge');
+
+    onValue(ref(db, 'unbanRequests'), (snap) => {
+      const data = snap.val();
+      if (!unbanAppealsListEl) return;
+      if (!data || typeof data !== 'object') {
+        unbanAppealsListEl.innerHTML = '<p class="text-xs text-zinc-500 col-span-full py-2">কোনো পেন্ডিং আনব্যান আবেদন নেই।</p>';
+        if (unbanAppealsCountBadge) unbanAppealsCountBadge.textContent = '0 Pending';
+        return;
+      }
+
+      const items = Object.entries(data)
+        .map(([key, val]) => ({ id: key, ...(val || {}) }))
+        .sort((a, b) => (Number(b.requestedAt) || 0) - (Number(a.requestedAt) || 0));
+
+      const pendingItems = items.filter((x) => x.status === 'pending');
+      if (unbanAppealsCountBadge) {
+        unbanAppealsCountBadge.textContent = `${pendingItems.length} Pending (${items.length} Total)`;
+      }
+
+      if (items.length === 0) {
+        unbanAppealsListEl.innerHTML = '<p class="text-xs text-zinc-500 col-span-full py-2">কোনো পেন্ডিং আনব্যান আবেদন নেই।</p>';
+        return;
+      }
+
+      unbanAppealsListEl.innerHTML = items
+        .map((req) => {
+          const isPending = req.status === 'pending';
+          const isApproved = req.status === 'approved';
+
+          return `
+            <div class="p-3 rounded-xl border ${isPending ? 'border-rose-600/60 bg-rose-950/20 shadow-md' : isApproved ? 'border-emerald-600/40 bg-zinc-900/60' : 'border-zinc-800 bg-zinc-900/40'} space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>${escSafeHtml(req.fullName || 'User')}</span>
+                    ${req.username ? `<span class="text-sky-400 font-mono text-[10px]">${escSafeHtml(req.username)}</span>` : ''}
+                  </p>
+                  <p class="text-[10px] font-mono text-zinc-400">ID: ${escSafeHtml(req.userId || req.chatId || '')}</p>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${isPending ? 'bg-rose-950 border border-rose-600 text-rose-300 animate-pulse' : isApproved ? 'bg-emerald-950 text-emerald-300' : 'bg-zinc-800 text-zinc-400'}">
+                  ${req.status ? String(req.status).toUpperCase() : 'PENDING'}
+                </span>
+              </div>
+
+              <div class="p-2 rounded-lg bg-black/50 border border-zinc-800 text-[11px] text-zinc-200">
+                <span class="text-zinc-500 text-[10px] block">ইউজারের মেসেজ:</span>
+                "${escSafeHtml(req.userMessage || 'আমায় আনব্যান করুন')}"
+              </div>
+
+              <div class="flex items-center justify-between gap-1 pt-1">
+                <span class="text-[10px] text-zinc-500">${req.requestedAt ? new Date(req.requestedAt).toLocaleTimeString() : ''}</span>
+                ${isPending ? `
+                  <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="window.handleUnbanAppealAction('${escSafeHtml(req.userId || req.chatId)}', 'approve')"
+                      class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-extrabold cursor-pointer transition-colors shadow">
+                      ✅ Approve (আনব্যান)
+                    </button>
+                    <button type="button" onclick="window.handleUnbanAppealAction('${escSafeHtml(req.userId || req.chatId)}', 'reject')"
+                      class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-rose-700 text-zinc-300 hover:text-white text-[10px] font-bold cursor-pointer transition-colors">
+                      ❌ Reject
+                    </button>
+                  </div>
+                ` : `
+                  <span class="text-[10px] text-zinc-500 font-mono">${isApproved ? '✓ আনব্যান সম্পন্ন' : '✗ বাতিল করা হয়েছে'}</span>
+                `}
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    });
+
+    window.handleUnbanAppealAction = async (targetUserId, action) => {
+      if (!targetUserId || !action) return;
+      const isApprove = action === 'approve';
+      const confirmMsg = isApprove
+        ? `আপনি কি সত্যিই এই ইউজার (${targetUserId})-কে আনব্যান করতে চান? বট স্বয়ংক্রিয়ভাবে তাকে মেসেজ দিয়ে আনব্যানের বিষয়টি জানাবে।`
+        : `আপনি কি এই আবেদনটি Reject করতে চান? বট ইউজারকে আবেদন বাতিল হওয়ার বিষয়টি জানাবে।`;
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        // First try server API
+        fetch('/api/admin/unban-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: targetUserId, action }),
+        }).catch(() => null);
+
+        // Direct client fallback to ensure 100% completion in Firebase
+        if (isApprove) {
+          await Promise.all([
+            remove(ref(db, `bannedUsers/${targetUserId}`)).catch(() => {}),
+            update(ref(db, `telegramBotSessions/${targetUserId}`), {
+              banned: false,
+              unbannedAt: Date.now(),
+              botAuthToken: 'xtube_tg_bot_2026',
+            }).catch(() => {}),
+            update(ref(db, `unbanRequests/${targetUserId}`), {
+              status: 'approved',
+              reviewedAt: Date.now(),
+              botAuthToken: 'xtube_tg_bot_2026',
+            }).catch(() => {}),
+          ]);
+
+          const botToken = resolveActiveBotToken(null);
+          if (botToken && /^\d{5,20}$/.test(targetUserId)) {
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: targetUserId,
+                text: '✅ <b>অ্যাডমিন আপনাকে আনব্যান করেছেন!</b>\n\nভবিষ্যতে আর কখনো নিয়ম ভেঙে অ্যাডস বাইপাস করার চেষ্টা করবেন না। নিয়ম সবার জন্য সমান। ধন্যবাদ!\n\n👉 <a href="https://t.me/xtubeofficial_bot">X Tube Mini App খুলুন</a>',
+                parse_mode: 'HTML',
+              }),
+            }).catch(() => {});
+          }
+
+          showStatus(`✅ ইউজার (${targetUserId}) আনব্যান হয়েছে এবং বট মেসেজ পাঠিয়েছে!`, 'success');
+        } else {
+          await update(ref(db, `unbanRequests/${targetUserId}`), {
+            status: 'rejected',
+            reviewedAt: Date.now(),
+            botAuthToken: 'xtube_tg_bot_2026',
+          }).catch(() => {});
+
+          const botToken = resolveActiveBotToken(null);
+          if (botToken && /^\d{5,20}$/.test(targetUserId)) {
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: targetUserId,
+                text: '❌ <b>দুঃখিত! অ্যাডমিন আপনার আনব্যান রিকোয়েস্ট বাতিল (Reject) করেছেন।</b>\n\nআপনি বারবার নিয়ম লঙ্ঘন করায় ব্যান বহাল রাখা হয়েছে।',
+                parse_mode: 'HTML',
+              }),
+            }).catch(() => {});
+          }
+
+          showStatus(`❌ আনব্যান আবেদন বাতিল (Reject) করা হয়েছে এবং ইউজারকে জানানো হয়েছে।`, 'info');
+        }
+      } catch (err) {
+        showStatus(`Appeal Action Error: ${err.message}`, 'error');
+      }
+    };
 
     // Clean Stale / Offline Presence Entries (Cleans database to eliminate Firebase Performance Warning)
     const cleanOfflinePresenceBtn = document.getElementById('clean-offline-presence-btn');
