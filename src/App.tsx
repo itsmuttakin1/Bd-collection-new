@@ -818,6 +818,8 @@ export default function App() {
   const [personalNoticePopupOpen, setPersonalNoticePopupOpen] = useState<boolean>(false);
   const dismissedNoticeIdRef = useRef<string>('');
   const [remoteWatchedCount, setRemoteWatchedCount] = useState<number>(0);
+  const remoteWatchedCountRef = useRef<number>(0);
+  const countedVideoIdsSessionRef = useRef<Set<string>>(new Set());
   // Real-time User Ban & Warning Lockout State
   const [isUserBanned, setIsUserBanned] = useState<boolean>(() => {
     try {
@@ -2379,7 +2381,9 @@ export default function App() {
       );
       const totalWatched = Math.max(
         totalLocalWatchEvents,
-        typeof remoteWatchedCount === 'number' && remoteWatchedCount >= 0 ? remoteWatchedCount : 0
+        typeof remoteWatchedCountRef.current === 'number' && remoteWatchedCountRef.current >= 0
+          ? remoteWatchedCountRef.current
+          : (typeof remoteWatchedCount === 'number' && remoteWatchedCount >= 0 ? remoteWatchedCount : 0)
       );
 
       // Real-time Page Status Logic:
@@ -2505,7 +2509,11 @@ export default function App() {
         const val = snap.val();
         if (!val || typeof val !== 'object') return;
         if (typeof val.videosWatchedCount === 'number' && val.videosWatchedCount >= 0) {
-          setRemoteWatchedCount(val.videosWatchedCount);
+          setRemoteWatchedCount((prev) => {
+            const next = Math.max(prev, val.videosWatchedCount);
+            remoteWatchedCountRef.current = next;
+            return next;
+          });
         }
         if (val.profileFrame && typeof val.profileFrame === 'string') {
           setProfileFrame(val.profileFrame);
@@ -2578,7 +2586,11 @@ export default function App() {
         const lbVal = snap.val();
         if (lbVal && typeof lbVal === 'object') {
           if (typeof lbVal.videosWatchedCount === 'number' && lbVal.videosWatchedCount >= 0) {
-            setRemoteWatchedCount(lbVal.videosWatchedCount);
+            setRemoteWatchedCount((prev) => {
+              const next = Math.max(prev, lbVal.videosWatchedCount);
+              remoteWatchedCountRef.current = next;
+              return next;
+            });
           }
           if (lbVal.profileFrame && typeof lbVal.profileFrame === 'string') {
             setProfileFrame(lbVal.profileFrame);
@@ -2706,7 +2718,6 @@ export default function App() {
     isAdFree,
     expiresAt,
     profileRevision,
-    remoteWatchedCount,
     isStepGateActive,
     gateVideo?.id,
     unlockedVideoId,
@@ -3324,7 +3335,6 @@ export default function App() {
       setViewMode('watch');
       recordVipAdFreeVideoWatch(video.id);
       incrementVideoViews(video.id);
-      recordAlgorithmInteraction(video, 'watch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -3366,7 +3376,6 @@ export default function App() {
     setViewMode('watch');
     syncUrlWithVideo(video.id);
     incrementVideoViews(video.id);
-    recordAlgorithmInteraction(video, 'watch');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -3427,7 +3436,6 @@ export default function App() {
       } else {
         incrementVideoViews(target.id);
       }
-      recordAlgorithmInteraction(target, 'watch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -3437,11 +3445,23 @@ export default function App() {
   };
 
   const handleVideoPlaySuccess = (video: VideoItem) => {
+    if (!video || !video.id) return;
+
+    // Deduplication guard: count only ONCE per video per session to prevent runaway loops
+    if (countedVideoIdsSessionRef.current.has(video.id)) {
+      return;
+    }
+    countedVideoIdsSessionRef.current.add(video.id);
+
     incrementVideoViews(video.id);
     recordAlgorithmInteraction(video, 'watch');
 
     // 1. Increment local remoteWatchedCount state immediately so profile and leaderboard update live
-    setRemoteWatchedCount((prev) => (Number(prev) || 0) + 1);
+    setRemoteWatchedCount((prev) => {
+      const next = (Number(prev) || 0) + 1;
+      remoteWatchedCountRef.current = next;
+      return next;
+    });
 
     // 2. Increment Firebase RTDB user watch counts in real time across CRM and Leaderboard
     const targetKey = tgProfile.isRealTelegramUser

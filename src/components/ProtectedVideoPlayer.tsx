@@ -34,6 +34,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
   const seekTrackRef = useRef<HTMLDivElement>(null);
   const socialBarMidpointTriggeredRef = useRef<boolean>(false);
   const lastPopunderTimeRef = useRef<number>(0);
+  const watchCountedRef = useRef<boolean>(false);
 
   // Video is unlocked once the 3-step verification completes
   const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
@@ -174,6 +175,7 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     setIsFullscreen(false);
     setIsRotatedLandscape(false);
     socialBarMidpointTriggeredRef.current = false;
+    watchCountedRef.current = false;
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -216,7 +218,6 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
     if (p !== undefined) {
       p.then(() => {
         setIsPlaying(true);
-        if (onPlaySuccess) onPlaySuccess();
       }).catch(() => {
         try {
           vid.muted = true;
@@ -225,7 +226,6 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
           if (p2 !== undefined) {
             p2.then(() => {
               setIsPlaying(true);
-              if (onPlaySuccess) onPlaySuccess();
             }).catch(() => {});
           }
         } catch {}
@@ -521,6 +521,15 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
                 triggerSocialBarAd();
               }
             }
+
+            // Genuine watch verification: count (+1) only after user actually watches at least 5s or 50% of video
+            if (
+              !watchCountedRef.current &&
+              (vid.currentTime >= 5 || (vid.duration > 0 && vid.currentTime >= vid.duration * 0.5))
+            ) {
+              watchCountedRef.current = true;
+              if (onPlaySuccess) onPlaySuccess();
+            }
           }}
           onLoadedMetadata={() => {
             const vid = videoRef.current;
@@ -544,7 +553,14 @@ export const ProtectedVideoPlayer: React.FC<ProtectedVideoPlayerProps> = ({
             triggerSocialBarAd();
           }}
           onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
+          onEnded={() => {
+            setIsPlaying(false);
+            const vid = videoRef.current;
+            if (vid && !watchCountedRef.current && vid.currentTime >= 2) {
+              watchCountedRef.current = true;
+              if (onPlaySuccess) onPlaySuccess();
+            }
+          }}
           className="w-full h-full object-contain pointer-events-none"
         />
 
