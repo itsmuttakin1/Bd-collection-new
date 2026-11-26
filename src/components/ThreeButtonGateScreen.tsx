@@ -207,18 +207,18 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
       setIsSuccess(true);
       setFoundWinningButtonIdx(btnIdx);
       setToastType('success');
-      setToastMessage('🎉 দারুণ! এই বাটনেই মূল ভিডিও লিংক পাওয়া গেছে! ভিডিও চালু হচ্ছে...');
+      setToastMessage('✓ সার্ভার কানেক্ট হয়েছে! ভিডিও প্লে হচ্ছে...');
       setTimeout(() => {
         onUnlockRef.current(videoRef.current);
       }, 900);
     } else if (isFakePopupMode) {
       setCheckedButtons((prev) => ({ ...prev, [btnIdx]: true }));
       setToastType('warning');
-      setToastMessage('⚠️ Server সমস্যার জন্য এই লিংকটি কাজ করেনি। অন্য বাটনে ট্রাই করুন!');
+      setToastMessage('⚠️ সার্ভার সমস্যার কারণে এই লিংকে ভিডিও প্লে হচ্ছে না! অনুগ্রহ করে অন্য বাটনগুলোতে ট্রাই করুন।');
     } else {
       setCheckedButtons((prev) => ({ ...prev, [btnIdx]: true }));
       setToastType('warning');
-      setToastMessage('⚠️ এই বাটনে মূল ভিডিও লিংক নেই! অনুগ্রহ করে অন্য বাটনগুলোতে ট্রাই করুন।');
+      setToastMessage('⚠️ সার্ভার সমস্যার কারণে এই লিংকে ভিডিও প্লে হচ্ছে না! অনুগ্রহ করে অন্য বাটনগুলোতে ট্রাই করুন।');
     }
   };
 
@@ -452,12 +452,12 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
                 />
                 {hasBeenCheckedAndEmpty && !isSuccess && (
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/95 text-rose-300 border border-rose-500/50 text-[10px] font-mono font-bold shadow">
-                    No Link ✖
+                    Server Error ✖
                   </span>
                 )}
                 {isWinningBtn && (
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-mono font-black shadow-lg">
-                    ✅ Link Found!
+                    ✅ Server Ready!
                   </span>
                 )}
               </button>
@@ -479,7 +479,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
         {/* Anti-Bypass Rules Sub-Note */}
         <p className="text-[10px] text-slate-500 font-medium text-center mt-1.5 flex items-center justify-center gap-1">
-          <span>🔒 ৩টি বাটনের যেকোনো ১টিতে মূল ভিডিও লিংক রয়েছে · অ্যাড ৫ সেকেন্ড না দেখে ব্যাক করলে কাজ করবে না</span>
+          <span>🔒 সিকিউর সার্ভার · কোনো লিংক কাজ না করলে অন্য বাটনে ট্রাই করুন (অ্যাড ৫ সেকেন্ড না দেখে ব্যাক করলে কাজ করবে না)</span>
         </p>
       </div>
     </div>
