@@ -24,7 +24,7 @@ const BUTTONS = [
   { id: '4k', label: 'Download Video 4K', img: '/images/buttons/btn-4k.png' },
 ];
 
-const MIN_AD_VIEW_MS = 5000;
+const MIN_AD_VIEW_MS = 9000;
 const LAST_WIN_BTN_STORAGE_KEY = 'xtube_last_gate_win_idx';
 
 const pickNextRandomWinningIndex = (): number => {
@@ -75,7 +75,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
   // Strict Anti-Bypass Ad Load Verification state
   const [verifyingAd, setVerifyingAd] = useState<boolean>(false);
-  const [verifyCountdown, setVerifyCountdown] = useState<number>(5);
+  const [verifyCountdown, setVerifyCountdown] = useState<number>(9);
   const [pendingUnlockIndex, setPendingUnlockIndex] = useState<number | null>(null);
 
   const adClickTimestampRef = useRef<number>(0);
@@ -121,7 +121,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
         } catch { }
         setToastType('danger');
         setToastMessage(
-          '⚠️ ব্যাক করলে ভিডিও আনলক হবে না! ভিডিও দেখতে নিচের বাটনে ক্লিক করে অ্যাড পেজে অন্তত ৫ সেকেন্ড অপেক্ষা করুন।'
+          '⚠️ ব্যাক করলে ভিডিও আনলক হবে না! ভিডিও দেখতে নিচের বাটনে ক্লিক করে অ্যাড পেজে অন্তত ৯ সেকেন্ড অপেক্ষা করুন।'
         );
       }
     };
@@ -156,7 +156,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     setCheckedButtons({});
     setVerifyingAd(false);
     verifyingAdRef.current = false;
-    setVerifyCountdown(5);
+    setVerifyCountdown(9);
     setPendingUnlockIndex(null);
     pendingUnlockIndexRef.current = null;
     didLeaveForAdRef.current = false;
@@ -186,8 +186,8 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
       setToastType('danger');
       setToastMessage(
         !didLeave
-          ? '⚠️ অ্যাড লোড হয়নি বা পপআপ ব্লক হয়েছে! অ্যাড পেজে গিয়ে অন্তত ৫ সেকেন্ড অ্যাড দেখুন, নাহলে কাজ করবে না।'
-          : `⚠️ অ্যাড লোড হওয়ার আগেই ব্যাক করেছেন (${secSpent}s)! (${count}x ধরা পড়েছে) — কাজ করতে হলে অ্যাড পেজে অন্তত ৫ সেকেন্ড থাকতেই হবে!`
+          ? '⚠️ অ্যাড লোড হয়নি বা পপআপ ব্লক হয়েছে! অ্যাড পেজে গিয়ে অন্তত ৯ সেকেন্ড অ্যাড দেখুন, নাহলে কাজ করবে না।'
+          : `⚠️ অ্যাড লোড হওয়ার আগেই ব্যাক করেছেন (${secSpent}s)! (${count}x ধরা পড়েছে) — কাজ করতে হলে অ্যাড পেজে অন্তত ৯ সেকেন্ড থাকতেই হবে!`
       );
 
       if (count >= 2 && onBypassDetectedRef.current) {
@@ -266,7 +266,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
     const timer = setInterval(() => {
       const elapsedSec = Math.floor((Date.now() - adClickTimestampRef.current) / 1000);
-      const rem = Math.max(0, 5 - elapsedSec);
+      const rem = Math.max(0, 9 - elapsedSec);
       setVerifyCountdown(rem);
 
       // If 3+ seconds passed on THIS page and the user NEVER left to the ad tab, popup was blocked or ignored!
@@ -294,7 +294,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     setPendingUnlockIndex(buttonIndex);
     verifyingAdRef.current = true;
     setVerifyingAd(true);
-    setVerifyCountdown(5);
+    setVerifyCountdown(9);
 
     // Trigger Popunder Ad
     triggerPopunderAd();
@@ -332,7 +332,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
     setToastType('info');
     setToastMessage(
-      '⏳ অ্যাড ওপেন হয়েছে! মূল লিংক পেতে অ্যাড পেজ লোড হওয়ার পর অন্তত ৫ সেকেন্ড অপেক্ষা করে তারপর ব্যাক করুন।'
+      '⏳ অ্যাড ওপেন হয়েছে! মূল লিংক পেতে অ্যাড পেজ লোড হওয়ার পর অন্তত ৯ সেকেন্ড অপেক্ষা করে তারপর ব্যাক করুন।'
     );
   };
 
@@ -391,7 +391,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
             <div className="flex items-center gap-2">
               <Timer className="w-5 h-5 text-amber-600 animate-spin" />
               <div>
-                <p className="text-xs font-bold">অ্যাড পেজে ৫ সেকেন্ড অপেক্ষা করুন...</p>
+                <p className="text-xs font-bold">অ্যাড পেজে ৯ সেকেন্ড অপেক্ষা করুন...</p>
                 <p className="text-[10px] text-amber-800">অ্যাড লোড না হয়েই ব্যাক করলে কাজ করবে না!</p>
               </div>
             </div>
@@ -479,7 +479,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
         {/* Anti-Bypass Rules Sub-Note */}
         <p className="text-[10px] text-slate-500 font-medium text-center mt-1.5 flex items-center justify-center gap-1">
-          <span>🔒 সিকিউর সার্ভার · কোনো লিংক কাজ না করলে অন্য বাটনে ট্রাই করুন (অ্যাড ৫ সেকেন্ড না দেখে ব্যাক করলে কাজ করবে না)</span>
+          <span>🔒 সিকিউর সার্ভার · কোনো লিংক কাজ না করলে অন্য বাটনে ট্রাই করুন (অ্যাড ৯ সেকেন্ড না দেখে ব্যাক করলে কাজ করবে না)</span>
         </p>
       </div>
     </div>
