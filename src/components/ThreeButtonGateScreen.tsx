@@ -25,6 +25,22 @@ const BUTTONS = [
 ];
 
 const MIN_AD_VIEW_MS = 5000;
+const LAST_WIN_BTN_STORAGE_KEY = 'xtube_last_gate_win_idx';
+
+const pickNextRandomWinningIndex = (): number => {
+  try {
+    const rawPrev = localStorage.getItem(LAST_WIN_BTN_STORAGE_KEY);
+    const prevIdx = rawPrev !== null ? parseInt(rawPrev, 10) : -1;
+    // On first visit pick from [1, 2]; on subsequent videos strictly avoid repeating prevIdx so it changes every time
+    const candidates =
+      prevIdx >= 0 && prevIdx <= 2 ? [0, 1, 2].filter((idx) => idx !== prevIdx) : [1, 2];
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    localStorage.setItem(LAST_WIN_BTN_STORAGE_KEY, String(chosen));
+    return chosen;
+  } catch {
+    return 1;
+  }
+};
 
 export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
   video,
@@ -45,14 +61,16 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
       ? video.fakeSmartlinks.filter(Boolean)
       : SMARTLINKS;
 
-  // Exactly 1 random button out of 3 holds the original video link per video!
+  // Exactly 1 random button out of 3 holds the original video link per video (strictly rotates every video)
+  const prevVideoIdRef = useRef<string>(video.id);
   const [winningIndex, setWinningIndex] = useState<number>(() =>
-    isFakePopupMode ? -1 : Math.floor(Math.random() * 3)
+    isFakePopupMode ? -1 : pickNextRandomWinningIndex()
   );
   const [smartlinkIndex, setSmartlinkIndex] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'info' | 'success' | 'warning' | 'danger'>('info');
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [foundWinningButtonIdx, setFoundWinningButtonIdx] = useState<number | null>(null);
   const [checkedButtons, setCheckedButtons] = useState<Record<number, boolean>>({});
 
   // Strict Anti-Bypass Ad Load Verification state
@@ -125,13 +143,16 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     }
   }, [isAdFree, isFakePopupMode]);
 
-  // Rotate winning index ONLY when video.id changes
+  // Rotate winning index ONLY when video.id actually changes
   useEffect(() => {
-    const nextWin = isFakePopupMode ? -1 : Math.floor(Math.random() * 3);
+    if (prevVideoIdRef.current === video.id) return;
+    prevVideoIdRef.current = video.id;
+    const nextWin = isFakePopupMode ? -1 : pickNextRandomWinningIndex();
     setWinningIndex(nextWin);
     winningIndexRef.current = nextWin;
     setToastMessage(null);
     setIsSuccess(false);
+    setFoundWinningButtonIdx(null);
     setCheckedButtons({});
     setVerifyingAd(false);
     verifyingAdRef.current = false;
@@ -184,11 +205,12 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
     if (!isFakePopupMode && btnIdx === winningIndexRef.current) {
       setIsSuccess(true);
+      setFoundWinningButtonIdx(btnIdx);
       setToastType('success');
-      setToastMessage('🎉 সঠিক লিংক ও অ্যাড ভেরিফিকেশন সফল হয়েছে! মূল ভিডিও চালু হচ্ছে...');
+      setToastMessage('🎉 দারুণ! এই বাটনেই মূল ভিডিও লিংক পাওয়া গেছে! ভিডিও চালু হচ্ছে...');
       setTimeout(() => {
         onUnlockRef.current(videoRef.current);
-      }, 450);
+      }, 900);
     } else if (isFakePopupMode) {
       setCheckedButtons((prev) => ({ ...prev, [btnIdx]: true }));
       setToastType('warning');
@@ -196,7 +218,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     } else {
       setCheckedButtons((prev) => ({ ...prev, [btnIdx]: true }));
       setToastType('warning');
-      setToastMessage('⚠️ অ্যাড ভেরিফাই হয়েছে, তবে এই বাটনে মূল ভিডিও লিংক নেই! বাকি বাটনগুলোতে ট্রাই করুন।');
+      setToastMessage('⚠️ এই বাটনে মূল ভিডিও লিংক নেই! অনুগ্রহ করে অন্য বাটনগুলোতে ট্রাই করুন।');
     }
   };
 
@@ -258,7 +280,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
   }, [verifyingAd]);
 
   const handleButtonClick = (buttonIndex: number) => {
-    if (isSuccess) return;
+    if (isSuccess || checkedButtons[buttonIndex]) return;
 
     // If previous verification got stuck without leaving, reset it cleanly
     if (verifyingAdRef.current) {
@@ -407,14 +429,19 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
         <div className="w-full max-w-[440px] flex flex-col items-center gap-3 my-2">
           {BUTTONS.map((btn, index) => {
             const hasBeenCheckedAndEmpty = Boolean(checkedButtons[index]);
+            const isWinningBtn = foundWinningButtonIdx === index;
             return (
               <button
                 key={btn.id}
                 type="button"
                 onClick={() => handleButtonClick(index)}
-                disabled={isSuccess}
-                className={`w-full transform hover:scale-[1.02] active:scale-95 transition-all duration-150 cursor-pointer focus:outline-none drop-shadow-md hover:drop-shadow-xl relative rounded-full ${
-                  hasBeenCheckedAndEmpty ? 'opacity-60' : ''
+                disabled={isSuccess || hasBeenCheckedAndEmpty}
+                className={`w-full transform transition-all duration-150 focus:outline-none drop-shadow-md relative rounded-full ${
+                  hasBeenCheckedAndEmpty
+                    ? 'opacity-45 cursor-not-allowed grayscale'
+                    : isWinningBtn
+                    ? 'ring-4 ring-emerald-400 scale-[1.02] cursor-default'
+                    : 'hover:scale-[1.02] active:scale-95 cursor-pointer hover:drop-shadow-xl'
                 }`}
                 title={btn.label}
               >
@@ -424,8 +451,13 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
                   className="w-full h-auto object-contain select-none pointer-events-none rounded-full"
                 />
                 {hasBeenCheckedAndEmpty && !isSuccess && (
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/90 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/95 text-rose-300 border border-rose-500/50 text-[10px] font-mono font-bold shadow">
                     No Link ✖
+                  </span>
+                )}
+                {isWinningBtn && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-mono font-black shadow-lg">
+                    ✅ Link Found!
                   </span>
                 )}
               </button>
