@@ -1519,67 +1519,36 @@
                   class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-amber-500/40 text-sm font-mono font-bold text-amber-300 uppercase tracking-wider focus:outline-none focus:border-amber-400" />
               </div>
 
-              <!-- Quick Duration Preset Buttons (Minutes, Hours & Days -> Auto-Sets Exact Date & Time Below) -->
+              <!-- Quick Coin Pack Preset Buttons -->
               <div class="space-y-2">
-                <label class="block text-[11px] text-zinc-400">১-ক্লিক মেয়াদ সিলেক্ট করুন (মিনিট, ঘণ্টা বা দিন):</label>
+                <label class="block text-[11px] text-zinc-400">১-ক্লিক কয়েন প্যাকেজ সিলেক্ট করুন (No Expiry):</label>
                 <div class="grid grid-cols-3 sm:grid-cols-3 gap-1.5">
-                  <button type="button" data-redeem-mins="5" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">5 Mins</button>
-                  <button type="button" data-redeem-mins="15" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">15 Mins</button>
-                  <button type="button" data-redeem-mins="30" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-emerald-950/60 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 cursor-pointer">30 Mins</button>
-                  <button type="button" data-redeem-hours="1" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">1 Hour</button>
-                  <button type="button" data-redeem-hours="6" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">6 Hours</button>
-                  <button type="button" data-redeem-hours="24" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-[11px] font-bold text-amber-300 cursor-pointer">1 Day (24h)</button>
-                  <button type="button" data-redeem-hours="168" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">7 Days</button>
-                  <button type="button" data-redeem-hours="336" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-amber-600/60 text-[11px] font-bold text-amber-300 cursor-pointer">💎 14 Days</button>
-                  <button type="button" data-redeem-hours="720" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">30 Days</button>
+                  <button type="button" data-redeem-coins="10" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">🪙 10 Coins</button>
+                  <button type="button" data-redeem-coins="20" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">🪙 20 Coins</button>
+                  <button type="button" data-redeem-coins="50" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-[11px] font-bold text-amber-300 cursor-pointer">🪙 50 Coins</button>
+                  <button type="button" data-redeem-coins="100" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">🪙 100 Coins</button>
+                  <button type="button" data-redeem-coins="200" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">🪙 200 Coins</button>
+                  <button type="button" data-redeem-coins="300" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-zinc-800 text-[11px] font-semibold text-zinc-200 cursor-pointer">🪙 300 Coins</button>
+                  <button type="button" data-redeem-coins="500" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-amber-600/60 text-[11px] font-bold text-amber-300 cursor-pointer">💎 500 Coins</button>
+                  <button type="button" data-redeem-coins="1000" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-amber-600/60 text-[11px] font-bold text-amber-300 cursor-pointer">👑 1000 Coins</button>
+                  <button type="button" data-redeem-coins="2000" class="redeem-preset-btn px-2 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/60 border border-amber-600/60 text-[11px] font-bold text-amber-300 cursor-pointer">🔥 2000 Coins</button>
                 </div>
-
-                <!-- Custom Minutes Input Box ("ar reedem code koto min o gen kora jabe") -->
-                <div class="p-2.5 rounded-xl bg-zinc-950 border border-emerald-800/60 space-y-1.5">
-                  <label class="block text-[11px] font-bold text-emerald-400">
-                    ⏱️ কাস্টম মিনিট সেট করুন (কত মিনিটের জন্য Redeem Code জেনারেট করবেন):
-                  </label>
-                  <div class="flex items-center gap-2">
-                    <input id="redeem-custom-minutes-input" type="number" min="1" max="525600" placeholder="যেমন: 10 বা 45 (মিনিট)"
-                      class="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-emerald-500" />
-                    <button id="apply-custom-minutes-btn" type="button"
-                      class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shrink-0">
-                      ⚡ Set Minutes
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Exact Expiration Date & Time Picker -->
-              <div>
-                <label class="block text-[11px] text-zinc-300 font-semibold mb-1">Exact Expiration Date &amp; Time (কখন মেয়াদ শেষ হবে) *</label>
-                <input id="redeem-expiry-datetime-input" type="datetime-local" required
-                  class="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-amber-400" />
-                <p id="redeem-expiry-preview-text" class="text-[11px] font-mono text-emerald-400 mt-1">
-                  মেয়াদ শেষ হওয়ার সাথে সাথে ইউজারের ব্রাউজারে আবার Ads চালু হয়ে যাবে।
-                </p>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label class="block text-[11px] font-bold text-amber-300 mb-1">🪙 কয়েন রিওয়ার্ড (Coins Reward)</label>
-                  <input id="redeem-coins-input" type="number" min="0" max="100000" value="50"
-                    placeholder="যেমন: 50 বা 100 (০ হলে VIP)"
+                  <label class="block text-[11px] font-bold text-amber-300 mb-1">🪙 কয়েন সংখ্যা (Coins) *</label>
+                  <input id="redeem-coins-input" type="number" min="1" max="100000" value="50" required
+                    placeholder="যেমন: 50 বা 100"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-amber-500/50 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400" />
                 </div>
                 <div>
                   <label class="block text-[11px] text-zinc-400 mb-1">Package Label</label>
-                  <input id="redeem-package-label-input" type="text" value="Coin / VIP Pass"
+                  <input id="redeem-package-label-input" type="text" value="50 Coins Pack"
                     placeholder="50 Coins Pack"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-400" />
                 </div>
-                <div>
-                  <label class="block text-[11px] text-amber-300 font-semibold mb-1">🎬 Daily Video Limit (০=∞)</label>
-                  <input id="redeem-daily-limit-input" type="number" min="0" max="10000" value="0"
-                    placeholder="0 = Unlimited, বা 10"
-                    class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-amber-500/40 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400" />
-                </div>
-                <div>
+                <div class="sm:col-span-2">
                   <label class="block text-[11px] text-zinc-400 mb-1">User Note / TG ID (ঐচ্ছিক)</label>
                   <input id="redeem-note-input" type="text"
                     placeholder="@username বা TG ID"
@@ -1589,13 +1558,13 @@
 
               <button id="generate-redeem-submit-btn" type="submit"
                 class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 hover:from-amber-400 hover:to-red-500 text-zinc-950 font-extrabold text-xs sm:text-sm tracking-wide transition-all cursor-pointer shadow-lg shadow-amber-500/20">
-                🎟️ Generate Redeem Code &amp; Copy
+                🎟️ Generate Coin Redeem Code &amp; Copy
               </button>
 
               <!-- Recently Generated Code Banner -->
               <div id="newly-generated-code-box" class="hidden p-3 rounded-xl bg-emerald-950/60 border border-emerald-600/70 space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-[11px] font-bold text-emerald-300">✅ Redeem Code Ready:</span>
+                  <span class="text-[11px] font-bold text-emerald-300">✅ Coin Redeem Code Ready:</span>
                   <button id="copy-newly-generated-code-btn" type="button"
                     class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer">
                     📋 Copy Code
@@ -1605,13 +1574,13 @@
               </div>
             </form>
 
-            <!-- Right 7 Cols: Active & Expired Redeem Codes Manager -->
+            <!-- Right 7 Cols: Generated Coin Redeem Codes Manager -->
             <div class="lg:col-span-7 p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 flex flex-col justify-between space-y-3">
               <div class="space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
                   <div>
-                    <h3 class="text-sm font-bold text-white">🎟️ Generated Redeem Codes (Live Countdown &amp; Device Lock)</h3>
-                    <p class="text-[11px] text-zinc-400">প্রতিটি কোড ১টি ব্রাউজারে লক থাকে। মেয়াদ শেষ হলে বা Delete করলে সাথে সাথে Ads চালু হবে।</p>
+                    <h3 class="text-sm font-bold text-white">🪙 Generated Coin Redeem Codes (No Expiry)</h3>
+                    <p class="text-[11px] text-zinc-400">প্রতিটি কোড ১ বার ব্যবহারযোগ্য। রিডিম করলে ইউজারের অ্যাকাউন্টে নির্ধারিত কয়েন যোগ হবে।</p>
                   </div>
                   <div class="flex items-center gap-2">
                     <span id="redeem-codes-count-badge" class="px-2.5 py-1 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-mono text-amber-400">
@@ -1621,15 +1590,15 @@
                 </div>
 
                 <div id="redeem-codes-list-wrap" class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                  <p class="text-xs text-zinc-500 py-8 text-center">No Redeem Codes generated yet. Create your first code on the left!</p>
+                  <p class="text-xs text-zinc-500 py-8 text-center">No Redeem Codes generated yet. Create your first coin code on the left!</p>
                 </div>
               </div>
 
               <div class="pt-2.5 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
-                <span>🔒 1-Browser Lock + Server Time Sync সক্রিয়</span>
+                <span>🔒 1-Time Use Anti-Hack Coin Lock সক্রিয়</span>
                 <button id="delete-expired-codes-btn" type="button"
                   class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-red-950/70 text-zinc-300 hover:text-red-300 text-[11px] cursor-pointer">
-                  🗑️ Clear All Expired Codes
+                  🗑️ Clear Used / Disabled Codes
                 </button>
               </div>
             </div>
@@ -8527,34 +8496,16 @@ service cloud.firestore {
       return `${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s left`;
     };
 
-    const setExpiryMinutesFromNow = (minutes) => {
-      const mins = Math.max(1, Number(minutes) || 10);
-      selectedPresetHours = Number((mins / 60).toFixed(4));
-      const targetMs = Date.now() + mins * 60 * 1000;
-      if (redeemExpiryInput) {
-        redeemExpiryInput.value = toLocalDateTimeInputValue(targetMs);
-      }
-      if (redeemExpiryPreview) {
-        redeemExpiryPreview.textContent =
-          mins < 60
-            ? `⏳ মেয়াদ: ${mins} মিনিট (শেষ হবে: ${new Date(targetMs).toLocaleString()})`
-            : `⏳ মেয়াদ: ${(mins / 60).toFixed(1)} ঘণ্টা (${mins} মিনিট) · শেষ হবে: ${new Date(targetMs).toLocaleString()}`;
-      }
+    const selectCoinPreset = (coinsVal) => {
+      const coins = Math.max(1, Math.floor(Number(coinsVal) || 50));
+      const coinsInput = document.getElementById('redeem-coins-input');
+      if (coinsInput) coinsInput.value = String(coins);
       if (redeemPkgLabelInput) {
-        redeemPkgLabelInput.value =
-          mins < 60
-            ? `${mins} Minutes VIP Ad-Free`
-            : mins % 1440 === 0
-            ? `${mins / 1440} Days VIP Ad-Free`
-            : mins % 60 === 0
-            ? `${mins / 60} Hours VIP Ad-Free`
-            : `${mins} Mins VIP Ad-Free`;
+        redeemPkgLabelInput.value = `${coins} Coins Pack`;
       }
       document.querySelectorAll('.redeem-preset-btn').forEach((b) => {
-        const m = Number(b.getAttribute('data-redeem-mins'));
-        const h = Number(b.getAttribute('data-redeem-hours'));
-        const isMatch = (m && m === mins) || (h && h * 60 === mins);
-        if (isMatch) {
+        const c = Number(b.getAttribute('data-redeem-coins'));
+        if (c === coins) {
           b.className =
             'redeem-preset-btn px-2 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-[11px] font-bold text-amber-300 cursor-pointer';
         } else {
@@ -8564,16 +8515,11 @@ service cloud.firestore {
       });
     };
 
-    const setExpiryHoursFromNow = (hours) => {
-      const hrs = Number(hours) || 24;
-      setExpiryMinutesFromNow(Math.round(hrs * 60));
-    };
-
-    // Initialize default code and +24h expiry
+    // Initialize default code and 50 Coins preset
     if (redeemCodeInput && !redeemCodeInput.value) {
       redeemCodeInput.value = generateRandomVipCode();
     }
-    setExpiryHoursFromNow(24);
+    selectCoinPreset(50);
 
     if (randomizeRedeemBtn) {
       randomizeRedeemBtn.addEventListener('click', () => {
@@ -8581,55 +8527,12 @@ service cloud.firestore {
       });
     }
 
-    document.querySelectorAll('[data-redeem-mins]').forEach((btn) => {
+    document.querySelectorAll('[data-redeem-coins]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const mins = Number(btn.getAttribute('data-redeem-mins')) || 10;
-        const customMinInput = document.getElementById('redeem-custom-minutes-input');
-        if (customMinInput) customMinInput.value = String(mins);
-        setExpiryMinutesFromNow(mins);
+        const c = Number(btn.getAttribute('data-redeem-coins')) || 50;
+        selectCoinPreset(c);
       });
     });
-
-    document.querySelectorAll('[data-redeem-hours]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const hrs = Number(btn.getAttribute('data-redeem-hours')) || 24;
-        setExpiryHoursFromNow(hrs);
-      });
-    });
-
-    const customMinutesInput = document.getElementById('redeem-custom-minutes-input');
-    const applyCustomMinutesBtn = document.getElementById('apply-custom-minutes-btn');
-    if (applyCustomMinutesBtn && customMinutesInput) {
-      const applyMins = () => {
-        const mins = Math.max(1, Number(customMinutesInput.value) || 0);
-        if (!customMinutesInput.value || mins <= 0) {
-          showStatus('অনুগ্রহ করে কত মিনিটের জন্য কোড জেনারেট করবেন তা লিখুন (যেমন: 5, 10, 30)!', 'error');
-          return;
-        }
-        setExpiryMinutesFromNow(mins);
-        showStatus(`⏱️ মেয়াদ ${mins} মিনিট সেট করা হয়েছে!`, 'success');
-      };
-      applyCustomMinutesBtn.addEventListener('click', applyMins);
-      customMinutesInput.addEventListener('input', () => {
-        const mins = Number(customMinutesInput.value);
-        if (Number.isFinite(mins) && mins >= 1) {
-          setExpiryMinutesFromNow(mins);
-        }
-      });
-    }
-
-    if (redeemExpiryInput) {
-      redeemExpiryInput.addEventListener('change', () => {
-        const parsed = new Date(redeemExpiryInput.value).getTime();
-        if (Number.isFinite(parsed) && redeemExpiryPreview) {
-          const totalMins = Math.max(1, Math.round((parsed - Date.now()) / 60000));
-          redeemExpiryPreview.textContent =
-            totalMins < 60
-              ? `⏳ কাস্টম মেয়াদ (${totalMins} মিনিট) · শেষ হবে: ${new Date(parsed).toLocaleString()}`
-              : `⏳ কাস্টম মেয়াদ (~${(totalMins / 60).toFixed(1)} ঘণ্টা / ${totalMins} মিনিট) · শেষ হবে: ${new Date(parsed).toLocaleString()}`;
-        }
-      });
-    }
 
     if (createRedeemForm) {
       createRedeemForm.addEventListener('submit', async (e) => {
@@ -8643,40 +8546,27 @@ service cloud.firestore {
           return;
         }
 
-        // If custom minutes input is filled and user didn't manually pick a different date, ensure exact seconds precision
-        let expiryTs = new Date(redeemExpiryInput?.value || '').getTime();
-        const customMinsVal = Number(document.getElementById('redeem-custom-minutes-input')?.value || 0);
-        if (customMinsVal >= 1 && Math.abs(expiryTs - (Date.now() + customMinsVal * 60000)) < 90000) {
-          expiryTs = Date.now() + customMinsVal * 60 * 1000;
-        }
-
-        if (!Number.isFinite(expiryTs) || expiryTs <= Date.now()) {
-          showStatus('অনুগ্রহ করে বর্তমান সময়ের পরের একটি সঠিক Expire Date & Time বা মিনিট সিলেক্ট করুন!', 'error');
+        const coins = Math.max(1, Math.floor(Number(document.getElementById('redeem-coins-input')?.value || 0)));
+        if (!Number.isFinite(coins) || coins <= 0) {
+          showStatus('অনুগ্রহ করে কমপক্ষে ১টি কয়েন সংখ্যা দিন!', 'error');
           return;
         }
 
-        const durationMinutes = Math.max(1, Math.round((expiryTs - Date.now()) / 60000));
-        const durationHours = Number((durationMinutes / 60).toFixed(2));
-        const packageName = (
-          redeemPkgLabelInput?.value ||
-          (durationMinutes < 60 ? `${durationMinutes} Minutes VIP Ad-Free` : 'VIP Ad-Free Pass')
-        ).trim();
+        const packageName = (redeemPkgLabelInput?.value || `${coins} Coins Pack`).trim();
         const note = (redeemNoteInput?.value || '').trim();
-        const dailyVideoLimit = Math.max(0, Math.floor(Number(document.getElementById('redeem-daily-limit-input')?.value || 0)));
-        const coins = Math.max(0, Math.floor(Number(document.getElementById('redeem-coins-input')?.value || 0)));
 
         try {
           const now = Date.now();
           const codePayload = {
             code: rawCode,
             packageName,
-            durationMinutes,
-            durationHours,
-            durationLabel: coins > 0 ? `🪙 ${coins} Coins` : (durationMinutes < 60 ? `${durationMinutes} Minutes` : packageName),
-            dailyVideoLimit,
+            durationMinutes: 0,
+            durationHours: 0,
+            durationLabel: `🪙 ${coins} Coins`,
+            dailyVideoLimit: 0,
             coins,
             createdAt: now,
-            expiresAt: expiryTs,
+            expiresAt: 0,
             active: true,
             note,
             createdByUid: currentUser?.uid || ADMIN_UID,
@@ -8689,19 +8579,19 @@ service cloud.firestore {
 
           navigator.clipboard.writeText(rawCode).catch(() => {});
           if (newlyGenBox && newlyGenDisplay) {
-            newlyGenDisplay.textContent = `${rawCode} (${coins > 0 ? `🪙 ${coins} Coins · ` : ''}${durationMinutes < 60 ? `${durationMinutes} Mins` : `${durationHours}h`} · Expires: ${new Date(expiryTs).toLocaleString()})`;
+            newlyGenDisplay.textContent = `${rawCode} (🪙 ${coins} Coins · No Expiry)`;
             newlyGenBox.classList.remove('hidden');
           }
           if (copyNewlyGenBtn) {
             copyNewlyGenBtn.onclick = () => {
               navigator.clipboard.writeText(rawCode);
-              showStatus(`Copied Redeem Code: ${rawCode}`, 'success');
+              showStatus(`Copied Coin Redeem Code: ${rawCode}`, 'success');
             };
           }
           if (redeemCodeInput) redeemCodeInput.value = generateRandomVipCode();
           if (redeemNoteInput) redeemNoteInput.value = '';
           showStatus(
-            `✅ Redeem Code "${rawCode}" (${coins > 0 ? `🪙 ${coins} কয়েন, ` : ''}${durationMinutes < 60 ? `${durationMinutes} মিনিট` : `${durationHours} ঘণ্টা`}) তৈরি ও কপি হয়েছে!`,
+            `✅ Coin Redeem Code "${rawCode}" (🪙 ${coins} কয়েন · No Expiry) তৈরি ও কপি হয়েছে!`,
             'success'
           );
         } catch (err) {
@@ -8709,36 +8599,6 @@ service cloud.firestore {
         }
       });
     }
-
-    const adjustRedeemCodeTimeByDelta = async (code, deltaMs, labelText) => {
-      const target = cachedRedeemCodes.find((c) => c.code === code);
-      if (!target) return;
-      const now = Date.now();
-      const baseTime = target.active && target.expiresAt > now ? target.expiresAt : now;
-      const nextExpiresAt = Math.max(now, baseTime + deltaMs);
-      const nextActive = nextExpiresAt > now;
-      try {
-        await Promise.all([
-          update(ref(db, `redeemCodes/${code}`), {
-            expiresAt: nextExpiresAt,
-            active: nextActive,
-            updatedAt: now,
-          }).catch(() => {}),
-          update(ref(db, `telegramBotSessions/_codes/${code}`), {
-            expiresAt: nextExpiresAt,
-            active: nextActive,
-            updatedAt: now,
-            botAuthToken: 'xtube_tg_bot_2026',
-          }).catch(() => {}),
-        ]);
-        showStatus(
-          `⏱️ Code ${code}: সময় ${labelText} আপডেট হয়েছে! নতুন মেয়াদ: ${new Date(nextExpiresAt).toLocaleString()}`,
-          'success'
-        );
-      } catch (err) {
-        showStatus(`Time Adjust Error: ${err.message}`, 'error');
-      }
-    };
 
     const renderRedeemCodesList = () => {
       if (!redeemCodesListWrap) return;
@@ -8754,28 +8614,28 @@ service cloud.firestore {
         return;
       }
 
-      const now = Date.now();
       cachedRedeemCodes.forEach((item) => {
-        const isExpired = !item.active || now >= item.expiresAt;
-        const dailyLimit = Math.max(0, Number(item.dailyVideoLimit) || 0);
+        const isUsed = Boolean(item.boundDeviceId);
+        const isDisabled = !item.active || isUsed;
+        const coinsVal = Math.max(0, Number(item.coins) || 0);
         const row = document.createElement('div');
         row.className = `p-3.5 rounded-xl border flex flex-col gap-2.5 text-xs ${
-          isExpired
+          isDisabled
             ? 'border-zinc-800 bg-zinc-950/50 text-zinc-400'
             : 'border-amber-500/40 bg-zinc-950/90 text-zinc-100'
         }`;
 
         const deviceBadge = item.boundDeviceId
-          ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[10px] font-mono text-sky-300">🔒 Locked (${escSafeHtml(String(item.boundDeviceId).slice(0, 12))}..)</span>`
+          ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[10px] font-mono text-sky-300">🔒 Used (${escSafeHtml(String(item.boundDeviceId).slice(0, 12))}..)</span>`
           : `<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-[10px] font-mono text-emerald-300">🟢 Unused (Ready)</span>`;
 
-        const coinBadge = Number(item.coins) > 0
-          ? `<span class="px-2 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-mono font-black">🪙 ${Number(item.coins)} Coins</span>`
-          : '';
+        const coinBadge = `<span class="px-2 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-mono font-black">🪙 ${coinsVal} Coins</span>`;
 
-        const limitBadge = dailyLimit > 0
-          ? `<span class="px-2 py-0.5 rounded bg-rose-950/80 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300">🎬 Limit: ${dailyLimit} videos/day</span>`
-          : `<span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-emerald-300">🎬 ∞ Unlimited/day</span>`;
+        const statusBadge = !item.active
+          ? `<span class="px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/60 text-[10px] font-mono font-bold">🔴 OFF</span>`
+          : isUsed
+            ? `<span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 text-[10px] font-mono font-bold">🔒 Used</span>`
+            : `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold">🟢 Active (No Expiry)</span>`;
 
         // Extract possible Telegram ID from note if present
         const matchedTgId = (String(item.note || '').match(/\b\d{6,16}\b/) || [])[0] || item.userId || '';
@@ -8784,24 +8644,22 @@ service cloud.firestore {
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div class="space-y-1 min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-1.5">
-                <span class="font-mono font-extrabold text-sm ${isExpired ? 'text-zinc-400 line-through' : 'text-amber-300'} select-all">${item.code}</span>
+                <span class="font-mono font-extrabold text-sm ${isDisabled ? 'text-zinc-400 line-through' : 'text-amber-300'} select-all">${item.code}</span>
                 ${coinBadge}
-                <span class="px-2 py-0.5 rounded ${isExpired ? 'bg-red-950/80 text-red-300 border border-red-800/60' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'} text-[10px] font-mono font-bold" data-live-countdown="${item.expiresAt}" data-live-active="${item.active}">
-                  ${!item.active ? '🔴 VIP OFF (Paused)' : isExpired ? 'EXPIRED (Ads Active)' : formatRemainingTime(item.expiresAt)}
-                </span>
+                ${statusBadge}
                 ${deviceBadge}
-                ${limitBadge}
               </div>
               <p class="text-[11px] text-zinc-400">
-                📦 ${escSafeHtml(item.packageName || 'VIP Pass')} · 📅 Exp: <span class="font-mono text-zinc-300">${new Date(item.expiresAt).toLocaleString()}</span>
+                📦 ${escSafeHtml(item.packageName || `${coinsVal} Coins Pack`)}
+                ${item.createdAt ? ` · 🕒 Created: <span class="font-mono text-zinc-300">${new Date(item.createdAt).toLocaleString()}</span>` : ''}
                 ${item.note ? ` · 👤 <span class="text-emerald-300">${escSafeHtml(item.note)}</span>` : ''}
               </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5 shrink-0">
               <button type="button" data-toggle-redeem-active="${item.code}"
-                class="px-2.5 py-1 rounded-lg ${item.active && !isExpired ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-zinc-800 hover:bg-emerald-700 text-amber-300'} text-[10px] font-extrabold cursor-pointer">
-                ${item.active && !isExpired ? '🟢 VIP ON (Click OFF)' : '🔴 VIP OFF (Click ON)'}
+                class="px-2.5 py-1 rounded-lg ${item.active ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-zinc-800 hover:bg-emerald-700 text-amber-300'} text-[10px] font-extrabold cursor-pointer">
+                ${item.active ? '🟢 ON (Click OFF)' : '🔴 OFF (Click ON)'}
               </button>
               <button type="button" data-copy-redeem="${item.code}"
                 class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-[10px] font-semibold cursor-pointer">
@@ -8829,32 +8687,6 @@ service cloud.firestore {
               </button>
             </div>
           </div>
-
-          <!-- Admin Direct Time +/- (Min, Hour, Day) & Daily Video Rate Limit Controls for this VIP Code -->
-          <div class="pt-2 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-[10px]">
-            <div class="flex flex-wrap items-center gap-1">
-              <span class="text-zinc-400 font-bold mr-1">⏱️ Time ±:</span>
-              <button type="button" data-code-delta-mins="15" class="px-1.5 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-mono text-emerald-300 cursor-pointer">+15m</button>
-              <button type="button" data-code-delta-mins="-15" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-15m</button>
-              <button type="button" data-code-delta-mins="60" class="px-1.5 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-mono text-emerald-300 cursor-pointer">+1h</button>
-              <button type="button" data-code-delta-mins="-60" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-1h</button>
-              <button type="button" data-code-delta-mins="1440" class="px-1.5 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 font-mono text-emerald-300 cursor-pointer">+1d</button>
-              <button type="button" data-code-delta-mins="-1440" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-1d</button>
-              <button type="button" data-code-delta-mins="20160" class="px-1.5 py-0.5 rounded bg-amber-950/80 hover:bg-amber-900 border border-amber-600/60 font-mono text-amber-300 cursor-pointer">+14d</button>
-              <button type="button" data-code-delta-mins="-20160" class="px-1.5 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 font-mono text-rose-300 cursor-pointer">-14d</button>
-            </div>
-
-            <div class="flex items-center gap-1">
-              <span class="text-amber-300 font-bold">🎬 Daily Limit:</span>
-              <input type="number" min="0" max="10000" value="${dailyLimit}" data-code-limit-input="${item.code}"
-                title="0 = Unlimited, অথবা প্রতিদিন কয়টা ভিডিও দেখতে পারবে"
-                class="w-16 px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700 font-mono text-amber-300 text-[10px]" />
-              <button type="button" data-save-code-limit="${item.code}"
-                class="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold text-[10px] cursor-pointer">
-                Set/Day
-              </button>
-            </div>
-          </div>
         `;
 
         row.querySelector('[data-copy-redeem]')?.addEventListener('click', () => {
@@ -8870,61 +8702,27 @@ service cloud.firestore {
         });
 
         row.querySelector('[data-toggle-redeem-active]')?.addEventListener('click', async () => {
-          const nowTs = Date.now();
-          const willBeActive = !(item.active && item.expiresAt > nowTs);
-          const nextExp = willBeActive && item.expiresAt <= nowTs ? nowTs + 24 * 3600 * 1000 : item.expiresAt;
+          const willBeActive = !item.active;
           try {
             await Promise.all([
               update(ref(db, `redeemCodes/${item.code}`), {
                 active: willBeActive,
-                expiresAt: nextExp,
+                expiresAt: 0,
               }).catch(() => {}),
               update(ref(db, `telegramBotSessions/_codes/${item.code}`), {
                 active: willBeActive,
-                expiresAt: nextExp,
+                expiresAt: 0,
                 botAuthToken: 'xtube_tg_bot_2026',
               }).catch(() => {}),
             ]);
             showStatus(
               willBeActive
-                ? `🟢 VIP Code ${item.code} ON করা হয়েছে!`
-                : `🔴 VIP Code ${item.code} OFF করা হয়েছে (ইউজার আর অ্যাড-ফ্রি সুবিধা পাবে না)!`,
+                ? `🟢 Coin Code ${item.code} ON করা হয়েছে!`
+                : `🔴 Coin Code ${item.code} OFF করা হয়েছে!`,
               willBeActive ? 'success' : 'info'
             );
           } catch (err) {
             showStatus(`Toggle Error: ${err.message}`, 'error');
-          }
-        });
-
-        row.querySelectorAll('[data-code-delta-mins]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const mins = Number(btn.getAttribute('data-code-delta-mins')) || 0;
-            if (!mins) return;
-            adjustRedeemCodeTimeByDelta(item.code, mins * 60 * 1000, btn.textContent || `${mins}m`);
-          });
-        });
-
-        row.querySelector('[data-save-code-limit]')?.addEventListener('click', async () => {
-          const inp = row.querySelector(`[data-code-limit-input="${item.code}"]`);
-          const nextLimit = Math.max(0, Math.floor(Number(inp?.value || 0)));
-          try {
-            await Promise.all([
-              update(ref(db, `redeemCodes/${item.code}`), {
-                dailyVideoLimit: nextLimit,
-              }).catch(() => {}),
-              update(ref(db, `telegramBotSessions/_codes/${item.code}`), {
-                dailyVideoLimit: nextLimit,
-                botAuthToken: 'xtube_tg_bot_2026',
-              }).catch(() => {}),
-            ]);
-            showStatus(
-              nextLimit > 0
-                ? `🎬 Code ${item.code}-এর ডেইলি ভিডিও লিমিট ${nextLimit}টি/দিন সেট করা হয়েছে!`
-                : `🎬 Code ${item.code}-এর ডেইলি ভিডিও লিমিট Unlimited (আনলিমিটেড) করা হয়েছে!`,
-              'success'
-            );
-          } catch (err) {
-            showStatus(`Limit Save Error: ${err.message}`, 'error');
           }
         });
 
@@ -8972,9 +8770,8 @@ service cloud.firestore {
         .filter(([key, item]) => key !== 'botAuthToken' && item && typeof item === 'object')
         .map(([key, item]) => ({
           code: String(item?.code || key).toUpperCase(),
-          packageName: item?.packageName || 'VIP Ad-Free Pass',
-          durationHours: Number(item?.durationHours) || 24,
-          dailyVideoLimit: Math.max(0, Number(item?.dailyVideoLimit) || 0),
+          packageName: item?.packageName || `${Math.max(0, Number(item?.coins) || 0)} Coins Pack`,
+          coins: Math.max(0, Number(item?.coins) || 0),
           userId: item?.userId || '',
           createdAt: Number(item?.createdAt) || 0,
           expiresAt: Number(item?.expiresAt) || 0,
@@ -8996,35 +8793,21 @@ service cloud.firestore {
       syncMergedRedeemCodes();
     });
 
-    // Live 1-second countdown ticker in Admin Panel for active Redeem Codes
-    setInterval(() => {
-      document.querySelectorAll('[data-live-countdown]').forEach((el) => {
-        const exp = Number(el.getAttribute('data-live-countdown')) || 0;
-        const act = el.getAttribute('data-live-active') !== 'false';
-        if (!act || Date.now() >= exp) {
-          el.textContent = 'EXPIRED (Ads Active)';
-        } else {
-          el.textContent = formatRemainingTime(exp);
-        }
-      });
-    }, 1000);
-
     if (deleteExpiredCodesBtn) {
       deleteExpiredCodesBtn.addEventListener('click', async () => {
-        const now = Date.now();
-        const expiredList = cachedRedeemCodes.filter((c) => !c.active || now >= c.expiresAt);
-        if (expiredList.length === 0) {
-          showStatus('কোনো মেয়াদোত্তীর্ণ (Expired) কোড নেই!', 'info');
+        const cleanupList = cachedRedeemCodes.filter((c) => !c.active || Boolean(c.boundDeviceId));
+        if (cleanupList.length === 0) {
+          showStatus('কোনো Used বা Disabled কোড নেই!', 'info');
           return;
         }
         try {
           await Promise.all(
-            expiredList.flatMap((c) => [
+            cleanupList.flatMap((c) => [
               remove(ref(db, `redeemCodes/${c.code}`)).catch(() => {}),
               remove(ref(db, `telegramBotSessions/_codes/${c.code}`)).catch(() => {}),
             ])
           );
-          showStatus(`✅ ${expiredList.length}টি Expired Redeem Code ডিলিট করা হয়েছে!`, 'success');
+          showStatus(`✅ ${cleanupList.length}টি Used/Disabled Coin Redeem Code ডিলিট করা হয়েছে!`, 'success');
         } catch (err) {
           showStatus(`Cleanup Error: ${err.message}`, 'error');
         }
