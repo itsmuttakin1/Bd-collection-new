@@ -79,7 +79,7 @@
       ".read": true,
       ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       "$code": {
-        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || (newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || (newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val()))) || (data.exists() && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val())"
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || (newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || (newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val() && newData.child('coins').val() === data.child('coins').val()))) || (data.exists() && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val() && newData.child('coins').val() === data.child('coins').val())"
       }
     },
     "redeemPackages": {
@@ -102,7 +102,10 @@
       ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'",
       "$chatId": {
         ".read": true,
-        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' || (newData.child('videosWatchedCount').exists() && newData.child('videosWatchedCount').isNumber()) || (newData.hasChildren(['page', 'lastSeen']) && newData.child('lastSeen').isNumber())",
+        ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' || (newData.child('videosWatchedCount').exists() && newData.child('videosWatchedCount').isNumber()) || (newData.hasChildren(['page', 'lastSeen']) && newData.child('lastSeen').isNumber()) || (newData.child('coins').exists() && newData.child('coins').isNumber() && data.child('coins').exists() && newData.child('coins').val() === data.child('coins').val() - 2)",
+        "coins": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && ((auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (!data.exists() && newData.val() === 0) || (data.exists() && newData.val() === data.val()) || (data.exists() && data.val() >= 2 && newData.val() === data.val() - 2) || (newData.parent().child('lastRedeemedCode').isString() && root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('active').val() === true && root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('coins').isNumber() && newData.val() === (data.exists() ? data.val() : 0) + root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('coins').val() && (!data.parent().child('lastRedeemedCode').exists() || data.parent().child('lastRedeemedCode').val() !== newData.parent().child('lastRedeemedCode').val())))"
+        },
         "adminVipOverride": {
           ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603'"
         },
@@ -139,6 +142,9 @@
         ".write": "auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603' || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' || (newData.child('videosWatchedCount').exists() && newData.child('videosWatchedCount').isNumber())",
         "videosWatchedCount": {
           ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "coins": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && ((auth != null && auth.uid === '5JSYDqYRizMUZoLrOqQcCV0Cr603') || (!data.exists() && newData.val() === 0) || (data.exists() && newData.val() === data.val()) || (data.exists() && data.val() >= 2 && newData.val() === data.val() - 2) || (root.child('telegramBotSessions').child($userId).child('coins').isNumber() && newData.val() === root.child('telegramBotSessions').child($userId).child('coins').val()) || (newData.parent().child('lastRedeemedCode').isString() && root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('coins').isNumber()))"
         }
       }
     },

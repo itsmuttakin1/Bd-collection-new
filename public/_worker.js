@@ -1068,6 +1068,7 @@ export default {
                 id,
                 name: String(p?.name || 'VIP Ad-Free Package'),
                 price: String(p?.price || '৳50'),
+                coins: Number(p?.coins) || 0,
                 durationHours: Number(p?.durationHours) || 168,
                 durationLabel: String(p?.durationLabel || `${p?.durationHours || 168} Hours`),
               }))
@@ -1641,12 +1642,14 @@ export default {
             const pick = (len) =>
               Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
             const generatedCode = `VIP-${pick(4)}-${pick(4)}`;
+            const pkgCoins = Math.max(0, Number(orderData.coins) || 0);
 
             const codePayload = {
               code: generatedCode,
               packageName: orderData.packageName || 'VIP Ad-Free Pass',
               durationHours,
-              durationLabel: orderData.durationLabel || `${durationHours} Hours`,
+              durationLabel: pkgCoins > 0 ? `🪙 ${pkgCoins} Coins` : (orderData.durationLabel || `${durationHours} Hours`),
+              coins: pkgCoins,
               createdAt: now,
               expiresAt,
               active: true,
@@ -2258,6 +2261,7 @@ export default {
             packageId: pkg.id,
             packageName: pkg.name,
             price: pkg.price,
+            coins: Number(pkg.coins) || 0,
             durationHours: Number(pkg.durationHours) || 168,
             durationLabel: pkg.durationLabel || '7 Days',
             paymentMethod,

@@ -1346,6 +1346,7 @@ async function startServer() {
         id: string;
         name: string;
         price: string;
+        coins?: number;
         durationHours: number;
         durationLabel: string;
       }> = [];
@@ -1360,6 +1361,7 @@ async function startServer() {
             id,
             name: String(p?.name || 'VIP Ad-Free Package'),
             price: String(p?.price || '৳50'),
+            coins: Number(p?.coins) || 0,
             durationHours: Number(p?.durationHours) || 168,
             durationLabel: String(p?.durationLabel || `${p?.durationHours || 168} Hours`),
           }))
@@ -2663,6 +2665,7 @@ async function startServer() {
         packageId: pkg.id,
         packageName: pkg.name,
         price: pkg.price,
+        coins: Number(pkg.coins) || 0,
         durationHours: Number(pkg.durationHours) || 168,
         durationLabel: pkg.durationLabel || '7 Days',
         paymentMethod,

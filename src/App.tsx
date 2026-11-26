@@ -820,6 +820,19 @@ export default function App() {
   const [remoteWatchedCount, setRemoteWatchedCount] = useState<number>(0);
   const remoteWatchedCountRef = useRef<number>(0);
   const countedVideoIdsSessionRef = useRef<Set<string>>(new Set());
+  // User Coin Balance State (2 Coins deducted per video watch to bypass pop-up ads)
+  const [userCoins, setUserCoins] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('xtube_user_coins');
+      return stored !== null ? Math.max(0, Number(stored) || 0) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const userCoinsRef = useRef<number>(userCoins);
+  useEffect(() => {
+    userCoinsRef.current = userCoins;
+  }, [userCoins]);
   // Real-time User Ban & Warning Lockout State
   const [isUserBanned, setIsUserBanned] = useState<boolean>(() => {
     try {
@@ -1427,15 +1440,39 @@ export default function App() {
     setStepGateVideo(null);
     setViewMode('watch');
 
-    // VIP with active ad-free OR video already unlocked during current watch bypasses gate (unless Fake Popup)
-    if (!matched.isFakePopup && ((isVipMember && isAdFree) || unlockedVideoId === matched.id)) {
-      setGateVideo(null);
-      if (isVipMember && isAdFree) {
+    // Video already unlocked or VIP with active ad-free bypasses gate (unless Fake Popup)
+    if (!matched.isFakePopup && !String(matched.id || '').startsWith('fake_')) {
+      if (unlockedVideoId === matched.id) {
+        setGateVideo(null);
+      } else if (isVipMember && isAdFree) {
+        setGateVideo(null);
         setUnlockedVideoId(matched.id);
         recordVipAdFreeVideoWatch(matched.id);
+      } else if (userCoinsRef.current >= 2) {
+        // Auto-deduct 2 coins and bypass popup ads
+        const nextCoins = Math.max(0, userCoinsRef.current - 2);
+        setUserCoins(nextCoins);
+        userCoinsRef.current = nextCoins;
+        try { localStorage.setItem('xtube_user_coins', String(nextCoins)); } catch {}
+        const crmKey = getUserCrmKey();
+        if (crmKey) {
+          update(ref(db, `telegramBotSessions/${crmKey}`), {
+            coins: increment(-2),
+            lastCoinDeductionAt: Date.now(),
+            botAuthToken: 'xtube_tg_bot_2026',
+          }).catch(() => {});
+          update(ref(db, `leaderboard/${crmKey}`), {
+            coins: increment(-2),
+            botAuthToken: 'xtube_tg_bot_2026',
+          }).catch(() => {});
+        }
+        setGateVideo(null);
+        setUnlockedVideoId(matched.id);
+      } else {
+        // No coins (< 2) and non-VIP: must solve 3-button gate!
+        setGateVideo(matched);
       }
     } else {
-      // Normal visitors / non-VIP must solve 3-button gate to find the link!
       setGateVideo(matched);
     }
   }, [
@@ -1507,6 +1544,7 @@ export default function App() {
           price: String(item?.price || '50 TK'),
           durationHours: Number(item?.durationHours) || 168,
           durationLabel: String(item?.durationLabel || '7 Days'),
+          coins: Number(item?.coins) || 0,
           active: item?.active !== false,
           createdAt: Number(item?.createdAt) || 0,
         }))
@@ -1642,19 +1680,6 @@ export default function App() {
     };
   }, []);
 
-  const handleActivateRedeemSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!redeemInput.trim()) return;
-    setRedeemLoading(true);
-    setRedeemFeedback(null);
-    const res = await activateCode(redeemInput);
-    setRedeemLoading(false);
-    setRedeemFeedback({ ok: res.ok, text: res.message });
-    if (res.ok) {
-      setRedeemInput('');
-    }
-  };
-
   const getUserCrmKey = () => {
     const isTg = Boolean(tgProfile.isRealTelegramUser && tgProfile.id);
     if (isTg) {
@@ -1662,6 +1687,56 @@ export default function App() {
     }
     const cleanWebId = String(tgProfile.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
     return cleanWebId ? `web_${cleanWebId}` : 'web_visitor';
+  };
+
+  const applyRedeemedCodeResult = (
+    cleanCode: string,
+    res: { ok: boolean; message: string; coins?: number }
+  ) => {
+    if (res.ok && res.coins && res.coins > 0) {
+      const addedCoins = Number(res.coins);
+      const nextCoins = (userCoinsRef.current || 0) + addedCoins;
+      setUserCoins(nextCoins);
+      userCoinsRef.current = nextCoins;
+      try {
+        localStorage.setItem('xtube_user_coins', String(nextCoins));
+      } catch {}
+
+      const crmKey = getUserCrmKey();
+      if (crmKey) {
+        update(ref(db, `telegramBotSessions/${crmKey}`), {
+          coins: increment(addedCoins),
+          lastRedeemedCode: cleanCode,
+          lastRedeemedAt: Date.now(),
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+        update(ref(db, `leaderboard/${crmKey}`), {
+          coins: increment(addedCoins),
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+      }
+
+      setRedeemFeedback({
+        ok: true,
+        text: `🎉 কোড রিডিম সফল! আপনার অ্যাকাউন্টে +${addedCoins}টি কয়েন যুক্ত হয়েছে! (মোট কয়েন: ${nextCoins})`,
+      });
+      return;
+    }
+    setRedeemFeedback({ ok: res.ok, text: res.message });
+  };
+
+  const handleActivateRedeemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = redeemInput.trim().toUpperCase();
+    if (!cleanCode) return;
+    setRedeemLoading(true);
+    setRedeemFeedback(null);
+    const res = await activateCode(cleanCode);
+    setRedeemLoading(false);
+    applyRedeemedCodeResult(cleanCode, res);
+    if (res.ok) {
+      setRedeemInput('');
+    }
   };
 
   const handleDismissPersonalNotice = (clearPermanently = false) => {
@@ -1695,7 +1770,7 @@ export default function App() {
     setRedeemFeedback(null);
     const res = await activateCode(clean);
     setRedeemLoading(false);
-    setRedeemFeedback({ ok: res.ok, text: res.message });
+    applyRedeemedCodeResult(clean, res);
     if (res.ok) {
       handleDismissPersonalNotice(false);
     }
@@ -2422,6 +2497,7 @@ export default function App() {
         page: activePageStatus,
         vipActive: Boolean(isAdFree),
         vipExpiresAt: isAdFree ? Number(expiresAt) || 0 : 0,
+        coins: userCoinsRef.current || 0,
         videosWatchedCount: totalWatched,
         watchedVideos: watchedEntries.slice(0, 20),
         device: detectDeviceSummary(),
@@ -2518,6 +2594,13 @@ export default function App() {
         if (val.profileFrame && typeof val.profileFrame === 'string') {
           setProfileFrame(val.profileFrame);
         }
+        if (typeof val.coins === 'number' && val.coins >= 0) {
+          setUserCoins(val.coins);
+          userCoinsRef.current = val.coins;
+          try {
+            localStorage.setItem('xtube_user_coins', String(val.coins));
+          } catch {}
+        }
         if (val.dailyWatchedDate === todayKey && typeof val.dailyWatchedCount === 'number') {
           setDailyWatchedCount((prev) => Math.max(prev, val.dailyWatchedCount));
         }
@@ -2594,6 +2677,13 @@ export default function App() {
           }
           if (lbVal.profileFrame && typeof lbVal.profileFrame === 'string') {
             setProfileFrame(lbVal.profileFrame);
+          }
+          if (typeof lbVal.coins === 'number' && lbVal.coins >= 0) {
+            setUserCoins(lbVal.coins);
+            userCoinsRef.current = lbVal.coins;
+            try {
+              localStorage.setItem('xtube_user_coins', String(lbVal.coins));
+            } catch {}
           }
         }
       },
@@ -3323,8 +3413,57 @@ export default function App() {
       isVipMember &&
       (dailyVideoLimit <= 0 || dailyWatchedCount < dailyVideoLimit || alreadyWatchedAdFreeToday);
 
-    // Active VIP with remaining daily quota -> direct play, no gate screen! (Unless Fake Pop-Up Link)
-    if (!video.isFakePopup && !String(video.id || '').startsWith('fake_') && isAdFree && vipHasRemainingQuota) {
+    const isFake = Boolean(video.isFakePopup || String(video.id || '').startsWith('fake_'));
+
+    // 1. Coin System: If user has >= 2 coins (and video isn't already unlocked), deduct 2 coins and bypass popup ads!
+    if (!isFake && unlockedVideoId === video.id) {
+      setGateVideo(null);
+      stepGatePendingIdRef.current = null;
+      setStepGatePendingId(null);
+      setStepGateVideo(null);
+      activeVideoIdRef.current = video.id;
+      setActiveVideo(video);
+      setViewMode('watch');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!isFake && userCoinsRef.current >= 2) {
+      const nextCoins = Math.max(0, userCoinsRef.current - 2);
+      setUserCoins(nextCoins);
+      userCoinsRef.current = nextCoins;
+      try {
+        localStorage.setItem('xtube_user_coins', String(nextCoins));
+      } catch {}
+
+      const targetKey = getUserCrmKey();
+      if (targetKey) {
+        update(ref(db, `telegramBotSessions/${targetKey}`), {
+          coins: increment(-2),
+          lastCoinDeductionAt: Date.now(),
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+        update(ref(db, `leaderboard/${targetKey}`), {
+          coins: increment(-2),
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {});
+      }
+
+      setGateVideo(null);
+      setUnlockedVideoId(video.id);
+      stepGatePendingIdRef.current = null;
+      setStepGatePendingId(null);
+      setStepGateVideo(null);
+      activeVideoIdRef.current = video.id;
+      setActiveVideo(video);
+      setViewMode('watch');
+      incrementVideoViews(video.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // 2. Fallback: Active VIP with remaining daily quota -> direct play, no gate screen! (Unless Fake Pop-Up Link)
+    if (!isFake && isAdFree && vipHasRemainingQuota) {
       setGateVideo(null);
       setUnlockedVideoId(video.id);
       stepGatePendingIdRef.current = null;
@@ -3339,8 +3478,7 @@ export default function App() {
       return;
     }
 
-    // Normal user or VIP whose daily limit is reached (or Fake Pop-Up Link) -> SHOW 3-BUTTON RANDOM GATE!
-    // For EVERY video, user must find the link through the 3-button gate!
+    // 3. Normal user without enough coins (< 2) or Fake Pop-Up Link -> SHOW 3-BUTTON RANDOM GATE (POPUP ADS)!
     setUnlockedVideoId(null);
     stepGatePendingIdRef.current = null;
     setStepGatePendingId(null);
@@ -4182,8 +4320,20 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right: Redeem Code (if enabled) + Real Telegram User Profile Pill with Live Online Indicator */}
+        {/* Right: Live Coins + Redeem Code (if enabled) + Real Telegram User Profile Pill */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Live Coin Balance Pill */}
+          <button
+            type="button"
+            onClick={() => setViewMode('profile')}
+            className="px-2.5 sm:px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-600/20 border border-amber-500/50 hover:border-amber-400 text-amber-300 text-xs font-mono font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+            title="🪙 আপনার কয়েন ব্যালেন্স (প্রতি ভিডিও = ২ কয়েন)"
+          >
+            <span className="text-sm">🪙</span>
+            <span className="tabular-nums">{userCoins}</span>
+            <span className="hidden sm:inline text-[10px] text-amber-200/80 font-sans font-semibold ml-0.5">Coins</span>
+          </button>
+
           {isRedeemServiceEnabled && (
             <button
               type="button"
@@ -4374,14 +4524,20 @@ export default function App() {
                     {ui.availablePackages}
                   </span>
                   <div className="grid grid-cols-1 gap-1.5">
-                    {redeemPackages.map((pkg) => (
+                      {redeemPackages.map((pkg) => (
                       <div
                         key={pkg.id}
                         className="px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs"
                       >
                         <div>
                           <span className="font-bold text-white">{pkg.name}</span>
-                          <span className="text-zinc-400 ml-1.5">({pkg.durationLabel})</span>
+                          {pkg.coins && pkg.coins > 0 ? (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold">
+                              🪙 {pkg.coins} Coins
+                            </span>
+                          ) : (
+                            <span className="text-zinc-400 ml-1.5">({pkg.durationLabel})</span>
+                          )}
                         </div>
                         <span className="px-2.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 font-mono font-bold text-amber-300">
                           {pkg.price}
@@ -4659,6 +4815,51 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* DEDICATED HERO COIN BALANCE CARD */}
+                <div className="rounded-2xl bg-gradient-to-r from-amber-950/45 via-[#1c2331] to-[#1e2430] border-2 border-amber-500/60 p-4 sm:p-5 space-y-2 shadow-xl shadow-amber-500/5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl sm:text-2xl">🪙</span>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-extrabold text-amber-300">
+                          কয়েন ব্যালেন্স (COIN BALANCE)
+                        </h4>
+                        <p className="text-[11px] text-slate-400">১টি ভিডিও দেখতে ২ কয়েন কাটবে (অ্যাড ছাড়া)</p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shrink-0">
+                      2 Coins / Video
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-baseline gap-2 pt-1">
+                    <span className="text-3xl sm:text-4xl font-extrabold font-mono text-amber-400 tabular-nums">
+                      {userCoins}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-amber-300/80">কয়েন অবশিষ্ট আছে</span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className={userCoins >= 2 ? 'text-emerald-400 font-semibold' : 'text-amber-300/90 font-medium'}>
+                      {userCoins >= 2
+                        ? '⚡ কয়েন আছে! ভিডিও ক্লিক করলে পপআপ অ্যাড ছাড়াই চালু হবে।'
+                        : '⚠️ পর্যাপ্ত কয়েন নেই। পপআপ অ্যাড দেখে দেখতে হবে অথবা কোড রিডিম করুন।'}
+                    </span>
+                    {isRedeemServiceEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRedeemFeedback(null);
+                          setRedeemModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black cursor-pointer shadow transition-all ml-auto"
+                      >
+                        🎟️ কোড রিডিম করুন →
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Two Stat Cards Inside Profile Box (Matching Screenshot Layout) */}
                 <div className="grid grid-cols-2 gap-3.5 pt-1">
                   <div className="rounded-2xl bg-[#1e2430] border border-slate-700/60 p-4 space-y-1.5">
@@ -4877,7 +5078,9 @@ export default function App() {
                             >
                               <div className="min-w-0 pr-2">
                                 <span className="font-bold text-white block truncate">{pkg.name}</span>
-                                <span className="text-[10px] text-slate-400">{pkg.durationLabel}</span>
+                                <span className="text-[10px] text-slate-400">
+                                  {pkg.coins && pkg.coins > 0 ? `🪙 ${pkg.coins} Coins` : pkg.durationLabel}
+                                </span>
                               </div>
                               <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 font-mono font-bold text-amber-300 shrink-0">
                                 {pkg.price}
@@ -5557,6 +5760,11 @@ export default function App() {
                 video={gateVideo || activeVideo}
                 onUnlock={handleUnlockVideoFromGate}
                 onBack={goHome}
+                userCoins={userCoins}
+                onGoToProfile={() => {
+                  setGateVideo(null);
+                  setViewMode('profile');
+                }}
                 onBypassDetected={(bypassCount) => {
                   const targetKey = tgProfile.isRealTelegramUser
                     ? String(tgProfile.id).replace(/[^a-zA-Z0-9_-]/g, '')

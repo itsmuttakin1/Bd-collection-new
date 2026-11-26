@@ -783,6 +783,32 @@
               </div>
             </div>
 
+            <!-- ADMIN COIN BALANCE +/- CONTROL (ইউজারের কয়েন বাড়ান / কমান / সেট করুন) -->
+            <div class="p-3.5 rounded-xl bg-gradient-to-r from-amber-950/40 via-zinc-950 to-zinc-950 border-2 border-amber-500/70 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-extrabold text-amber-300">🪙 ইউজারের কয়েন ব্যালেন্স (+/- Coin Control):</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-[11px] text-zinc-400 font-mono">1 Video = 2 Coins</span>
+                  <span id="crm-modal-coins-badge" class="px-2.5 py-0.5 rounded-full bg-amber-500 text-zinc-950 text-xs font-mono font-black">🪙 0 Coins</span>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <input id="crm-coins-input" type="number" min="0" value="0"
+                  class="w-24 px-3 py-1.5 rounded-lg bg-zinc-900 border border-amber-500/50 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400" />
+                <button type="button" data-delta-coin="-50" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-300 text-[11px] font-bold cursor-pointer">-50</button>
+                <button type="button" data-delta-coin="-10" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-300 text-[11px] font-bold cursor-pointer">-10</button>
+                <button type="button" data-delta-coin="-2" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-red-300 text-[11px] font-bold cursor-pointer">-2</button>
+                <button type="button" data-delta-coin="2" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+2</button>
+                <button type="button" data-delta-coin="10" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+10</button>
+                <button type="button" data-delta-coin="50" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+50</button>
+                <button type="button" data-delta-coin="100" class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-[11px] font-bold cursor-pointer">+100</button>
+                <button id="crm-save-coins-btn" type="button"
+                  class="ml-auto px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-zinc-950 text-xs font-extrabold cursor-pointer shadow-md">
+                  💾 Save Coins
+                </button>
+              </div>
+            </div>
+
             <!-- ADMIN PROFILE FRAME SELECTOR (ইউজারকে ফ্রেম দিন) -->
             <div class="p-3.5 rounded-xl bg-zinc-950/90 border border-purple-500/60 space-y-2.5">
               <div class="flex flex-wrap items-center justify-between gap-2">
@@ -1534,11 +1560,17 @@
                 </p>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label class="block text-[11px] font-bold text-amber-300 mb-1">🪙 কয়েন রিওয়ার্ড (Coins Reward)</label>
+                  <input id="redeem-coins-input" type="number" min="0" max="100000" value="50"
+                    placeholder="যেমন: 50 বা 100 (০ হলে VIP)"
+                    class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-amber-500/50 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-400" />
+                </div>
                 <div>
                   <label class="block text-[11px] text-zinc-400 mb-1">Package Label</label>
-                  <input id="redeem-package-label-input" type="text" value="VIP Ad-Free Pass"
-                    placeholder="14 Days VIP Ad-Free"
+                  <input id="redeem-package-label-input" type="text" value="Coin / VIP Pass"
+                    placeholder="50 Coins Pack"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-400" />
                 </div>
                 <div>
@@ -1708,20 +1740,25 @@
 
               <!-- Add Package Form -->
               <form id="add-redeem-package-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
-                <div class="sm:col-span-5">
+                <div class="sm:col-span-4">
                   <label class="block text-[11px] text-zinc-400 mb-1">Package Name *</label>
-                  <input id="pkg-name-input" type="text" required placeholder="🔥 7 Days VIP Ad-Free"
+                  <input id="pkg-name-input" type="text" required placeholder="🪙 100 Coins Pack"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block text-[11px] text-amber-300 font-bold mb-1">🪙 Coins *</label>
+                  <input id="pkg-coins-input" type="number" min="0" value="50" placeholder="50"
+                    class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-amber-500/40 text-xs font-mono font-bold text-amber-300 focus:outline-none focus:border-amber-500" />
                 </div>
                 <div class="sm:col-span-2">
                   <label class="block text-[11px] text-zinc-400 mb-1">Price *</label>
                   <input id="pkg-price-input" type="text" required placeholder="৳50"
                     class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-emerald-300 focus:outline-none focus:border-amber-500" />
                 </div>
-                <div class="sm:col-span-3">
-                  <label class="block text-[11px] text-zinc-400 mb-1">Duration *</label>
+                <div class="sm:col-span-2">
+                  <label class="block text-[11px] text-zinc-400 mb-1">Duration</label>
                   <select id="pkg-hours-input"
-                    class="w-full px-2.5 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500">
+                    class="w-full px-2 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-amber-500">
                     <option value="0.25|15 Minutes VIP">15 Mins</option>
                     <option value="0.5|30 Minutes VIP">30 Mins</option>
                     <option value="1|1 Hour VIP">1 Hour</option>
@@ -3040,7 +3077,7 @@ export default {
       // Strict anti-hack rule for redeemCodes:
       // 1. Only Admin or Bot can create/delete a redeem code, and Bot cannot extend an existing code's expiresAt.
       // 2. A browser activating an existing active code can ONLY bind its `boundDeviceId` ONCE, and CANNOT change `code`, `expiresAt`, `active`, or `dailyVideoLimit`!
-      const redeemCodeWriteRule = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || (data.child('expiresAt').val() === newData.child('expiresAt').val() && data.child('active').val() === newData.child('active').val() && data.child('dailyVideoLimit').val() === newData.child('dailyVideoLimit').val()))) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val())`;
+      const redeemCodeWriteRule = `(${adminOnly}) || (newData.exists() && newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' && (!data.exists() || (data.child('expiresAt').val() === newData.child('expiresAt').val() && data.child('active').val() === newData.child('active').val() && data.child('dailyVideoLimit').val() === newData.child('dailyVideoLimit').val() && data.child('coins').val() === newData.child('coins').val()))) || (data.exists() && newData.exists() && data.child('active').val() === true && !data.child('boundDeviceId').exists() && newData.child('boundDeviceId').isString() && newData.child('boundDeviceId').val().length >= 8 && newData.child('boundDeviceId').val().length <= 80 && newData.child('code').val() === data.child('code').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('active').val() === data.child('active').val() && newData.child('dailyVideoLimit').val() === data.child('dailyVideoLimit').val() && newData.child('coins').val() === data.child('coins').val())`;
 
       return JSON.stringify(
         {
@@ -3162,7 +3199,10 @@ export default {
               ".write": adminOnly,
               "$chatId": {
                 ".read": true,
-                ".write": `${botOrAdmin} || (newData.child('videosWatchedCount').exists() && newData.child('videosWatchedCount').isNumber()) || (newData.hasChildren(['page', 'lastSeen']) && newData.child('lastSeen').isNumber())`,
+                ".write": `${botOrAdmin} || (newData.child('videosWatchedCount').exists() && newData.child('videosWatchedCount').isNumber()) || (newData.hasChildren(['page', 'lastSeen']) && newData.child('lastSeen').isNumber()) || (newData.child('coins').exists() && newData.child('coins').isNumber() && data.child('coins').exists() && newData.child('coins').val() === data.child('coins').val() - 2)`,
+                "coins": {
+                  ".validate": `newData.isNumber() && newData.val() >= 0 && ((${adminOnly}) || (!data.exists() && newData.val() === 0) || (data.exists() && newData.val() === data.val()) || (data.exists() && data.val() >= 2 && newData.val() === data.val() - 2) || (newData.parent().child('lastRedeemedCode').isString() && root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('active').val() === true && root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('coins').isNumber() && newData.val() === (data.exists() ? data.val() : 0) + root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('coins').val() && (!data.parent().child('lastRedeemedCode').exists() || data.parent().child('lastRedeemedCode').val() !== newData.parent().child('lastRedeemedCode').val())))`
+                },
                 "adminVipOverride": {
                   ".write": adminOnly
                 },
@@ -3204,6 +3244,9 @@ export default {
                 ".write": `${adminOnly} || newData.child('botAuthToken').val() === 'xtube_tg_bot_2026' || (newData.child('videosWatchedCount').exists() && newData.child('videosWatchedCount').isNumber())`,
                 "videosWatchedCount": {
                   ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "coins": {
+                  ".validate": `newData.isNumber() && newData.val() >= 0 && ((${adminOnly}) || (!data.exists() && newData.val() === 0) || (data.exists() && newData.val() === data.val()) || (data.exists() && data.val() >= 2 && newData.val() === data.val() - 2) || (root.child('telegramBotSessions').child($userId).child('coins').isNumber() && newData.val() === root.child('telegramBotSessions').child($userId).child('coins').val()) || (newData.parent().child('lastRedeemedCode').isString() && root.child('redeemCodes').child(newData.parent().child('lastRedeemedCode').val()).child('coins').isNumber()))`
                 }
               }
             },
@@ -6967,6 +7010,8 @@ service cloud.firestore {
                 ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-bold text-amber-300">👑 VIP</span>`
                 : '';
               const watchedCount = Number(u.videosWatchedCount) || 0;
+              const coinCount = Number(u.coins) || 0;
+              const coinPill = `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 text-[9px] font-mono font-bold text-amber-300">🪙 ${coinCount}</span>`;
               const watchPill = `<span class="px-1.5 py-0.5 rounded bg-emerald-950/90 border border-emerald-700/60 text-[9px] font-mono font-bold text-emerald-300">🎬 ${watchedCount} ভিডিও</span>`;
               const targetKey = escSafeHtml(u.isTelegram ? u.tgId : u.crmKey);
               if (u.isTelegram) {
@@ -6978,6 +7023,7 @@ service cloud.firestore {
                         <span class="px-1.5 py-0.5 rounded bg-sky-600 text-white text-[9px] font-extrabold">📱 TG USER</span>
                         <span class="font-bold text-white truncate">${escSafeHtml(u.fullName)}</span>
                         ${vipPill}
+                        ${coinPill}
                         ${watchPill}
                       </div>
                       <p class="text-[11px] font-mono text-sky-300 truncate">
@@ -7004,6 +7050,7 @@ service cloud.firestore {
                       <span class="px-1.5 py-0.5 rounded bg-amber-600/80 text-white text-[9px] font-extrabold">🌐 WEB</span>
                       <span class="font-bold text-zinc-100 truncate">${escSafeHtml(u.webId || 'Web-vVisitor')}</span>
                       ${vipPill}
+                      ${coinPill}
                       ${watchPill}
                     </div>
                     <p class="text-[11px] font-mono text-amber-300 truncate">
@@ -8616,6 +8663,7 @@ service cloud.firestore {
         ).trim();
         const note = (redeemNoteInput?.value || '').trim();
         const dailyVideoLimit = Math.max(0, Math.floor(Number(document.getElementById('redeem-daily-limit-input')?.value || 0)));
+        const coins = Math.max(0, Math.floor(Number(document.getElementById('redeem-coins-input')?.value || 0)));
 
         try {
           const now = Date.now();
@@ -8624,8 +8672,9 @@ service cloud.firestore {
             packageName,
             durationMinutes,
             durationHours,
-            durationLabel: durationMinutes < 60 ? `${durationMinutes} Minutes` : packageName,
+            durationLabel: coins > 0 ? `🪙 ${coins} Coins` : (durationMinutes < 60 ? `${durationMinutes} Minutes` : packageName),
             dailyVideoLimit,
+            coins,
             createdAt: now,
             expiresAt: expiryTs,
             active: true,
@@ -8640,7 +8689,7 @@ service cloud.firestore {
 
           navigator.clipboard.writeText(rawCode).catch(() => {});
           if (newlyGenBox && newlyGenDisplay) {
-            newlyGenDisplay.textContent = `${rawCode} (${durationMinutes < 60 ? `${durationMinutes} Mins` : `${durationHours}h`}${dailyVideoLimit > 0 ? ` · Limit: ${dailyVideoLimit}/day` : ' · Unlimited/day'} · Expires: ${new Date(expiryTs).toLocaleString()})`;
+            newlyGenDisplay.textContent = `${rawCode} (${coins > 0 ? `🪙 ${coins} Coins · ` : ''}${durationMinutes < 60 ? `${durationMinutes} Mins` : `${durationHours}h`} · Expires: ${new Date(expiryTs).toLocaleString()})`;
             newlyGenBox.classList.remove('hidden');
           }
           if (copyNewlyGenBtn) {
@@ -8652,7 +8701,7 @@ service cloud.firestore {
           if (redeemCodeInput) redeemCodeInput.value = generateRandomVipCode();
           if (redeemNoteInput) redeemNoteInput.value = '';
           showStatus(
-            `✅ Redeem Code "${rawCode}" (${durationMinutes < 60 ? `${durationMinutes} মিনিট` : `${durationHours} ঘণ্টা`}${dailyVideoLimit > 0 ? `, ডেইলি লিমিট: ${dailyVideoLimit}টি ভিডিও` : ''}) তৈরি ও কপি হয়েছে!`,
+            `✅ Redeem Code "${rawCode}" (${coins > 0 ? `🪙 ${coins} কয়েন, ` : ''}${durationMinutes < 60 ? `${durationMinutes} মিনিট` : `${durationHours} ঘণ্টা`}) তৈরি ও কপি হয়েছে!`,
             'success'
           );
         } catch (err) {
@@ -8720,6 +8769,10 @@ service cloud.firestore {
           ? `<span class="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/60 text-[10px] font-mono text-sky-300">🔒 Locked (${escSafeHtml(String(item.boundDeviceId).slice(0, 12))}..)</span>`
           : `<span class="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-[10px] font-mono text-emerald-300">🟢 Unused (Ready)</span>`;
 
+        const coinBadge = Number(item.coins) > 0
+          ? `<span class="px-2 py-0.5 rounded bg-amber-500 text-zinc-950 text-[10px] font-mono font-black">🪙 ${Number(item.coins)} Coins</span>`
+          : '';
+
         const limitBadge = dailyLimit > 0
           ? `<span class="px-2 py-0.5 rounded bg-rose-950/80 border border-rose-700/60 text-[10px] font-mono font-bold text-rose-300">🎬 Limit: ${dailyLimit} videos/day</span>`
           : `<span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[10px] font-mono text-emerald-300">🎬 ∞ Unlimited/day</span>`;
@@ -8732,6 +8785,7 @@ service cloud.firestore {
             <div class="space-y-1 min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-1.5">
                 <span class="font-mono font-extrabold text-sm ${isExpired ? 'text-zinc-400 line-through' : 'text-amber-300'} select-all">${item.code}</span>
+                ${coinBadge}
                 <span class="px-2 py-0.5 rounded ${isExpired ? 'bg-red-950/80 text-red-300 border border-red-800/60' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'} text-[10px] font-mono font-bold" data-live-countdown="${item.expiresAt}" data-live-active="${item.active}">
                   ${!item.active ? '🔴 VIP OFF (Paused)' : isExpired ? 'EXPIRED (Ads Active)' : formatRemainingTime(item.expiresAt)}
                 </span>
@@ -9026,9 +9080,10 @@ service cloud.firestore {
         e.preventDefault();
         const name = (pkgNameInput?.value || '').trim();
         const price = (pkgPriceInput?.value || '').trim();
+        const coins = Math.max(0, Math.floor(Number(document.getElementById('pkg-coins-input')?.value || 0)));
         const [hoursRaw, labelRaw] = (pkgHoursSelect?.value || '168|7 Days VIP').split('|');
         const durationHours = Number(hoursRaw) || 168;
-        const durationLabel = labelRaw || `${durationHours} Hours`;
+        const durationLabel = coins > 0 ? `🪙 ${coins} Coins` : (labelRaw || `${durationHours} Hours`);
 
         if (!name || !price) {
           showStatus('অনুগ্রহ করে Package Name এবং Price লিখুন!', 'error');
@@ -9041,6 +9096,7 @@ service cloud.firestore {
             id: pkgId,
             name,
             price,
+            coins,
             durationHours,
             durationLabel,
             active: true,
@@ -9074,6 +9130,7 @@ service cloud.firestore {
           id,
           name: item?.name || 'VIP Package',
           price: item?.price || '৳50',
+          coins: Number(item?.coins) || 0,
           durationHours: Number(item?.durationHours) || 24,
           durationLabel: item?.durationLabel || `${item?.durationHours || 24} Hours`,
           active: item?.active !== false,
@@ -9102,6 +9159,7 @@ service cloud.firestore {
             <p class="font-bold text-white">
               ${p.name}
               <span class="text-emerald-400 font-mono ml-1">${p.price}</span>
+              ${p.coins > 0 ? `<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-mono">🪙 ${p.coins} Coins</span>` : ''}
               <span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono ${
                 p.active ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60' : 'bg-red-950 text-red-300 border border-red-800/60'
               }">${p.active ? 'ON' : 'OFF'}</span>
@@ -10272,6 +10330,7 @@ service cloud.firestore {
               code: newCode,
               packageName: ord.packageName || 'VIP Ad-Free Pass',
               durationHours,
+              coins: Math.max(0, Number(ord.coins) || 0),
               createdAt: now,
               expiresAt,
               active: true,
@@ -10637,6 +10696,7 @@ service cloud.firestore {
           vipActive: false,
           vipExpiresAt: 0,
           activeVipCode: '',
+          coins: 0,
           profileFrame: '',
           device: isTg ? 'Telegram Mini App / Bot' : 'Web Browser',
           lastSeen: 0,
@@ -10660,6 +10720,9 @@ service cloud.firestore {
             ? Math.max(0, rawObj.videosWatchedCount)
             : existing.watchedVideos.length;
           existing.videosWatchedCount = wCount;
+          if (typeof rawObj.coins === 'number' && rawObj.coins >= 0) {
+            existing.coins = Math.floor(rawObj.coins);
+          }
           if (rawObj.dailyWatchedDate === todayKey && typeof rawObj.dailyWatchedCount === 'number') {
             existing.dailyWatchedCount = Math.max(existing.dailyWatchedCount, rawObj.dailyWatchedCount);
           }
@@ -10866,6 +10929,7 @@ service cloud.firestore {
             ? `<span class="px-1.5 py-0.5 rounded bg-rose-950 border border-rose-700/60 text-[9px] font-mono font-bold text-rose-300">🎬 ${u.dailyWatchedCount || 0}/${u.dailyVideoLimit}/day</span>`
             : '';
           const watchedBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 text-[9px] font-mono font-bold text-emerald-300">🎬 ${u.videosWatchedCount || 0} ভিডিও</span>`;
+          const coinBadge = `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/60 text-[9px] font-mono font-bold text-amber-300">🪙 ${u.coins || 0} Coins</span>`;
           const noticeActive = u.personalNotice && u.personalNotice.active !== false;
           const noticeBadge = noticeActive
             ? u.personalNotice.seenAt
@@ -10891,6 +10955,7 @@ service cloud.firestore {
                   <span class="font-extrabold text-white truncate">${escSafeHtml(u.fullName)}</span>
                   ${onlineBadge}
                   ${vipBadge}
+                  ${coinBadge}
                   ${frameBadge}
                   ${watchedBadge}
                   ${limitBadge}
@@ -11041,6 +11106,14 @@ service cloud.firestore {
       const crmWatchedInpEl = document.getElementById('crm-watched-count-input');
       if (crmWatchedInpEl && document.activeElement !== crmWatchedInpEl) {
         crmWatchedInpEl.value = String(userObj.videosWatchedCount || 0);
+      }
+      const crmCoinsBadgeEl = document.getElementById('crm-modal-coins-badge');
+      if (crmCoinsBadgeEl) {
+        crmCoinsBadgeEl.textContent = `🪙 ${userObj.coins || 0} Coins`;
+      }
+      const crmCoinsInpEl = document.getElementById('crm-coins-input');
+      if (crmCoinsInpEl && document.activeElement !== crmCoinsInpEl) {
+        crmCoinsInpEl.value = String(userObj.coins || 0);
       }
       const crmCurFrameBadge = document.getElementById('crm-current-frame-badge');
       if (crmCurFrameBadge) {
@@ -11310,6 +11383,44 @@ service cloud.firestore {
     };
     window.applyAdminWatchedCountControl = applyAdminWatchedCountControl;
 
+    // Admin Coins (+/-) Control
+    const applyAdminCoinsControl = async ({ setCoins = null, deltaCoins = 0 }) => {
+      if (!activeCrmUserKey) return;
+      buildMergedCrmUsersList();
+      const userObj = crmUsersMap.get(activeCrmUserKey) || {};
+      let currentCoins = Math.max(0, Math.floor(Number(userObj.coins) || 0));
+      if (setCoins !== null) {
+        currentCoins = Math.max(0, Math.floor(Number(setCoins) || 0));
+      } else if (deltaCoins !== 0) {
+        currentCoins = Math.max(0, currentCoins + deltaCoins);
+      }
+      userObj.coins = currentCoins;
+      if (sessionsMapForBroadcast && sessionsMapForBroadcast[activeCrmUserKey]) {
+        sessionsMapForBroadcast[activeCrmUserKey].coins = currentCoins;
+      }
+      const now = Date.now();
+      await Promise.all([
+        update(ref(db, `telegramBotSessions/${activeCrmUserKey}`), {
+          coins: currentCoins,
+          updatedAt: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
+        update(ref(db, `leaderboard/${activeCrmUserKey}`), {
+          coins: currentCoins,
+          lastSeen: now,
+          botAuthToken: 'xtube_tg_bot_2026',
+        }).catch(() => {}),
+      ]);
+      const coinsInput = document.getElementById('crm-coins-input');
+      if (coinsInput) coinsInput.value = String(currentCoins);
+      const coinsBadge = document.getElementById('crm-modal-coins-badge');
+      if (coinsBadge) coinsBadge.textContent = `🪙 ${currentCoins} Coins`;
+      window.refreshActiveCrmModalData();
+      window.renderAllBotUsersDirectory(true);
+      showStatus(`🪙 ইউজারের কয়েন ব্যালেন্স আপডেট হয়েছে: ${currentCoins} Coins!`, 'success');
+    };
+    window.applyAdminCoinsControl = applyAdminCoinsControl;
+
     // Attach frame assign buttons
     document.querySelectorAll('[data-assign-frame]').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -11336,6 +11447,22 @@ service cloud.firestore {
       btn.addEventListener('click', async () => {
         const delta = parseInt(btn.getAttribute('data-delta-watch')) || 0;
         await applyAdminWatchedCountControl({ deltaCount: delta });
+      });
+    });
+
+    // Attach coins +/- buttons & save button
+    const crmSaveCoinsBtn = document.getElementById('crm-save-coins-btn');
+    const crmCoinsInp = document.getElementById('crm-coins-input');
+    if (crmSaveCoinsBtn) {
+      crmSaveCoinsBtn.addEventListener('click', async () => {
+        const c = Math.max(0, Math.floor(Number(crmCoinsInp?.value || 0)));
+        await applyAdminCoinsControl({ setCoins: c });
+      });
+    }
+    document.querySelectorAll('[data-delta-coin]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const delta = parseInt(btn.getAttribute('data-delta-coin')) || 0;
+        await applyAdminCoinsControl({ deltaCoins: delta });
       });
     });
 

@@ -8,6 +8,8 @@ interface ThreeButtonGateScreenProps {
   onUnlock: (video: VideoItem) => void;
   onBack: () => void;
   onBypassDetected?: (bypassCount: number) => void;
+  userCoins?: number;
+  onGoToProfile?: () => void;
 }
 
 const SMARTLINKS = [
@@ -22,11 +24,15 @@ const BUTTONS = [
   { id: '4k', label: 'Download Video 4K', img: '/images/buttons/btn-4k.png' },
 ];
 
+const MIN_AD_VIEW_MS = 5000;
+
 export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
   video,
   onUnlock,
   onBack,
   onBypassDetected,
+  userCoins = 0,
+  onGoToProfile,
 }) => {
   const { isAdFree } = useAdFreeVip();
   const isFakePopupMode = Boolean(
@@ -39,7 +45,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
       ? video.fakeSmartlinks.filter(Boolean)
       : SMARTLINKS;
 
-  // Winning button is randomized every time for normal videos, or -1 (NO winner, 100% Ads) for Fake Pop-Up Links!
+  // Exactly 1 random button out of 3 holds the original video link per video!
   const [winningIndex, setWinningIndex] = useState<number>(() =>
     isFakePopupMode ? -1 : Math.floor(Math.random() * 3)
   );
@@ -47,15 +53,46 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'info' | 'success' | 'warning' | 'danger'>('info');
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
-  const [clickedButtons, setClickedButtons] = useState<Record<number, boolean>>({});
+  const [checkedButtons, setCheckedButtons] = useState<Record<number, boolean>>({});
 
-  // Anti-Bypass verification timer & fast-back detection
+  // Strict Anti-Bypass Ad Load Verification state
   const [verifyingAd, setVerifyingAd] = useState<boolean>(false);
   const [verifyCountdown, setVerifyCountdown] = useState<number>(5);
   const [pendingUnlockIndex, setPendingUnlockIndex] = useState<number | null>(null);
+
   const adClickTimestampRef = useRef<number>(0);
+  const didLeaveForAdRef = useRef<boolean>(false);
   const bypassAttemptCountRef = useRef<number>(0);
-  const verifyTimerIntervalRef = useRef<any>(null);
+  const verifyingAdRef = useRef<boolean>(false);
+  const pendingUnlockIndexRef = useRef<number | null>(null);
+  const winningIndexRef = useRef<number>(winningIndex);
+  const onUnlockRef = useRef(onUnlock);
+  const onBypassDetectedRef = useRef(onBypassDetected);
+  const videoRef = useRef(video);
+
+  useEffect(() => {
+    onUnlockRef.current = onUnlock;
+  }, [onUnlock]);
+
+  useEffect(() => {
+    onBypassDetectedRef.current = onBypassDetected;
+  }, [onBypassDetected]);
+
+  useEffect(() => {
+    videoRef.current = video;
+  }, [video]);
+
+  useEffect(() => {
+    winningIndexRef.current = winningIndex;
+  }, [winningIndex]);
+
+  useEffect(() => {
+    verifyingAdRef.current = verifyingAd;
+  }, [verifyingAd]);
+
+  useEffect(() => {
+    pendingUnlockIndexRef.current = pendingUnlockIndex;
+  }, [pendingUnlockIndex]);
 
   // 1. Hardware & Browser Back-Button Trap: Prevents pressing back to bypass the ad gate
   useEffect(() => {
@@ -65,7 +102,9 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
           window.history.pushState({ gateTrap: true }, '', window.location.href);
         } catch { }
         setToastType('danger');
-        setToastMessage('⚠️ ব্যাক করলে ভিডিও আনলক হবে না! ভিডিও দেখতে নিচের বাটনে ক্লিক করে ভেরিফিকেশন সম্পন্ন করুন।');
+        setToastMessage(
+          '⚠️ ব্যাক করলে ভিডিও আনলক হবে না! ভিডিও দেখতে নিচের বাটনে ক্লিক করে অ্যাড পেজে অন্তত ৫ সেকেন্ড অপেক্ষা করুন।'
+        );
       }
     };
 
@@ -82,95 +121,156 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
   // 2. Auto-bypass if user has active VIP (ONLY for real videos, NEVER for Fake Pop-Up Links)
   useEffect(() => {
     if (isAdFree && !isFakePopupMode) {
-      onUnlock(video);
+      onUnlockRef.current(videoRef.current);
     }
-  }, [isAdFree, isFakePopupMode, video, onUnlock]);
+  }, [isAdFree, isFakePopupMode]);
 
-  // Rotate winning index on video change
+  // Rotate winning index ONLY when video.id changes
   useEffect(() => {
-    setWinningIndex(isFakePopupMode ? -1 : Math.floor(Math.random() * 3));
+    const nextWin = isFakePopupMode ? -1 : Math.floor(Math.random() * 3);
+    setWinningIndex(nextWin);
+    winningIndexRef.current = nextWin;
     setToastMessage(null);
     setIsSuccess(false);
-    setClickedButtons({});
+    setCheckedButtons({});
     setVerifyingAd(false);
+    verifyingAdRef.current = false;
     setVerifyCountdown(5);
     setPendingUnlockIndex(null);
+    pendingUnlockIndexRef.current = null;
+    didLeaveForAdRef.current = false;
+    adClickTimestampRef.current = 0;
   }, [video.id, isFakePopupMode]);
 
-  // 3. Tab visibility / Fast-Back Bypass Detector
+  // Complete or reject button verification ONLY when user returns after viewing the ad
+  const evaluateAdReturn = () => {
+    if (!verifyingAdRef.current || pendingUnlockIndexRef.current === null) return;
+
+    const btnIdx = pendingUnlockIndexRef.current;
+    const elapsedMs = Date.now() - adClickTimestampRef.current;
+    const didLeave = didLeaveForAdRef.current;
+
+    // Must have actually left the tab/app to view the ad AND stayed >= 5 seconds!
+    if (!didLeave || elapsedMs < MIN_AD_VIEW_MS) {
+      bypassAttemptCountRef.current += 1;
+      const count = bypassAttemptCountRef.current;
+
+      verifyingAdRef.current = false;
+      setVerifyingAd(false);
+      pendingUnlockIndexRef.current = null;
+      setPendingUnlockIndex(null);
+      didLeaveForAdRef.current = false;
+
+      const secSpent = Math.max(0, Math.floor(elapsedMs / 1000));
+      setToastType('danger');
+      setToastMessage(
+        !didLeave
+          ? '⚠️ অ্যাড লোড হয়নি বা পপআপ ব্লক হয়েছে! অ্যাড পেজে গিয়ে অন্তত ৫ সেকেন্ড অ্যাড দেখুন, নাহলে কাজ করবে না।'
+          : `⚠️ অ্যাড লোড হওয়ার আগেই ব্যাক করেছেন (${secSpent}s)! (${count}x ধরা পড়েছে) — কাজ করতে হলে অ্যাড পেজে অন্তত ৫ সেকেন্ড থাকতেই হবে!`
+      );
+
+      if (count >= 2 && onBypassDetectedRef.current) {
+        onBypassDetectedRef.current(count);
+      }
+      return;
+    }
+
+    // User legitimately spent >= 5 seconds viewing the ad!
+    verifyingAdRef.current = false;
+    setVerifyingAd(false);
+    pendingUnlockIndexRef.current = null;
+    setPendingUnlockIndex(null);
+    didLeaveForAdRef.current = false;
+
+    if (!isFakePopupMode && btnIdx === winningIndexRef.current) {
+      setIsSuccess(true);
+      setToastType('success');
+      setToastMessage('🎉 সঠিক লিংক ও অ্যাড ভেরিফিকেশন সফল হয়েছে! মূল ভিডিও চালু হচ্ছে...');
+      setTimeout(() => {
+        onUnlockRef.current(videoRef.current);
+      }, 450);
+    } else if (isFakePopupMode) {
+      setCheckedButtons((prev) => ({ ...prev, [btnIdx]: true }));
+      setToastType('warning');
+      setToastMessage('⚠️ Server সমস্যার জন্য এই লিংকটি কাজ করেনি। অন্য বাটনে ট্রাই করুন!');
+    } else {
+      setCheckedButtons((prev) => ({ ...prev, [btnIdx]: true }));
+      setToastType('warning');
+      setToastMessage('⚠️ অ্যাড ভেরিফাই হয়েছে, তবে এই বাটনে মূল ভিডিও লিংক নেই! বাকি বাটনগুলোতে ট্রাই করুন।');
+    }
+  };
+
+  // 3. Strict Leave & Return Listeners (visibilitychange + blur/focus for Mobile/Desktop/Telegram WebView)
   useEffect(() => {
+    const handleLeave = () => {
+      if (verifyingAdRef.current) {
+        didLeaveForAdRef.current = true;
+      }
+    };
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && verifyingAd) {
-        const timeSpentAway = Date.now() - adClickTimestampRef.current;
-        // User came back too fast (< 4 seconds) -> they clicked and immediately pressed back!
-        if (timeSpentAway < 4000) {
-          bypassAttemptCountRef.current += 1;
-          const count = bypassAttemptCountRef.current;
-          setVerifyingAd(false);
-          setPendingUnlockIndex(null);
-          if (verifyTimerIntervalRef.current) clearInterval(verifyTimerIntervalRef.current);
-
-          setToastType('danger');
-          setToastMessage(
-            `⚠️ অ্যাড লোড হওয়ার আগেই ব্যাক করেছেন! (${count}x ধরা পড়েছে) — ভিডিও আনলক করতে অ্যাড পেজে অন্তত ৫ সেকেন্ড অপেক্ষা করতে হবে!`
-          );
-
-          if (count >= 2 && onBypassDetected) {
-            onBypassDetected(count);
-          }
+      if (document.visibilityState === 'hidden') {
+        handleLeave();
+      } else if (document.visibilityState === 'visible') {
+        if (verifyingAdRef.current) {
+          evaluateAdReturn();
         }
       }
     };
 
+    const handleWindowBlur = () => {
+      handleLeave();
+    };
+
+    const handleWindowFocus = () => {
+      if (verifyingAdRef.current && didLeaveForAdRef.current) {
+        evaluateAdReturn();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [verifyingAd, onBypassDetected]);
+  }, [isFakePopupMode]);
 
-  // 4. Verify Countdown Timer (counts down 5s while verifying)
+  // 4. Visual countdown display + timeout safety if user didn't leave at all (blocked popup)
   useEffect(() => {
     if (!verifyingAd) return;
 
-    setVerifyCountdown(5);
-    verifyTimerIntervalRef.current = setInterval(() => {
-      setVerifyCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(verifyTimerIntervalRef.current);
-          setVerifyingAd(false);
+    const timer = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - adClickTimestampRef.current) / 1000);
+      const rem = Math.max(0, 5 - elapsedSec);
+      setVerifyCountdown(rem);
 
-          // Verification complete!
-          if (!isFakePopupMode && pendingUnlockIndex === winningIndex) {
-            setIsSuccess(true);
-            setToastType('success');
-            setToastMessage('✓ অ্যাড ভেরিফিকেশন সফল হয়েছে! ভিডিও চালু হচ্ছে...');
-            setTimeout(() => {
-              onUnlock(video);
-            }, 600);
-          } else if (isFakePopupMode) {
-            setToastType('warning');
-            setToastMessage('⚠️ Server সমস্যার জন্য এই লিংকটি কাজ করেনি। অন্য লিংকে ট্রাই করুন!');
-          } else {
-            setToastType('warning');
-            setToastMessage('⚠️ এই লিংকে ভিডিও পাওয়া যায়নি, অন্য ২টির একটিতে ট্রাই করুন!');
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      // If 3+ seconds passed on THIS page and the user NEVER left to the ad tab, popup was blocked or ignored!
+      if (elapsedSec >= 3 && !didLeaveForAdRef.current) {
+        clearInterval(timer);
+        evaluateAdReturn();
+      }
+    }, 500);
 
-    return () => {
-      if (verifyTimerIntervalRef.current) clearInterval(verifyTimerIntervalRef.current);
-    };
-  }, [verifyingAd, pendingUnlockIndex, winningIndex, isFakePopupMode, video, onUnlock]);
+    return () => clearInterval(timer);
+  }, [verifyingAd]);
 
   const handleButtonClick = (buttonIndex: number) => {
-    if (isSuccess || verifyingAd) return;
+    if (isSuccess) return;
 
-    setClickedButtons((prev) => ({ ...prev, [buttonIndex]: true }));
-    setPendingUnlockIndex(buttonIndex);
+    // If previous verification got stuck without leaving, reset it cleanly
+    if (verifyingAdRef.current) {
+      const elapsed = Date.now() - adClickTimestampRef.current;
+      if (elapsed < 2500) return;
+    }
+
     adClickTimestampRef.current = Date.now();
+    didLeaveForAdRef.current = false;
+    pendingUnlockIndexRef.current = buttonIndex;
+    setPendingUnlockIndex(buttonIndex);
+    verifyingAdRef.current = true;
     setVerifyingAd(true);
     setVerifyCountdown(5);
 
@@ -189,19 +289,29 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
     setSmartlinkIndex((prev) => (prev + 1) % activeSmartlinks.length);
 
     // Open Smartlink in new window or Telegram Mini App
+    let openedWin: Window | null = null;
     try {
       const tgWebApp = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : undefined;
       if (tgWebApp && tgWebApp.initData && typeof tgWebApp.openLink === 'function') {
         tgWebApp.openLink(chosenSmartlink, { try_instant_view: false });
+        didLeaveForAdRef.current = true;
       } else {
-        window.open(chosenSmartlink, '_blank', 'noopener,noreferrer');
+        openedWin = window.open(chosenSmartlink, '_blank', 'noopener,noreferrer');
+        if (openedWin) {
+          didLeaveForAdRef.current = true;
+        }
       }
     } catch {
-      window.open(chosenSmartlink, '_blank');
+      openedWin = window.open(chosenSmartlink, '_blank');
+      if (openedWin) {
+        didLeaveForAdRef.current = true;
+      }
     }
 
     setToastType('info');
-    setToastMessage('⏳ স্পন্সর পেজ ওপেন হয়েছে... ভিডিও আনলক করতে অনুগ্রহ করে ৫ সেকেন্ড অপেক্ষা করুন (এখন ব্যাক করবেন না)!');
+    setToastMessage(
+      '⏳ অ্যাড ওপেন হয়েছে! মূল লিংক পেতে অ্যাড পেজ লোড হওয়ার পর অন্তত ৫ সেকেন্ড অপেক্ষা করে তারপর ব্যাক করুন।'
+    );
   };
 
   return (
@@ -223,6 +333,24 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
           </p>
         </div>
 
+        {/* Coin Bypass Hint Banner when user has < 2 coins */}
+        {!isFakePopupMode && userCoins < 2 && (
+          <div className="w-full px-3 py-2 rounded-xl bg-amber-50 border border-amber-300/80 flex items-center justify-between gap-2 mb-2 text-[11px]">
+            <span className="text-amber-900 font-semibold">
+              🪙 আপনার কয়েন: <strong>{userCoins}</strong> (অ্যাড ছাড়া দেখতে ২ কয়েন লাগে)
+            </span>
+            {onGoToProfile && (
+              <button
+                type="button"
+                onClick={onGoToProfile}
+                className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] shrink-0 cursor-pointer"
+              >
+                কয়েন নিন →
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 1. Header Banner */}
         <div className="w-full flex items-center justify-center my-2">
           <img
@@ -241,8 +369,8 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
             <div className="flex items-center gap-2">
               <Timer className="w-5 h-5 text-amber-600 animate-spin" />
               <div>
-                <p className="text-xs font-bold">অ্যাড ভেরিফিকেশন চলছে...</p>
-                <p className="text-[10px] text-amber-800">এখন ব্যাক করবেন না, সম্পূর্ণ হতে দিন</p>
+                <p className="text-xs font-bold">অ্যাড পেজে ৫ সেকেন্ড অপেক্ষা করুন...</p>
+                <p className="text-[10px] text-amber-800">অ্যাড লোড না হয়েই ব্যাক করলে কাজ করবে না!</p>
               </div>
             </div>
             <div className="w-10 h-10 rounded-full bg-amber-500 text-white font-mono font-extrabold flex items-center justify-center text-base shadow">
@@ -275,18 +403,18 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
           </div>
         )}
 
-        {/* 2. Exactly 3 Buttons Stacked Vertically */}
+        {/* 2. Exactly 3 Buttons Stacked Vertically (1 random button has the original video link) */}
         <div className="w-full max-w-[440px] flex flex-col items-center gap-3 my-2">
           {BUTTONS.map((btn, index) => {
-            const hasBeenClicked = Boolean(clickedButtons[index]);
+            const hasBeenCheckedAndEmpty = Boolean(checkedButtons[index]);
             return (
               <button
                 key={btn.id}
                 type="button"
                 onClick={() => handleButtonClick(index)}
-                disabled={verifyingAd || isSuccess}
+                disabled={isSuccess}
                 className={`w-full transform hover:scale-[1.02] active:scale-95 transition-all duration-150 cursor-pointer focus:outline-none drop-shadow-md hover:drop-shadow-xl relative rounded-full ${
-                  verifyingAd ? 'opacity-60 cursor-not-allowed' : ''
+                  hasBeenCheckedAndEmpty ? 'opacity-60' : ''
                 }`}
                 title={btn.label}
               >
@@ -295,9 +423,9 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
                   alt={btn.label}
                   className="w-full h-auto object-contain select-none pointer-events-none rounded-full"
                 />
-                {hasBeenClicked && !isSuccess && !verifyingAd && (
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/80 text-amber-300 text-[10px] font-mono font-bold">
-                    Checked ✖
+                {hasBeenCheckedAndEmpty && !isSuccess && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/90 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold">
+                    No Link ✖
                   </span>
                 )}
               </button>
@@ -319,7 +447,7 @@ export const ThreeButtonGateScreen: React.FC<ThreeButtonGateScreenProps> = ({
 
         {/* Anti-Bypass Rules Sub-Note */}
         <p className="text-[10px] text-slate-500 font-medium text-center mt-1.5 flex items-center justify-center gap-1">
-          <span>🔒 সিকিউর স্ট্রিমিং · অ্যাড বাইপাস করলে অ্যাকাউন্ট ও ডিভাইস ব্যান হতে পারে</span>
+          <span>🔒 ৩টি বাটনের যেকোনো ১টিতে মূল ভিডিও লিংক রয়েছে · অ্যাড ৫ সেকেন্ড না দেখে ব্যাক করলে কাজ করবে না</span>
         </p>
       </div>
     </div>

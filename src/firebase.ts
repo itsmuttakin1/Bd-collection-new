@@ -120,6 +120,7 @@ export interface RedeemCodeItem {
   activatedAt?: number;
   maxDevices?: number;
   dailyVideoLimit?: number;
+  coins?: number;
   userId?: string;
   note?: string;
 }
@@ -140,6 +141,7 @@ export interface RedeemPackageItem {
   price: string;
   durationHours: number;
   durationLabel: string;
+  coins?: number;
   active?: boolean;
   createdAt: number;
 }

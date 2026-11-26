@@ -733,7 +733,7 @@ export function isAdFreeVipActive(): boolean {
 
 export async function activateRedeemCodeOnBrowser(
   rawCodeInput: string
-): Promise<{ ok: boolean; message: string; expiresAt?: number }> {
+): Promise<{ ok: boolean; message: string; expiresAt?: number; coins?: number }> {
   initServerTimeSync();
   const cleanCode = String(rawCodeInput || '')
     .trim()
@@ -784,7 +784,7 @@ export async function activateRedeemCodeOnBrowser(
       if (!data && r2 && r2.ok) data = await r2.json().catch(() => null);
     }
 
-    if (!data || typeof data !== 'object' || !data.expiresAt) {
+    if (!data || typeof data !== 'object' || (!data.expiresAt && !(Number(data.coins) > 0))) {
       return {
         ok: false,
         message: '❌ এই Redeem Code-টি সঠিক নয় অথবা ডিলিট করা হয়েছে!',
@@ -793,8 +793,9 @@ export async function activateRedeemCodeOnBrowser(
 
     const now = getAuthoritativeNow();
     const expiresAt = Number(data.expiresAt) || 0;
+    const coinReward = Math.max(0, Number(data.coins) || 0);
 
-    if (data.active === false || expiresAt <= now) {
+    if (data.active === false || (expiresAt > 0 && expiresAt <= now)) {
       return {
         ok: false,
         message: '⏰ এই Redeem Code-টির মেয়াদ শেষ হয়ে গেছে (Expired)! নতুন কোড নিন।',
@@ -803,6 +804,13 @@ export async function activateRedeemCodeOnBrowser(
 
     const deviceId = getOrCreateBrowserDeviceId();
     const maxDevices = Number(data.maxDevices) || 1;
+
+    if (coinReward > 0 && data.boundDeviceId) {
+      return {
+        ok: false,
+        message: '🔒 এই কয়েন Redeem Code-টি ইতিমধ্যে ব্যবহার করা হয়ে গেছে! (১টি কোড ১ বারই ব্যবহারযোগ্য)',
+      };
+    }
 
     if (maxDevices <= 1 && data.boundDeviceId && data.boundDeviceId !== deviceId) {
       return {
@@ -826,6 +834,15 @@ export async function activateRedeemCodeOnBrowser(
         }).catch(() => {}),
         set(ref(db, `telegramBotSessions/_codes/${cleanCode}`), bindPayload).catch(() => {}),
       ]);
+    }
+
+    if (coinReward > 0) {
+      return {
+        ok: true,
+        coins: coinReward,
+        expiresAt,
+        message: `🎉 অভিনন্দন! আপনার অ্যাকাউন্টে +${coinReward}টি কয়েন সফলভাবে যুক্ত হয়েছে!`,
+      };
     }
 
     try {
